@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://bjlj7sie3pqmh"]
+
+[ext_resource type="Script" uid="uid://6g1ds4hf4xbp" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Script" uid="uid://ct2nui0gw0yg2" path="res://scripts/rounded_rect.gd" id="2_rounded"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(52, 34)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_feet"]
+size = Vector2(40, 10)
+
+[node name="Player" type="CharacterBody2D" unique_id=1803334788]
+z_index = 10
+script = ExtResource("1_player")
+
+[node name="Visual" type="Node2D" parent="." unique_id=441133519]
+position = Vector2(0, 17)
+script = ExtResource("2_rounded")
+rect_size = Vector2(52, 34)
+color = Color(0.66295815, 2.299754, 0, 1)
+corner_radius = 13.0
+taper = 0.35
+anchor_bottom = true
+shine = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=166142685]
+shape = SubResource("RectangleShape2D_body")
+
+[node name="Feet" type="Area2D" parent="." unique_id=819327243]
+position = Vector2(0, 17)
+collision_layer = 0
+collision_mask = 2
+
+[node name="FeetShape" type="CollisionShape2D" parent="Feet" unique_id=1620228790]
+shape = SubResource("RectangleShape2D_feet")
