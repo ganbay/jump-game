@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://746debglcun"]
+
+[ext_resource type="Script" uid="uid://cw6h07ml8slkx" path="res://scripts/background_particles.gd" id="1_bgparticles"]
+
+[node name="BackgroundParticles" type="Node2D" unique_id=919984977]
+script = ExtResource("1_bgparticles")

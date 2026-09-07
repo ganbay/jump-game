@@ -5,10 +5,8 @@ enum Type { STILL, MOVING, BOOST, ONE_TIME }
 
 @export var type: Type = Type.STILL
 @export var move_speed: float = 110.0
-@export var move_range: float = 130.0
 @export var boost_multiplier: float = 1.5
-
-const HALF_WIDTH := 45.0
+@export var width: float = 90.0
 
 var _dir: int = 1
 var _min_x: float
@@ -25,14 +23,23 @@ const COLORS := {
 
 func _ready() -> void:
 	add_to_group("platforms")
-	visual.color = COLORS[type]
+	Settings.visual_settings_changed.connect(_apply_visual_settings)
+	_apply_visual_settings()
+	_apply_width()
 	var vw := get_viewport_rect().size.x
-	_min_x = clampf(position.x - move_range, HALF_WIDTH, vw - HALF_WIDTH)
-	_max_x = clampf(position.x + move_range, HALF_WIDTH, vw - HALF_WIDTH)
-	if _min_x > _max_x:
-		var mid := (_min_x + _max_x) * 0.5
-		_min_x = mid
-		_max_x = mid
+	_min_x = width / 2.0
+	_max_x = vw - width / 2.0
+
+func _apply_visual_settings() -> void:
+	if is_instance_valid(visual):
+		visual.color = Settings.get_platform_color(type)
+
+func _apply_width() -> void:
+	visual.rect_size.x = width
+	var collision: CollisionShape2D = $CollisionShape2D
+	var shape: RectangleShape2D = collision.shape.duplicate()
+	shape.size.x = width
+	collision.shape = shape
 
 func _physics_process(delta: float) -> void:
 	if type != Type.MOVING:

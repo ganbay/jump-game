@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://bjlj7sie3pqmh" path="res://scenes/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="3_platform"]
 [ext_resource type="Script" uid="uid://dfybud1h7dvfc" path="res://scripts/platform_spawner.gd" id="4_spawner"]
+[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="5_bgparticles"]
 
 [sub_resource type="Environment" id="Environment_neon"]
 background_mode = 3
@@ -19,11 +20,17 @@ script = ExtResource("1_game")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=389589756]
 environment = SubResource("Environment_neon")
 
-[node name="Background" type="ColorRect" parent="." unique_id=1969231307]
+[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=1969231307]
+mouse_filter = 2
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 1)
+
+[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("5_bgparticles")]
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1206693055]
 position = Vector2(360, 0)
@@ -100,43 +107,60 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 1)
 
+[node name="BackgroundParticles" parent="UI/PausePanel" instance=ExtResource("5_bgparticles")]
+
 [node name="PausedLabel" type="Label" parent="UI/PausePanel" unique_id=390669626]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.4
+anchor_top = 0.28
 anchor_right = 0.5
-anchor_bottom = 0.4
-offset_left = -140.0
-offset_top = -20.0
-offset_right = 140.0
-offset_bottom = 20.0
+anchor_bottom = 0.28
+offset_left = -190.0
+offset_top = -36.0
+offset_right = 190.0
+offset_bottom = 36.0
 theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 56
 text = "PAUSED"
 horizontal_alignment = 1
 
 [node name="ResumeButton" type="Button" parent="UI/PausePanel" unique_id=1786516461]
 layout_mode = 0
 anchor_left = 0.5
+anchor_top = 0.46
+anchor_right = 0.5
+anchor_bottom = 0.46
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "RESUME"
+
+[node name="ControlsButton" type="Button" parent="UI/PausePanel" unique_id=1109345401]
+layout_mode = 0
+anchor_left = 0.5
 anchor_top = 0.52
 anchor_right = 0.5
 anchor_bottom = 0.52
-offset_left = -80.0
-offset_top = -24.0
-offset_right = 80.0
-offset_bottom = 24.0
-text = "RESUME"
+offset_left = -130.0
+offset_top = -28.0
+offset_right = 130.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "CONTROLS: TOUCH"
 
 [node name="MenuButton" type="Button" parent="UI/PausePanel" unique_id=1109345400]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.62
+anchor_top = 0.58
 anchor_right = 0.5
-anchor_bottom = 0.62
-offset_left = -80.0
-offset_top = -24.0
-offset_right = 80.0
-offset_bottom = 24.0
+anchor_bottom = 0.58
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
 text = "MENU"
 
 [node name="GameOverPanel" type="Control" parent="UI" unique_id=1613205919]
@@ -155,18 +179,20 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 1)
 
+[node name="BackgroundParticles" parent="UI/GameOverPanel" instance=ExtResource("5_bgparticles")]
+
 [node name="GameOverLabel" type="Label" parent="UI/GameOverPanel" unique_id=893355060]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.4
+anchor_top = 0.34
 anchor_right = 0.5
-anchor_bottom = 0.4
-offset_left = -140.0
-offset_top = -20.0
-offset_right = 140.0
-offset_bottom = 20.0
+anchor_bottom = 0.34
+offset_left = -190.0
+offset_top = -36.0
+offset_right = 190.0
+offset_bottom = 36.0
 theme_override_colors/font_color = Color(1, 0.3, 0.4, 1)
-theme_override_font_sizes/font_size = 40
+theme_override_font_sizes/font_size = 56
 text = "GAME OVER"
 horizontal_alignment = 1
 
@@ -190,26 +216,29 @@ anchor_left = 0.5
 anchor_top = 0.55
 anchor_right = 0.5
 anchor_bottom = 0.55
-offset_left = -80.0
-offset_top = -24.0
-offset_right = 80.0
-offset_bottom = 24.0
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
 text = "RESTART"
 
 [node name="GameOverMenuButton" type="Button" parent="UI/GameOverPanel" unique_id=999163537]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.66
+anchor_top = 0.61
 anchor_right = 0.5
-anchor_bottom = 0.66
-offset_left = -80.0
-offset_top = -24.0
-offset_right = 80.0
-offset_bottom = 24.0
+anchor_bottom = 0.61
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
 text = "MENU"
 
 [connection signal="pressed" from="UI/PauseButton" to="." method="_on_pause_pressed"]
 [connection signal="pressed" from="UI/PausePanel/ResumeButton" to="." method="_on_resume_pressed"]
+[connection signal="pressed" from="UI/PausePanel/ControlsButton" to="." method="_on_controls_pressed"]
 [connection signal="pressed" from="UI/PausePanel/MenuButton" to="." method="_on_menu_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/RestartButton" to="." method="_on_restart_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/GameOverMenuButton" to="." method="_on_menu_pressed"]

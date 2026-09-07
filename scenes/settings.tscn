@@ -1,0 +1,344 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/settings_menu.gd" id="1_settings"]
+[ext_resource type="Script" path="res://scripts/rounded_rect.gd" id="2_rounded"]
+[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
+
+[sub_resource type="Environment" id="Environment_settings"]
+background_mode = 3
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 0.7
+glow_bloom = 0.05
+glow_blend_mode = 0
+
+[node name="SettingsMenu" type="Node2D"]
+script = ExtResource("1_settings")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_settings")
+
+[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="Background" type="ColorRect" parent="BackgroundLayer"]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 1)
+
+[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("3_bgparticles")]
+
+[node name="PlayerSwatch" type="Node2D" parent="."]
+position = Vector2(360, 294)
+script = ExtResource("2_rounded")
+rect_size = Vector2(36, 24)
+color = Color(0.66295815, 2.299754, 0, 1)
+corner_radius = 9.0
+taper = 0.35
+anchor_bottom = true
+shine = true
+
+[node name="StillSwatch" type="Node2D" parent="."]
+position = Vector2(360, 390)
+script = ExtResource("2_rounded")
+rect_size = Vector2(70, 10)
+color = Color(0.3, 1.0, 2.2, 1)
+corner_radius = 4.0
+
+[node name="MovingSwatch" type="Node2D" parent="."]
+position = Vector2(360, 486)
+script = ExtResource("2_rounded")
+rect_size = Vector2(70, 10)
+color = Color(2.2, 2.0, 0.3, 1)
+corner_radius = 4.0
+
+[node name="BoostSwatch" type="Node2D" parent="."]
+position = Vector2(360, 582)
+script = ExtResource("2_rounded")
+rect_size = Vector2(70, 10)
+color = Color(0.3, 2.4, 1.0, 1)
+corner_radius = 4.0
+
+[node name="OneTimeSwatch" type="Node2D" parent="."]
+position = Vector2(360, 678)
+script = ExtResource("2_rounded")
+rect_size = Vector2(70, 10)
+color = Color(2.4, 0.4, 0.5, 1)
+corner_radius = 4.0
+
+[node name="BgColorSwatch" type="Node2D" parent="."]
+position = Vector2(360, 851)
+script = ExtResource("2_rounded")
+rect_size = Vector2(22, 22)
+color = Color(0.3, 1.8, 2.4, 1)
+corner_radius = 11.0
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="TitleLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.03
+anchor_right = 0.5
+anchor_bottom = 0.03
+offset_left = -190.0
+offset_top = -36.0
+offset_right = 190.0
+offset_bottom = 36.0
+theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
+theme_override_font_sizes/font_size = 50
+text = "SETTINGS"
+horizontal_alignment = 1
+
+[node name="GlowLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.11
+anchor_right = 0.5
+anchor_bottom = 0.11
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 140.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "GLOW STRENGTH"
+horizontal_alignment = 1
+
+[node name="GlowSlider" type="HSlider" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.145
+anchor_right = 0.5
+anchor_bottom = 0.145
+offset_left = -140.0
+offset_top = -10.0
+offset_right = 140.0
+offset_bottom = 10.0
+min_value = 0.0
+max_value = 1.5
+step = 0.05
+value = 0.4
+
+[node name="ColorsLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.19
+anchor_right = 0.5
+anchor_bottom = 0.19
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 140.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "COLORS"
+horizontal_alignment = 1
+
+[node name="PlayerLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.23
+anchor_right = 0.5
+anchor_bottom = 0.23
+offset_left = -260.0
+offset_top = -14.0
+offset_right = -90.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+text = "PLAYER"
+horizontal_alignment = 2
+
+[node name="PlayerPicker" type="ColorPickerButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.23
+anchor_right = 0.5
+anchor_bottom = 0.23
+offset_left = 60.0
+offset_top = -18.0
+offset_right = 260.0
+offset_bottom = 18.0
+
+[node name="StillLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.305
+anchor_right = 0.5
+anchor_bottom = 0.305
+offset_left = -260.0
+offset_top = -14.0
+offset_right = -90.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+text = "STILL"
+horizontal_alignment = 2
+
+[node name="StillPicker" type="ColorPickerButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.305
+anchor_right = 0.5
+anchor_bottom = 0.305
+offset_left = 60.0
+offset_top = -18.0
+offset_right = 260.0
+offset_bottom = 18.0
+
+[node name="MovingLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.38
+anchor_right = 0.5
+anchor_bottom = 0.38
+offset_left = -260.0
+offset_top = -14.0
+offset_right = -90.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+text = "MOVING"
+horizontal_alignment = 2
+
+[node name="MovingPicker" type="ColorPickerButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.38
+anchor_right = 0.5
+anchor_bottom = 0.38
+offset_left = 60.0
+offset_top = -18.0
+offset_right = 260.0
+offset_bottom = 18.0
+
+[node name="BoostLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.455
+anchor_right = 0.5
+anchor_bottom = 0.455
+offset_left = -260.0
+offset_top = -14.0
+offset_right = -90.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+text = "BOOST"
+horizontal_alignment = 2
+
+[node name="BoostPicker" type="ColorPickerButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.455
+anchor_right = 0.5
+anchor_bottom = 0.455
+offset_left = 60.0
+offset_top = -18.0
+offset_right = 260.0
+offset_bottom = 18.0
+
+[node name="OneTimeLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.53
+anchor_right = 0.5
+anchor_bottom = 0.53
+offset_left = -260.0
+offset_top = -14.0
+offset_right = -90.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+text = "ONE-TIME"
+horizontal_alignment = 2
+
+[node name="OneTimePicker" type="ColorPickerButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.53
+anchor_right = 0.5
+anchor_bottom = 0.53
+offset_left = 60.0
+offset_top = -18.0
+offset_right = 260.0
+offset_bottom = 18.0
+
+[node name="BgFxButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.6
+anchor_right = 0.5
+anchor_bottom = 0.6
+offset_left = -140.0
+offset_top = -28.0
+offset_right = 140.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "BG PARTICLES: MULTI"
+
+[node name="BgColorLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.665
+anchor_right = 0.5
+anchor_bottom = 0.665
+offset_left = -260.0
+offset_top = -14.0
+offset_right = -90.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+text = "BG COLOR"
+horizontal_alignment = 2
+
+[node name="BgColorPicker" type="ColorPickerButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.665
+anchor_right = 0.5
+anchor_bottom = 0.665
+offset_left = 60.0
+offset_top = -18.0
+offset_right = 260.0
+offset_bottom = 18.0
+
+[node name="ControlsButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.75
+anchor_right = 0.5
+anchor_bottom = 0.75
+offset_left = -130.0
+offset_top = -28.0
+offset_right = 130.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "CONTROLS: TOUCH"
+
+[node name="BackButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.82
+anchor_right = 0.5
+anchor_bottom = 0.82
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "BACK"
+
+[connection signal="value_changed" from="UI/GlowSlider" to="." method="_on_glow_slider_value_changed"]
+[connection signal="color_changed" from="UI/PlayerPicker" to="." method="_on_player_picker_color_changed"]
+[connection signal="color_changed" from="UI/StillPicker" to="." method="_on_still_picker_color_changed"]
+[connection signal="color_changed" from="UI/MovingPicker" to="." method="_on_moving_picker_color_changed"]
+[connection signal="color_changed" from="UI/BoostPicker" to="." method="_on_boost_picker_color_changed"]
+[connection signal="color_changed" from="UI/OneTimePicker" to="." method="_on_one_time_picker_color_changed"]
+[connection signal="pressed" from="UI/BgFxButton" to="." method="_on_bg_fx_button_pressed"]
+[connection signal="color_changed" from="UI/BgColorPicker" to="." method="_on_bg_color_picker_color_changed"]
+[connection signal="pressed" from="UI/ControlsButton" to="." method="_on_controls_pressed"]
+[connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

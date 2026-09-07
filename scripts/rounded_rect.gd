@@ -42,7 +42,8 @@ func _draw() -> void:
 		Vector2(half.x, bottom_y),
 		Vector2(-half.x, bottom_y),
 	])
-	draw_polygon(_rounded_polygon(verts, corner_radius), PackedColorArray([color]))
+	var poly := _rounded_polygon(verts, corner_radius)
+	draw_polygon(poly, PackedColorArray([color]))
 	if shine:
 		var shine_color := Color(
 			minf(color.r + 0.6, 3.0),

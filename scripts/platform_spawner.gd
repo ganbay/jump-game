@@ -4,6 +4,15 @@ extends Node2D
 @export var screen_width: float = 720.0
 @export var min_gap: float = 90.0
 @export var max_gap: float = 160.0
+@export var min_gap_cap: float = 150.0
+@export var max_gap_cap: float = 240.0
+@export var platform_width: float = 90.0
+@export var platform_width_min: float = 50.0
+@export var gap_step: float = 10.0
+@export var width_step: float = 1.0
+
+# 1000 score points = 10000px climbed, since score = height / 10 (see game.gd).
+const DIFFICULTY_STEP_HEIGHT := 10000.0
 
 var _highest_y: float = 100.0
 var player: Node2D
@@ -21,11 +30,18 @@ func _process(_delta: float) -> void:
 	while _highest_y > player.global_position.y - 1000.0:
 		_spawn_next()
 
+func _difficulty_level() -> int:
+	return int(floor(maxf(-_highest_y, 0.0) / DIFFICULTY_STEP_HEIGHT))
+
 func _spawn_next() -> void:
-	_highest_y -= randf_range(min_gap, max_gap)
+	var level := _difficulty_level()
+	var cur_min_gap := minf(min_gap + gap_step * level, min_gap_cap)
+	var cur_max_gap := minf(max_gap + gap_step * level, max_gap_cap)
+	_highest_y -= randf_range(cur_min_gap, cur_max_gap)
 	var plat := platform_scene.instantiate()
 	plat.position = Vector2(randf_range(50.0, screen_width - 50.0), _highest_y)
 	plat.type = _pick_type()
+	plat.width = maxf(platform_width - width_step * level, platform_width_min)
 	add_child(plat)
 
 func _pick_type() -> int:
