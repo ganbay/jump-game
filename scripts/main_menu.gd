@@ -5,7 +5,7 @@ extends Node2D
 func _ready() -> void:
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
-	Audio.play_music()
+	Audio.play_menu_music()
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength

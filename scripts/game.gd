@@ -64,6 +64,10 @@ func _toggle_pause() -> void:
 	get_tree().paused = is_paused
 	pause_panel.visible = is_paused
 	_set_hud_visible(not is_paused)
+	if is_paused:
+		Audio.fade_to_menu_music()
+	else:
+		Audio.fade_to_gameplay_music()
 
 func _set_hud_visible(shown: bool) -> void:
 	score_label.visible = shown
@@ -149,7 +153,7 @@ func _vibrate(label: Label, base_pos: Vector2) -> void:
 
 func _game_over() -> void:
 	is_game_over = true
-	Audio.play_game_over()
+	Audio.fade_to_menu_music()
 	if score > high_score:
 		high_score = score
 		_save_high_score()

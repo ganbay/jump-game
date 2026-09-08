@@ -119,6 +119,8 @@ func _platform_half_width(area: Node) -> float:
 
 func _land_on(area: Node) -> void:
 	var is_timed := Time.get_ticks_msec() - last_press_ms <= landing_window_ms
+	if area.has_method("should_land") and not area.should_land(is_timed):
+		return
 	var counts := is_timed and area != _last_platform
 	is_fast_falling = false
 	if is_timed:
@@ -130,10 +132,7 @@ func _land_on(area: Node) -> void:
 	velocity.y = _boosted_jump_velocity() if is_timed else jump_velocity
 	_last_platform = area
 	_play_squash(is_timed)
-	if counts:
-		Audio.play_streak()
-	else:
-		Audio.play_jump()
+	Audio.set_streak(streak)
 	if area.has_method("on_landed"):
 		area.on_landed(self, is_timed)
 	landed.emit(area, counts, streak)

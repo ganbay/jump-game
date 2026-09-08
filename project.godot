@@ -19,8 +19,8 @@ config/icon="res://icon.svg"
 
 Settings="*res://scripts/settings.gd"
 Stats="*res://scripts/stats.gd"
-_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 Audio="*res://scripts/audio.gd"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [display]
 

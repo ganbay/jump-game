@@ -52,6 +52,12 @@ func _physics_process(delta: float) -> void:
 		position.x = _min_x
 		_dir = 1
 
+func should_land(is_timed: bool) -> bool:
+	if type == Type.BOOST and not is_timed:
+		_crumble()
+		return false
+	return true
+
 func on_landed(player: Node, _boosted: bool) -> void:
 	if type == Type.BOOST:
 		player.velocity.y *= boost_multiplier
