@@ -92,7 +92,7 @@ func cycle_player_skin() -> void:
 	set_player_skin(((player_skin + 1) % Player.SkinType.size()) as Player.SkinType)
 
 func player_skin_name() -> String:
-	return "PLASMA" if player_skin == Player.SkinType.PLASMA else "BLOB"
+	return Player.SKIN_NAMES[player_skin]
 
 func set_trail_enabled(value: bool) -> void:
 	trail_enabled = value

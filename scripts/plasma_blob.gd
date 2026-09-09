@@ -49,6 +49,64 @@ class_name PlasmaBlob
 ## Churn rate. Higher reads as hotter / more agitated.
 @export var speed: float = 3.0
 
+## The cell's base silhouette before churn deforms it. CIRCLE is the original
+## look; the rest are the same wobbling/glowing bands stretched over a
+## polygon or star outline instead, so they read as the same plasma "family."
+enum Shape { CIRCLE, TRIANGLE, SQUARE, PRISM, STAR }
+
+@export var shape: Shape = Shape.CIRCLE:
+	set(value):
+		shape = value
+		queue_redraw()
+
+## Rotation (radians) applied before the shape profile, so each one lands in
+## its most recognizable orientation -- triangle/star pointing up, square/
+## prism flat-topped -- rather than however _ngon_radius's own a=0-is-a-vertex
+## convention happens to land it.
+const _SHAPE_ROTATION := {
+	Shape.TRIANGLE: PI / 2.0,
+	Shape.SQUARE: PI / 4.0,
+	Shape.PRISM: 0.0,
+	Shape.STAR: PI / 2.0 + PI / 5.0,
+}
+
+## Silhouette radius multiplier at angle `a` for the given `shape` (1.0 ==
+## circle). Static and shared with PlayerTrail, so trail fragments can be
+## drawn as the same silhouette as the body that's shedding them.
+static func shape_radius(a: float, shape_type: Shape) -> float:
+	var rotated: float = a + _SHAPE_ROTATION.get(shape_type, 0.0)
+	match shape_type:
+		Shape.TRIANGLE:
+			return _ngon_radius(rotated, 3)
+		Shape.SQUARE:
+			return _ngon_radius(rotated, 4)
+		Shape.PRISM:
+			return _ngon_radius(rotated, 6)
+		Shape.STAR:
+			return _star_radius(rotated, 5, 0.5)
+		_:
+			return 1.0
+
+## Regular-polygon radius as a function of angle: 1.0 at each vertex (a=0,
+## seg, 2*seg, ...), dipping to cos(seg/2) at each edge midpoint in between.
+static func _ngon_radius(a: float, sides: int) -> float:
+	var seg := TAU / float(sides)
+	var theta := fmod(a, seg)
+	if theta < 0.0:
+		theta += seg
+	theta -= seg / 2.0
+	return cos(seg / 2.0) / cos(theta)
+
+## Star radius as a function of angle: 1.0 at each spike tip, `inner_ratio` at
+## each notch between spikes, straight-line taper in between.
+static func _star_radius(a: float, points: int, inner_ratio: float) -> float:
+	var seg := TAU / float(points)
+	var theta := fmod(a, seg)
+	if theta < 0.0:
+		theta += seg
+	var tri := 1.0 - absf(theta / seg - 0.5) * 2.0
+	return lerpf(inner_ratio, 1.0, tri)
+
 ## Concentric bands, outermost first, each drawn as a filled ring on top of the
 ## last. Fields: `r` radius as a fraction of `radius`; `phase` noise offset so
 ## bands move out of sync; `tint` multiplier on `color`; `white` added to rgb to
@@ -86,7 +144,8 @@ func _ring(scale_mul: float, phase: float, deform_mul: float, centre: Vector2) -
 			+ sin(a * 11.0 - _t * 3.1 + phase * 1.7) * turbulence
 			+ sin(a * 17.0 + _t * 4.3 + phase * 2.3) * turbulence * 0.6
 		) * deform_mul
-		pts[i] = centre + Vector2(cos(a), sin(a)) * (radius * scale_mul * breath * (1.0 + wob))
+		var shape_mul := shape_radius(a, shape)
+		pts[i] = centre + Vector2(cos(a), sin(a)) * (radius * scale_mul * shape_mul * breath * (1.0 + wob))
 	return pts
 
 func _draw() -> void:

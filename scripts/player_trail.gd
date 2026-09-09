@@ -24,6 +24,10 @@ class_name PlayerTrail
 @export var min_emit_speed: float = 40.0
 
 var color: Color = Color.WHITE
+## Fragments are drawn as this silhouette (see PlasmaBlob.Shape) instead of a
+## plain circle, so a shape skin sheds little copies of its own body. CIRCLE
+## draws exactly as before -- BLOB and PLASMA are unaffected.
+var shape: PlasmaBlob.Shape = PlasmaBlob.Shape.CIRCLE
 
 var _pos: PackedVector2Array = PackedVector2Array()
 var _vel: PackedVector2Array = PackedVector2Array()
@@ -105,7 +109,22 @@ func _draw() -> void:
 			continue
 		var halo := color * 0.9
 		halo.a = fade * 0.30
-		draw_circle(_pos[i], r * 1.7, halo)
 		var body := color
 		body.a = fade * 0.85
-		draw_circle(_pos[i], r, body)
+		if shape == PlasmaBlob.Shape.CIRCLE:
+			draw_circle(_pos[i], r * 1.7, halo)
+			draw_circle(_pos[i], r, body)
+		else:
+			_draw_shape(_pos[i], r * 1.7, halo)
+			_draw_shape(_pos[i], r, body)
+
+## Draws a small polygon following the same silhouette math as the body
+## (PlasmaBlob.shape_radius), so fragments read as tiny copies of it.
+func _draw_shape(centre: Vector2, r: float, fragment_color: Color) -> void:
+	const SEGMENTS := 12
+	var pts := PackedVector2Array()
+	for i in range(SEGMENTS):
+		var a := TAU * float(i) / float(SEGMENTS)
+		var mul := PlasmaBlob.shape_radius(a, shape)
+		pts.append(centre + Vector2(cos(a), sin(a)) * r * mul)
+	draw_polygon(pts, PackedColorArray([fragment_color]))

@@ -41,10 +41,12 @@ func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
 	# The swatch previews whichever skin is selected, so the character toggle
 	# can be judged here rather than by starting a run.
-	var use_plasma := Settings.player_skin == Player.SkinType.PLASMA
+	var use_plasma := Settings.player_skin != Player.SkinType.BLOB
 	player_swatch.visible = not use_plasma
 	plasma_swatch.visible = use_plasma
 	plasma_swatch.set_process(use_plasma)
+	if use_plasma:
+		plasma_swatch.shape = Player.SKIN_SHAPES.get(Settings.player_skin, PlasmaBlob.Shape.CIRCLE)
 	player_swatch.color = Settings.player_color
 	plasma_swatch.color = Settings.player_color
 	for type in platform_swatches:

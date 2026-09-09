@@ -4,8 +4,24 @@ class_name Player
 signal landed(platform, boosted, streak)
 
 ## Selectable character visuals. BLOB is the original solid rounded body;
-## PLASMA is the star-fragment skin, which squashes further and settles slower.
-enum SkinType { BLOB, PLASMA }
+## everything else is the PlasmaBlob cell (see plasma_blob.gd) in a different
+## Shape -- same churn, glow, and squishier physics, just a different
+## silhouette. New entries must be appended at the end -- Settings persists
+## this enum as a raw int.
+enum SkinType { BLOB, PLASMA, TRIANGLE, SQUARE, PRISM, STAR }
+
+## Display names for the settings menu, indexed by SkinType.
+const SKIN_NAMES := ["BLOB", "PLASMA", "TRIANGLE", "SQUARE", "PRISM", "STAR"]
+
+## Maps every plasma-family skin to the PlasmaBlob.Shape it draws. BLOB isn't
+## here -- it never uses plasma_visual at all.
+const SKIN_SHAPES := {
+	SkinType.PLASMA: PlasmaBlob.Shape.CIRCLE,
+	SkinType.TRIANGLE: PlasmaBlob.Shape.TRIANGLE,
+	SkinType.SQUARE: PlasmaBlob.Shape.SQUARE,
+	SkinType.PRISM: PlasmaBlob.Shape.PRISM,
+	SkinType.STAR: PlasmaBlob.Shape.STAR,
+}
 
 @export var move_speed: float = 900.0
 @export var gravity: float = 1600.0
@@ -92,7 +108,7 @@ func _ready() -> void:
 
 func _apply_visual_settings() -> void:
 	_skin = Settings.player_skin
-	var use_plasma := _skin == SkinType.PLASMA
+	var use_plasma := _skin != SkinType.BLOB
 	if visual != null and use_plasma != (visual == plasma_visual):
 		# _process only drives the active skin, so neutralise the one we are
 		# leaving or it stays frozen mid-deformation and pops on the way back.
@@ -106,9 +122,12 @@ func _apply_visual_settings() -> void:
 	plasma_visual.visible = use_plasma
 	plasma_visual.set_process(use_plasma)
 	visual = plasma_visual if use_plasma else blob_visual
+	if use_plasma:
+		plasma_visual.shape = SKIN_SHAPES.get(_skin, PlasmaBlob.Shape.CIRCLE)
 	blob_visual.color = Settings.player_color
 	plasma_visual.color = Settings.player_color
 	trail.color = Settings.player_color
+	trail.shape = SKIN_SHAPES.get(_skin, PlasmaBlob.Shape.CIRCLE)
 	trail.set_enabled(Settings.trail_enabled)
 	_k_stiffness = plasma_stiffness_scale if use_plasma else 1.0
 	_k_damping = plasma_damping_scale if use_plasma else 1.0
