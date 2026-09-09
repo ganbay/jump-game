@@ -82,4 +82,3 @@ needed, not just have it happen silently.
   confirms the change; trust it.
 - Don't fork/spawn agents for something you can answer directly from files
   already in context.
-

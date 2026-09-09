@@ -2,19 +2,19 @@ extends Node
 
 const SFX_UI_CLICK := preload("res://audio/sfx/ui_click.wav")
 
-const MUSIC_MENU := preload("res://audio/music/menu_ambient.wav")
+const MUSIC_MENU := preload("res://audio/music/menu_ambient.ogg")
 
 ## Each run randomly picks one lead+drum pairing to play. Add more sets
 ## here to pull them into the rotation.
 const MUSIC_SETS := [
 	{
-		"lead": preload("res://audio/music/gameplay_asap_125bpm.wav"),
-		"drum": preload("res://audio/music/gameplay_indie_drums_125bpm_v2.wav"),
+		"lead": preload("res://audio/music/gameplay_asap_125bpm.ogg"),
+		"drum": preload("res://audio/music/gameplay_indie_drums_125bpm_v2.ogg"),
 		"bpm": 125.0,
 	},
 	{
-		"lead": preload("res://audio/music/gameplay_pad_155bpm.wav"),
-		"drum": preload("res://audio/music/gameplay_dnb_drums_155bpm.wav"),
+		"lead": preload("res://audio/music/gameplay_pad_155bpm.ogg"),
+		"drum": preload("res://audio/music/gameplay_dnb_drums_155bpm.ogg"),
 		"bpm": 155.0,
 	},
 ]

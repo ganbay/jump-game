@@ -18,8 +18,6 @@ const SAVE_PATH := "user://highscore.cfg"
 const STREAK_SCALE_STEP := 0.1
 const STREAK_SCALE_CAP := 10
 const VIBRATE_AMOUNT := 8.0
-const SCORE_BASE_FONT_SIZE := 28
-const STREAK_BASE_FONT_SIZE := 22
 
 var score: int = 0
 var max_height: float = 0.0
@@ -29,6 +27,8 @@ var is_paused: bool = false
 var high_score: int = 0
 var _score_base_position: Vector2
 var _streak_base_position: Vector2
+var _shown_score: int = -1
+var _death_margin: float = 720.0
 
 func _ready() -> void:
 	_load_high_score()
@@ -37,6 +37,7 @@ func _ready() -> void:
 	game_over_panel.hide()
 	_score_base_position = score_label.position
 	_streak_base_position = streak_label.position
+	_death_margin = get_viewport_rect().size.y / 2.0 + 80.0
 	_update_controls_label()
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
@@ -104,17 +105,20 @@ func _process(_delta: float) -> void:
 	camera.global_position.y = min(camera.global_position.y, player.global_position.y)
 	max_height = max(max_height, -camera.global_position.y)
 	score = int(max_height / 10.0)
-	score_label.text = "SCORE %d" % score
-	var death_margin := get_viewport_rect().size.y / 2.0 + 80.0
-	if player.global_position.y > camera.global_position.y + death_margin:
+	# Assigning Label.text re-shapes the text server run even when the string is
+	# identical, so only touch it when the number actually moved.
+	if score != _shown_score:
+		_shown_score = score
+		score_label.text = "SCORE %d" % score
+	if player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
 
 func _on_player_landed(platform: Node, counts: bool, streak: int) -> void:
 	run_max_streak = maxi(run_max_streak, streak)
 	streak_label.text = "STREAK x%d" % streak if streak > 1 else ""
 	var target_scale := 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP)
-	_grow_to(score_label, SCORE_BASE_FONT_SIZE, target_scale)
-	_grow_to(streak_label, STREAK_BASE_FONT_SIZE, target_scale)
+	_grow_to(score_label, target_scale)
+	_grow_to(streak_label, target_scale)
 	if counts:
 		_spawn_burst(platform)
 		_camera_punch()
@@ -139,10 +143,13 @@ func _glow_pulse(peak: float) -> void:
 	var tw := create_tween()
 	tw.tween_property(env, "glow_intensity", Settings.glow_strength, 0.25).set_trans(Tween.TRANS_SINE)
 
-func _grow_to(label: Label, base_font_size: int, target_scale: float) -> void:
-	var target_size := int(round(base_font_size * target_scale))
+## Tweens the label's transform rather than its font size: animating
+## theme_override_font_sizes/font_size re-rasterizes the glyph atlas at a new
+## pixel size on every frame of the tween, which is a visible hitch on mobile.
+func _grow_to(label: Label, target_scale: float) -> void:
+	label.pivot_offset = label.size / 2.0
 	var tw := create_tween()
-	tw.tween_property(label, "theme_override_font_sizes/font_size", target_size, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(label, "scale", Vector2.ONE * target_scale, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _vibrate(label: Label, base_pos: Vector2) -> void:
 	var tw := create_tween()

@@ -125,11 +125,25 @@ var _post_update_outcome: Dictionary = {}
 ## update may spawn a backend of that version into the restart window; the
 ## restarted editor replaces it once instead of asking the user to.
 var _post_update_replaced_version := ""
+## Clients the post-update migration left unchanged (`{id, reason}`), named
+## in the dock's completion banner so the user knows to click Configure.
+## Untyped on purpose: a typed collection field is the hot-reload crash
+## class (#245) the self-update smoke injects to prove the swap survives it.
+var _post_update_deferred := []
 var _last_logged_block := ""
 ## Bounded re-probes while that backend is still binding its port: a port
 ## that is bound but not yet answering status reads as merely occupied.
 const POST_UPDATE_REPROBE_LIMIT := 10
 var _post_update_reprobes_left := POST_UPDATE_REPROBE_LIMIT
+## A pre-v4 server left on the port by a still-running v3 attach bridge
+## outlives the fast budget above: its lease lasts 30 s after that client
+## quits and its idle backstop another 120 s. Poll slowly across that
+## window so the editor comes up green once the user has relaunched the
+## client, without any replacement authority over a server we cannot
+## authenticate.
+const POST_UPDATE_STALE_REPROBE_SECONDS := 10.0
+const POST_UPDATE_STALE_REPROBE_LIMIT := 21
+var _post_update_stale_reprobes_left := POST_UPDATE_STALE_REPROBE_LIMIT
 ## An old bridge spawns again as soon as the port frees, so one replacement
 ## may not be the last; a few are allowed before the dock takes over.
 const POST_UPDATE_REPLACEMENT_LIMIT := 3
@@ -721,7 +735,12 @@ func _on_dock_log_snapshot_requested(after_sequence: int) -> void:
 
 func _on_dock_plugin_reload_requested(reason: String) -> void:
 	Telemetry.record_pending_plugin_reload(reason)
-	_reload_plugin_from_dock.call_deferred()
+	## The reload frees this plugin, so it must not run on one of this
+	## instance's own frames: defer the static call itself, never a method of
+	## this instance. A deferred method that reloads synchronously returns into
+	## a freed script and takes the editor down (SIGBUS/SIGABRT after
+	## "Bad address index").
+	PluginReload.reload_enabled_plugin.call_deferred()
 
 
 func _on_dock_settings_apply_requested(changes: Dictionary, reload: bool) -> void:
@@ -737,10 +756,6 @@ func _on_dock_settings_apply_requested(changes: Dictionary, reload: bool) -> voi
 		_telemetry.assert_opt_out()
 	if reload:
 		_on_dock_plugin_reload_requested("endpoint_settings")
-
-
-func _reload_plugin_from_dock() -> void:
-	PluginReload.reload_enabled_plugin()
 
 
 func _on_dock_update_requested() -> void:
@@ -791,7 +806,7 @@ func _begin_startup_release() -> void:
 	if _dock != null:
 		_dock.present_update_state({
 			"install_in_flight": true,
-			"button_text": "Migrating client configuration…",
+			"status_text": "Migrating client configuration…",
 			"button_disabled": true,
 			"label_text": "The server remains stopped until configured clients are repinned.",
 			"banner_visible": true,
@@ -810,6 +825,14 @@ func _on_post_update_repin_completed(result: Dictionary) -> void:
 			"MCP | the %s entry named godot-ai launches something else; it was left unchanged. Use Configure in the dock to replace it."
 			% str(client_id)
 		)
+	_post_update_deferred = []
+	for entry in result.get("deferred", []):
+		if entry is Dictionary:
+			_post_update_deferred.append((entry as Dictionary).duplicate(true))
+			push_warning(
+				"MCP | %s was not migrated automatically because %s; it was left unchanged. Use Configure in the dock."
+				% [str(entry.get("id", "")), str(entry.get("reason", ""))]
+			)
 	## A click cannot prove that an external client restarted. The enforceable
 	## boundary is the one we own: repin its configuration, mark the update
 	## complete, then start and authenticate that server. Clients reconnect to
@@ -852,9 +875,10 @@ func _finish_post_update() -> void:
 	UpdateInstaller.prune_backups(str(_post_update_outcome.get("from_version", "")))
 	_post_update_replaced_version = str(_post_update_outcome.get("from_version", ""))
 	_post_update_reprobes_left = POST_UPDATE_REPROBE_LIMIT
+	_post_update_stale_reprobes_left = POST_UPDATE_STALE_REPROBE_LIMIT
 	_post_update_replacements_left = POST_UPDATE_REPLACEMENT_LIMIT
 	print(
-		"MCP | AI clients attached before the update must restart to use v%s"
+		"MCP | AI clients attached before the update must be quit and relaunched to use v%s"
 		% str(_post_update_outcome.get("to_version", ""))
 	)
 	_present_post_update_complete()
@@ -869,7 +893,7 @@ func _present_post_update_failure() -> void:
 	if _dock != null:
 		_dock.present_update_state({
 			"install_in_flight": false,
-			"button_text": "Update failed — previous version restored",
+			"status_text": "Update failed — previous version restored",
 			"button_disabled": false,
 			"label_text": error,
 			"banner_visible": true,
@@ -882,16 +906,29 @@ func _present_post_update_complete() -> void:
 	if _dock != null:
 		_dock.present_update_state({
 			"install_in_flight": false,
-			"button_text": "Update complete",
+			"status_text": "Update complete",
 			"button_disabled": true,
-			"label_text": (
-				"Restart AI clients that were connected during the update so they use v%s."
-				% str(_post_update_outcome.get("to_version", ""))
-			),
+			"label_text": _post_update_complete_label(),
 			"banner_visible": true,
 			"post_update_action": "",
 			"outcome": "success",
 		})
+
+
+func _post_update_complete_label() -> String:
+	var text := (
+		"Quit and relaunch AI clients that were connected during the update so they use v%s."
+		% str(_post_update_outcome.get("to_version", ""))
+	)
+	if _post_update_deferred.is_empty():
+		return text
+	var named: Array[String] = []
+	for entry in _post_update_deferred:
+		var client_id := str(entry.get("id", ""))
+		var client := McpClientRegistry.get_by_id(client_id)
+		var name: String = client.display_name if client != null else client_id
+		named.append("%s (%s)" % [name, str(entry.get("reason", "not migrated"))])
+	return text + " Not migrated: %s. Use Configure to replace them." % ", ".join(named)
 
 
 ## Sole release point for ordinary work and the server lifecycle. Keeping
@@ -1213,6 +1250,7 @@ func _capture_lifecycle_plan() -> Dictionary:
 		"expected_version": ClientConfigurator.get_plugin_version(),
 		"server_command": ClientConfigurator.get_server_command(),
 		"pid_file": ProjectSettings.globalize_path(PortResolver.SERVER_PID_FILE),
+		"startup_report": ProjectSettings.globalize_path(PortResolver.SERVER_STARTUP_REPORT),
 		"http_port_reserved": WindowsPortReservation.is_port_excluded(http_port),
 		"excluded_domains": str(policy.get("excluded_domains", "")),
 		"allow_hosts": str(policy.get("allow_hosts", "")),
@@ -1276,7 +1314,22 @@ func _replace_server_left_by_update(snapshot: Dictionary) -> void:
 		## bounded number of times; the re-probe finds that backend answering
 		## and takes the replacement path. Then the dock's Restart Server is
 		## the remaining path.
-		if str(snapshot.get("episode_state", "")) == "BLOCKED" and _post_update_reprobes_left > 0:
+		if str(snapshot.get("episode_state", "")) != "BLOCKED":
+			return
+		if str(snapshot.get("blocked_hint", "")) == ServerLifecycleManager.STALE_PRE_V4_HINT:
+			if _post_update_stale_reprobes_left <= 0:
+				return
+			if _post_update_stale_reprobes_left == POST_UPDATE_STALE_REPROBE_LIMIT:
+				print(
+					"MCP | a pre-v4 godot-ai server holds port %d; waiting for it to exit once its AI client is relaunched"
+					% int(snapshot.get("conflict_port", 0))
+				)
+			_post_update_stale_reprobes_left -= 1
+			get_tree().create_timer(POST_UPDATE_STALE_REPROBE_SECONDS).timeout.connect(
+				_reprobe_after_update, CONNECT_ONE_SHOT
+			)
+			return
+		if _post_update_reprobes_left > 0:
 			_post_update_reprobes_left -= 1
 			get_tree().create_timer(1.0).timeout.connect(_reprobe_after_update, CONNECT_ONE_SHOT)
 		return
@@ -1474,7 +1527,7 @@ func install_downloaded_update(package: Dictionary) -> void:
 		return
 	_on_update_install_state_changed({
 		"install_in_flight": true,
-		"button_text": "Activating verified update…",
+		"status_text": "Activating verified update…",
 		"button_disabled": true,
 	})
 	var to_version := str(manifest.get("version", ""))
@@ -1513,13 +1566,13 @@ func install_downloaded_update(package: Dictionary) -> void:
 	UpdateInstaller.request_restart.call_deferred()
 
 
-func _fail_update(button_text: String, error: String) -> void:
+func _fail_update(status_text: String, error: String) -> void:
 	if _update_manager != null:
 		_update_manager.discard_downloads()
 	push_error("MCP | %s" % error)
 	_on_update_install_state_changed({
 		"install_in_flight": false,
-		"button_text": button_text,
+		"status_text": status_text,
 		"button_disabled": false,
 	})
 

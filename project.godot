@@ -12,6 +12,9 @@ config_version=5
 
 config/name="JUMP"
 run/main_scene="res://scenes/main_menu.tscn"
+; Phones with 90/120 Hz panels otherwise render at panel rate, doubling GPU
+; cost for a game that only needs 60. Raise once the frame budget allows it.
+run/max_fps=60
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
@@ -26,7 +29,9 @@ _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 window/size/viewport_width=720
 window/size/viewport_height=1280
-window/stretch/mode="canvas_items"
+; "viewport" renders at 720x1280 and upscales, instead of rendering the whole
+; glow/HDR pipeline at the phone's native resolution (often 1080x2400+).
+window/stretch/mode="viewport"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 

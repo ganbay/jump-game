@@ -24,6 +24,7 @@ var last_press_ms: int = -999999
 var _last_pointer_x: float = 0.0
 var _last_platform: Node = null
 var _attempted_since_last_landing: bool = false
+var _viewport_width: float = 720.0
 
 const FEET_HALF_WIDTH := 20.0
 const FEET_HALF_HEIGHT := 5.0
@@ -37,6 +38,9 @@ const COLOR := Color(0.66295815, 2.299754, 0.0, 1.0)
 
 func _ready() -> void:
 	add_to_group("player")
+	# Orientation is locked to portrait, so this never changes mid-run and does
+	# not need re-querying every physics frame.
+	_viewport_width = get_viewport_rect().size.x
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 
@@ -90,10 +94,9 @@ func _physics_process(delta: float) -> void:
 		_check_landing(prev_feet_y, feet.global_position.y)
 
 func _wrap_screen() -> void:
-	var vw := get_viewport_rect().size.x
 	if global_position.x < 0.0:
-		global_position.x = vw
-	elif global_position.x > vw:
+		global_position.x = _viewport_width
+	elif global_position.x > _viewport_width:
 		global_position.x = 0.0
 
 func _check_landing(prev_y: float, new_y: float) -> void:
@@ -121,7 +124,7 @@ func _land_on(area: Node) -> void:
 	var is_timed := Time.get_ticks_msec() - last_press_ms <= landing_window_ms
 	if area.has_method("should_land") and not area.should_land(is_timed):
 		return
-	var counts := is_timed and area != _last_platform
+	var counts := is_timed and (not is_instance_valid(_last_platform) or area != _last_platform)
 	is_fast_falling = false
 	if is_timed:
 		if counts:

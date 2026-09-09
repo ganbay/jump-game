@@ -14,12 +14,22 @@ extends Node2D
 # 1000 score points = 10000px climbed, since score = height / 10 (see game.gd).
 const DIFFICULTY_STEP_HEIGHT := 10000.0
 
+## How far below the bottom of the screen a platform must fall before it is
+## freed. The player dies at half a screen + 80px below the camera, so nothing
+## past this line is ever reachable or visible again.
+const DESPAWN_MARGIN := 200.0
+
 var _highest_y: float = 100.0
 var player: Node2D
+## Spawned platforms in the order they were created, i.e. sorted from lowest
+## (largest y) to highest, so despawning only ever pops from the front.
+var _live: Array[Node2D] = []
+var _half_screen_height: float = 640.0
 
 func _ready() -> void:
 	randomize()
 	player = get_tree().get_first_node_in_group("player")
+	_half_screen_height = get_viewport_rect().size.y / 2.0
 	_highest_y = 100.0
 	for i in range(12):
 		_spawn_next()
@@ -29,6 +39,23 @@ func _process(_delta: float) -> void:
 		return
 	while _highest_y > player.global_position.y - 1000.0:
 		_spawn_next()
+	_despawn_below_camera()
+
+## Without this, platforms accumulated for the whole run: a few hundred nodes
+## by a long climb, each one a live Area2D that the player's landing scan walks
+## every physics frame.
+func _despawn_below_camera() -> void:
+	var cam := get_viewport().get_camera_2d()
+	if cam == null:
+		return
+	var cutoff := cam.global_position.y + _half_screen_height + DESPAWN_MARGIN
+	while not _live.is_empty():
+		var plat: Node2D = _live[0]
+		if is_instance_valid(plat):
+			if plat.global_position.y <= cutoff:
+				break
+			plat.queue_free()
+		_live.pop_front()
 
 func _difficulty_level() -> int:
 	return int(floor(maxf(-_highest_y, 0.0) / DIFFICULTY_STEP_HEIGHT))
@@ -43,6 +70,7 @@ func _spawn_next() -> void:
 	plat.type = _pick_type()
 	plat.width = maxf(platform_width - width_step * level, platform_width_min)
 	add_child(plat)
+	_live.append(plat)
 
 func _pick_type() -> int:
 	var t := clampf(-_highest_y / 4000.0, 0.0, 1.0)

@@ -29,6 +29,9 @@ func _ready() -> void:
 	var vw := get_viewport_rect().size.x
 	_min_x = width / 2.0
 	_max_x = vw - width / 2.0
+	# Only MOVING platforms have anything to do per tick; the rest would just
+	# pay GDScript call overhead every physics frame to hit an early return.
+	set_physics_process(type == Type.MOVING)
 
 func _apply_visual_settings() -> void:
 	if is_instance_valid(visual):
@@ -42,8 +45,6 @@ func _apply_width() -> void:
 	collision.shape = shape
 
 func _physics_process(delta: float) -> void:
-	if type != Type.MOVING:
-		return
 	position.x += _dir * move_speed * delta
 	if position.x > _max_x:
 		position.x = _max_x
@@ -66,8 +67,7 @@ func on_landed(player: Node, _boosted: bool) -> void:
 
 func _crumble() -> void:
 	remove_from_group("platforms")
-	set_deferred("monitoring", false)
-	set_deferred("monitorable", false)
+	set_physics_process(false)
 	var tw := create_tween()
 	tw.tween_property(visual, "modulate:a", 0.0, 0.18)
 	tw.tween_callback(queue_free)

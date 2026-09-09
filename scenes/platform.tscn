@@ -7,7 +7,8 @@
 size = Vector2(90, 12)
 
 [node name="Platform" type="Area2D"]
-process_mode = 3
+monitoring = false
+monitorable = false
 collision_layer = 2
 collision_mask = 0
 script = ExtResource("1_platform")

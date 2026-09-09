@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://xpgudwnerk67"]
 
 [ext_resource type="Script" uid="uid://b6tkijfu3oa4f" path="res://scripts/main_menu.gd" id="1_menu"]
-[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
+[ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
 
 [sub_resource type="Environment" id="Environment_menu"]
 background_mode = 3
@@ -72,7 +72,7 @@ offset_bottom = 28.0
 theme_override_font_sizes/font_size = 20
 text = "SETTINGS"
 
-[node name="StatisticsButton" type="Button" parent="UI"]
+[node name="StatisticsButton" type="Button" parent="UI" unique_id=1097067563]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.68
