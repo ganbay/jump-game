@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" uid="uid://6g1ds4hf4xbp" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="Script" uid="uid://ct2nui0gw0yg2" path="res://scripts/rounded_rect.gd" id="2_rounded"]
+[ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="3_plasma"]
+[ext_resource type="Script" uid="uid://cr2kcpfkt4a4v" path="res://scripts/player_trail.gd" id="4_trail"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(52, 34)
@@ -23,14 +25,26 @@ taper = 0.35
 anchor_bottom = true
 shine = true
 
+[node name="PlasmaVisual" type="Node2D" parent="." unique_id=773536638]
+visible = false
+position = Vector2(0, 17)
+script = ExtResource("3_plasma")
+color = Color(0.66295815, 2.299754, 0, 1)
+
+[node name="Trail" type="Node2D" parent="." unique_id=820449381]
+top_level = true
+z_index = 9
+z_as_relative = false
+script = ExtResource("4_trail")
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=166142685]
 shape = SubResource("RectangleShape2D_body")
 
 [node name="Feet" type="Area2D" parent="." unique_id=819327243]
 position = Vector2(0, 17)
-monitoring = false
 collision_layer = 0
 collision_mask = 0
+monitoring = false
 
 [node name="FeetShape" type="CollisionShape2D" parent="Feet" unique_id=1620228790]
 shape = SubResource("RectangleShape2D_feet")

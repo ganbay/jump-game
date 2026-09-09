@@ -14,6 +14,8 @@ var player_color: Color = Player.COLOR
 var platform_colors: Dictionary = Platform.COLORS.duplicate()
 var background_fx: BackgroundFxMode = BackgroundFxMode.MULTI
 var background_particle_color: Color = Color(0.3, 1.8, 2.4)
+var player_skin: Player.SkinType = Player.SkinType.BLOB
+var trail_enabled: bool = true
 
 func _ready() -> void:
 	var cfg := ConfigFile.new()
@@ -25,6 +27,8 @@ func _ready() -> void:
 			platform_colors[type] = cfg.get_value("visual", "platform_color_%d" % type, platform_colors[type])
 		background_fx = cfg.get_value("visual", "background_fx", BackgroundFxMode.MULTI) as BackgroundFxMode
 		background_particle_color = cfg.get_value("visual", "background_particle_color", background_particle_color)
+		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.BLOB) as Player.SkinType
+		trail_enabled = cfg.get_value("visual", "trail_enabled", true)
 
 func set_control_scheme(scheme: ControlScheme) -> void:
 	if scheme == control_scheme:
@@ -79,6 +83,28 @@ func set_background_particle_color(value: Color) -> void:
 	_save()
 	visual_settings_changed.emit()
 
+func set_player_skin(value: Player.SkinType) -> void:
+	player_skin = value
+	_save()
+	visual_settings_changed.emit()
+
+func cycle_player_skin() -> void:
+	set_player_skin(((player_skin + 1) % Player.SkinType.size()) as Player.SkinType)
+
+func player_skin_name() -> String:
+	return "PLASMA" if player_skin == Player.SkinType.PLASMA else "BLOB"
+
+func set_trail_enabled(value: bool) -> void:
+	trail_enabled = value
+	_save()
+	visual_settings_changed.emit()
+
+func toggle_trail() -> void:
+	set_trail_enabled(not trail_enabled)
+
+func trail_name() -> String:
+	return "ON" if trail_enabled else "OFF"
+
 func _save() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("controls", "scheme", control_scheme)
@@ -88,4 +114,6 @@ func _save() -> void:
 		cfg.set_value("visual", "platform_color_%d" % type, platform_colors[type])
 	cfg.set_value("visual", "background_fx", background_fx)
 	cfg.set_value("visual", "background_particle_color", background_particle_color)
+	cfg.set_value("visual", "player_skin", player_skin)
+	cfg.set_value("visual", "trail_enabled", trail_enabled)
 	cfg.save(SAVE_PATH)

@@ -25,14 +25,28 @@ var player: Node2D
 ## (largest y) to highest, so despawning only ever pops from the front.
 var _live: Array[Node2D] = []
 var _half_screen_height: float = 640.0
+## Where this run started. Difficulty is measured as distance climbed from here,
+## not from world zero -- the intro hands over thousands of pixels up, so an
+## absolute reading would open the run at maximum difficulty.
+var _origin_y: float = 0.0
 
 func _ready() -> void:
 	randomize()
 	player = get_tree().get_first_node_in_group("player")
 	_half_screen_height = get_viewport_rect().size.y / 2.0
-	_highest_y = 100.0
-	for i in range(12):
-		_spawn_next()
+	# Held until the intro finishes; game.gd calls begin().
+	set_process(false)
+
+## Starts generating from `from_y` upward. game.gd seeds this above the top of
+## the screen so the first platform is built off-camera and scrolls into view,
+## rather than a batch of them existing before the run has started.
+func begin(from_y: float) -> void:
+	_highest_y = from_y
+	_origin_y = from_y
+	set_process(true)
+
+func _climbed() -> float:
+	return maxf(_origin_y - _highest_y, 0.0)
 
 func _process(_delta: float) -> void:
 	if player == null:
@@ -58,7 +72,7 @@ func _despawn_below_camera() -> void:
 		_live.pop_front()
 
 func _difficulty_level() -> int:
-	return int(floor(maxf(-_highest_y, 0.0) / DIFFICULTY_STEP_HEIGHT))
+	return int(floor(_climbed() / DIFFICULTY_STEP_HEIGHT))
 
 func _spawn_next() -> void:
 	var level := _difficulty_level()
@@ -73,7 +87,7 @@ func _spawn_next() -> void:
 	_live.append(plat)
 
 func _pick_type() -> int:
-	var t := clampf(-_highest_y / 4000.0, 0.0, 1.0)
+	var t := clampf(_climbed() / 4000.0, 0.0, 1.0)
 	var w_still := lerpf(0.55, 0.25, t)
 	var w_moving := lerpf(0.20, 0.35, t)
 	var w_boost := lerpf(0.15, 0.15, t)

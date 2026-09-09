@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/settings_menu.gd" id="1_settings"]
 [ext_resource type="Script" path="res://scripts/rounded_rect.gd" id="2_rounded"]
 [ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
+[ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="4_plasma"]
 
 [sub_resource type="Environment" id="Environment_settings"]
 background_mode = 3
@@ -39,6 +40,13 @@ corner_radius = 9.0
 taper = 0.35
 anchor_bottom = true
 shine = true
+
+[node name="PlasmaSwatch" type="Node2D" parent="."]
+visible = false
+position = Vector2(360, 294)
+script = ExtResource("4_plasma")
+radius = 12.0
+color = Color(0.66295815, 2.299754, 0, 1)
 
 [node name="StillSwatch" type="Node2D" parent="."]
 position = Vector2(360, 390)
@@ -306,12 +314,38 @@ offset_top = -18.0
 offset_right = 260.0
 offset_bottom = 18.0
 
+[node name="CharacterButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.72
+anchor_right = 0.5
+anchor_bottom = 0.72
+offset_left = -140.0
+offset_top = -28.0
+offset_right = 140.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "CHARACTER: BLOB"
+
+[node name="TrailButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.785
+anchor_right = 0.5
+anchor_bottom = 0.785
+offset_left = -140.0
+offset_top = -28.0
+offset_right = 140.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "TRAIL: ON"
+
 [node name="ControlsButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.75
+anchor_top = 0.85
 anchor_right = 0.5
-anchor_bottom = 0.75
+anchor_bottom = 0.85
 offset_left = -130.0
 offset_top = -28.0
 offset_right = 130.0
@@ -322,9 +356,9 @@ text = "CONTROLS: TOUCH"
 [node name="BackButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.82
+anchor_top = 0.92
 anchor_right = 0.5
-anchor_bottom = 0.82
+anchor_bottom = 0.92
 offset_left = -110.0
 offset_top = -28.0
 offset_right = 110.0
@@ -340,5 +374,7 @@ text = "BACK"
 [connection signal="color_changed" from="UI/OneTimePicker" to="." method="_on_one_time_picker_color_changed"]
 [connection signal="pressed" from="UI/BgFxButton" to="." method="_on_bg_fx_button_pressed"]
 [connection signal="color_changed" from="UI/BgColorPicker" to="." method="_on_bg_color_picker_color_changed"]
+[connection signal="pressed" from="UI/CharacterButton" to="." method="_on_character_pressed"]
+[connection signal="pressed" from="UI/TrailButton" to="." method="_on_trail_pressed"]
 [connection signal="pressed" from="UI/ControlsButton" to="." method="_on_controls_pressed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

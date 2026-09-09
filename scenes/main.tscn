@@ -5,6 +5,8 @@
 [ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="3_platform"]
 [ext_resource type="Script" uid="uid://dfybud1h7dvfc" path="res://scripts/platform_spawner.gd" id="4_spawner"]
 [ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="5_bgparticles"]
+[ext_resource type="Script" path="res://scripts/intro.gd" id="6_intro"]
+[ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="7_plasma"]
 
 [sub_resource type="Environment" id="Environment_neon"]
 background_mode = 3
@@ -32,14 +34,19 @@ color = Color(0, 0, 0, 1)
 
 [node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("5_bgparticles")]
 
+[node name="IntroSequence" type="Node2D" parent="."]
+z_index = 1
+script = ExtResource("6_intro")
+
+[node name="Sun" type="Node2D" parent="IntroSequence"]
+z_index = -1
+script = ExtResource("7_plasma")
+
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1206693055]
 position = Vector2(360, 0)
 
 [node name="Player" parent="." unique_id=1823365214 instance=ExtResource("2_player")]
 position = Vector2(360, -20)
-
-[node name="StartPlatform" parent="." unique_id=972018494 instance=ExtResource("3_platform")]
-position = Vector2(360, 100)
 
 [node name="PlatformSpawner" type="Node2D" parent="." unique_id=1957377429]
 script = ExtResource("4_spawner")
@@ -80,6 +87,19 @@ offset_bottom = 52.0
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
 theme_override_font_sizes/font_size = 18
 text = "BEST 0"
+
+[node name="SpeedLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -220.0
+offset_top = 74.0
+offset_right = -24.0
+offset_bottom = 106.0
+theme_override_colors/font_color = Color(0.55, 1.9, 2.3, 1)
+theme_override_font_sizes/font_size = 24
+text = "0"
+horizontal_alignment = 2
 
 [node name="PauseButton" type="Button" parent="UI" unique_id=330226251]
 anchors_preset = 1

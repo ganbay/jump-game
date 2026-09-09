@@ -11,6 +11,9 @@ extends Node2D
 @onready var pause_panel: Control = $UI/PausePanel
 @onready var pause_button: Button = $UI/PauseButton
 @onready var controls_button: Button = $UI/PausePanel/ControlsButton
+@onready var intro: IntroSequence = $IntroSequence
+@onready var spawner: Node2D = $PlatformSpawner
+@onready var speed_label: Label = $UI/SpeedLabel
 
 const PUNCH_GLOW_BONUS := 0.7
 const BURST_COLOR := Color(1.15, 1.15, 1.2)
@@ -18,16 +21,32 @@ const SAVE_PATH := "user://highscore.cfg"
 const STREAK_SCALE_STEP := 0.1
 const STREAK_SCALE_CAP := 10
 const VIBRATE_AMOUNT := 8.0
+const HUD_DROP_HEIGHT := 240.0
+const HUD_DROP_TIME := 0.55
+const HUD_DROP_STAGGER := 0.07
+
+## Where the first platform is seeded, as a fraction of how far the handoff
+## speed can actually carry the character. Derived from the speed rather than
+## fixed, so retuning the intro's flight cannot make the opening unlandable.
+@export var intro_platform_lead: float = 0.76
 
 var score: int = 0
 var max_height: float = 0.0
 var run_max_streak: int = 0
 var is_game_over: bool = false
+var is_intro: bool = false
 var is_paused: bool = false
 var high_score: int = 0
 var _score_base_position: Vector2
 var _streak_base_position: Vector2
 var _shown_score: int = -1
+var _shown_speed: int = 999999
+## Height gained on the launch burst is free, so scoring is measured from where
+## that burst tops out rather than from the launch point.
+var _score_origin_y: float = 0.0
+var _burst_climbing: bool = false
+var _hud_nodes: Array[Control] = []
+var _hud_home: Array[Vector2] = []
 var _death_margin: float = 720.0
 
 func _ready() -> void:
@@ -38,15 +57,66 @@ func _ready() -> void:
 	_score_base_position = score_label.position
 	_streak_base_position = streak_label.position
 	_death_margin = get_viewport_rect().size.y / 2.0 + 80.0
+	_hud_nodes = [score_label, streak_label, best_label, speed_label, pause_button]
+	for node in _hud_nodes:
+		_hud_home.append(node.position)
 	_update_controls_label()
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 	Audio.play_music()
+	_start_intro()
+
+## Runs before every run, including a restart, since both paths re-enter _ready.
+func _start_intro() -> void:
+	is_intro = true
+	_set_hud_visible(false)
+	player.set_physics_process(false)
+	# The skip tap must not also register as a jump, so the player simply does
+	# not see input until the intro hands control back.
+	player.set_process_unhandled_input(false)
+	intro.finished.connect(_on_intro_finished)
+	intro.begin(camera, player)
+
+func _on_intro_finished() -> void:
+	is_intro = false
+	player.set_physics_process(true)
+	# Deferred so the tap that skipped cannot reach the player this same frame.
+	# call_deferred on the setter, not set_deferred: process_unhandled_input is
+	# a method pair on Node, not a property, so set_deferred silently no-ops.
+	player.call_deferred("set_process_unhandled_input", true)
+	# The intro hands the character over mid-flight, already at cruise speed, so
+	# its velocity is left untouched -- that continuity is what removes the seam.
+	player.is_fast_falling = false
+	_burst_climbing = true
+	_score_origin_y = camera.global_position.y
+	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
+	spawner.begin(player.global_position.y - reach * intro_platform_lead)
+	_drop_in_hud()
+
+## Slides the HUD down into place instead of switching it on. Each element is
+## parked above its home position and staggered, so it reads as arriving.
+func _drop_in_hud() -> void:
+	for i in range(_hud_nodes.size()):
+		var node: Control = _hud_nodes[i]
+		var home: Vector2 = _hud_home[i]
+		node.position = home - Vector2(0.0, HUD_DROP_HEIGHT)
+		node.modulate.a = 0.0
+		node.visible = true
+		var tw := create_tween().set_parallel()
+		tw.tween_property(node, "position", home, HUD_DROP_TIME) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(i * HUD_DROP_STAGGER)
+		tw.tween_property(node, "modulate:a", 1.0, HUD_DROP_TIME * 0.5) \
+			.set_delay(i * HUD_DROP_STAGGER)
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
 
 func _unhandled_input(event: InputEvent) -> void:
+	if is_intro:
+		if event.is_pressed() and not event.is_echo():
+			intro.skip()
+			get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("ui_cancel") and not is_game_over:
 		_toggle_pause()
 
@@ -71,10 +141,8 @@ func _toggle_pause() -> void:
 		Audio.fade_to_gameplay_music()
 
 func _set_hud_visible(shown: bool) -> void:
-	score_label.visible = shown
-	streak_label.visible = shown
-	best_label.visible = shown
-	pause_button.visible = shown
+	for node in _hud_nodes:
+		node.visible = shown
 
 func _on_controls_pressed() -> void:
 	Audio.play_ui_click()
@@ -100,11 +168,17 @@ func _save_high_score() -> void:
 	cfg.save(SAVE_PATH)
 
 func _process(_delta: float) -> void:
-	if is_game_over:
+	if is_game_over or is_intro:
 		return
 	camera.global_position.y = min(camera.global_position.y, player.global_position.y)
-	max_height = max(max_height, -camera.global_position.y)
+	if _burst_climbing:
+		if player.velocity.y < 0.0:
+			_score_origin_y = camera.global_position.y
+		else:
+			_burst_climbing = false  # apex of the launch; the run scores from here
+	max_height = max(max_height, _score_origin_y - camera.global_position.y)
 	score = int(max_height / 10.0)
+	_update_speed_readout()
 	# Assigning Label.text re-shapes the text server run even when the string is
 	# identical, so only touch it when the number actually moved.
 	if score != _shown_score:
@@ -112,6 +186,15 @@ func _process(_delta: float) -> void:
 		score_label.text = "SCORE %d" % score
 	if player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
+
+## Positive climbing, negative falling -- the sign is flipped from engine space,
+## where +y points down. Quantised to 10 so the label is not re-shaped on every
+## single frame; assigning Label.text rebuilds the text server run each time.
+func _update_speed_readout() -> void:
+	var shown := roundi(-player.velocity.y / 10.0) * 10
+	if shown != _shown_speed:
+		_shown_speed = shown
+		speed_label.text = str(shown)
 
 func _on_player_landed(platform: Node, counts: bool, streak: int) -> void:
 	run_max_streak = maxi(run_max_streak, streak)

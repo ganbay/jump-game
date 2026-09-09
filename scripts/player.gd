@@ -3,6 +3,10 @@ class_name Player
 
 signal landed(platform, boosted, streak)
 
+## Selectable character visuals. BLOB is the original solid rounded body;
+## PLASMA is the star-fragment skin, which squashes further and settles slower.
+enum SkinType { BLOB, PLASMA }
+
 @export var move_speed: float = 900.0
 @export var gravity: float = 1600.0
 @export var fast_fall_gravity: float = 3600.0
@@ -17,6 +21,32 @@ signal landed(platform, boosted, streak)
 @export var tilt_deadzone: float = 0.6
 @export var invert_tilt: bool = false
 
+@export_group("Squash & Stretch")
+## How much the shape stretches per unit of vertical speed.
+@export var stretch_per_speed: float = 0.00022
+@export var max_stretch: float = 0.34
+## How hard the shape compresses on a normal / boosted landing.
+@export var land_impulse: float = 1.0
+@export var boost_land_impulse: float = 1.3
+## Spring that returns the impact squash to rest. Lower damping = bouncier.
+@export var squash_stiffness: float = 220.0
+@export var squash_damping: float = 14.0
+## Sideways lean while moving horizontally. Set to 0 to disable.
+@export var lean_per_speed: float = 0.00018
+@export var max_lean: float = 0.2
+## How far the shape deforms per unit of squash.
+@export var squash_deform: float = 0.55
+
+@export_group("Plasma Squish")
+## The plasma cell is a fluid blob, not a solid body: it deforms further and
+## keeps jiggling longer after impact. These scale the base Squash & Stretch
+## values above when the PLASMA skin is active, so tuning the base still
+## drives both skins.
+@export var plasma_stiffness_scale: float = 0.68
+@export var plasma_damping_scale: float = 0.5
+@export var plasma_deform_scale: float = 1
+@export var plasma_impulse_scale: float = 1.25
+
 var is_holding: bool = false
 var is_fast_falling: bool = false
 var streak: int = 0
@@ -25,6 +55,17 @@ var _last_pointer_x: float = 0.0
 var _last_platform: Node = null
 var _attempted_since_last_landing: bool = false
 var _viewport_width: float = 720.0
+## Impact compression, 1.0 = fully squashed. Driven as a damped spring rather
+## than a tween so repeated landings add to it instead of fighting over
+## visual.scale, and so the shape keeps reacting for the whole jump.
+var _squash: float = 0.0
+var _squash_vel: float = 0.0
+var _lean: float = 0.0
+## Spring coefficients for the active skin, resolved in _apply_visual_settings.
+var _k_stiffness: float = 1.0
+var _k_damping: float = 1.0
+var _k_deform: float = 1.0
+var _k_impulse: float = 1.0
 
 const FEET_HALF_WIDTH := 20.0
 const FEET_HALF_HEIGHT := 5.0
@@ -34,7 +75,13 @@ const PLATFORM_HALF_HEIGHT := 6.0
 const COLOR := Color(0.66295815, 2.299754, 0.0, 1.0)
 
 @onready var feet: Area2D = $Feet
-@onready var visual: Node2D = $Visual
+@onready var blob_visual: Node2D = $Visual
+@onready var plasma_visual: PlasmaBlob = $PlasmaVisual
+@onready var trail: PlayerTrail = $Trail
+
+## The currently active skin node; whichever one is visible.
+var visual: Node2D
+var _skin: SkinType = SkinType.BLOB
 
 func _ready() -> void:
 	add_to_group("player")
@@ -45,7 +92,29 @@ func _ready() -> void:
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 
 func _apply_visual_settings() -> void:
-	visual.color = Settings.player_color
+	_skin = Settings.player_skin
+	var use_plasma := _skin == SkinType.PLASMA
+	if visual != null and use_plasma != (visual == plasma_visual):
+		# _process only drives the active skin, so neutralise the one we are
+		# leaving or it stays frozen mid-deformation and pops on the way back.
+		for node in [blob_visual, plasma_visual]:
+			node.scale = Vector2.ONE
+			node.rotation = 0.0
+		_squash = 0.0
+		_squash_vel = 0.0
+		_lean = 0.0
+	blob_visual.visible = not use_plasma
+	plasma_visual.visible = use_plasma
+	plasma_visual.set_process(use_plasma)
+	visual = plasma_visual if use_plasma else blob_visual
+	blob_visual.color = Settings.player_color
+	plasma_visual.color = Settings.player_color
+	trail.color = Settings.player_color
+	trail.set_enabled(Settings.trail_enabled)
+	_k_stiffness = plasma_stiffness_scale if use_plasma else 1.0
+	_k_damping = plasma_damping_scale if use_plasma else 1.0
+	_k_deform = plasma_deform_scale if use_plasma else 1.0
+	_k_impulse = plasma_impulse_scale if use_plasma else 1.0
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -56,12 +125,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		_set_hold(event.pressed, get_viewport().get_mouse_position().x)
 
 func _set_hold(pressed: bool, pointer_x: float) -> void:
+	var was_holding := is_holding
 	is_holding = pressed
 	if pressed:
 		last_press_ms = Time.get_ticks_msec()
 		_last_pointer_x = pointer_x
 		_attempted_since_last_landing = true
-	elif velocity.y >= 0.0:
+	elif was_holding and velocity.y >= 0.0:
+		# Guarded on was_holding so a release we never saw the press for -- the
+		# lift after a tap that skipped the intro -- cannot trigger a fast fall.
 		is_fast_falling = true
 
 func _physics_process(delta: float) -> void:
@@ -144,9 +216,31 @@ func _boosted_jump_velocity() -> float:
 	return boost_jump_velocity * (1.0 + streak_jump_step * clampi(streak, 0, streak_jump_cap))
 
 func _play_squash(boosted: bool) -> void:
-	var squash := Vector2(1.6, 0.42) if boosted else Vector2(1.45, 0.5)
-	var stretch := Vector2(0.55, 1.65) if boosted else Vector2(0.62, 1.5)
-	visual.scale = squash
-	var tw := create_tween()
-	tw.tween_property(visual, "scale", stretch, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tw.tween_property(visual, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	# An impact is instantaneous, so set the compression directly and let the
+	# spring in _process resolve it.
+	_squash = (boost_land_impulse if boosted else land_impulse) * _k_impulse
+	_squash_vel = 0.0
+
+## Visual-only, so it runs at render rate rather than the physics tick.
+func _process(delta: float) -> void:
+	# Clamped so a frame hitch cannot push the explicit-Euler spring past its
+	# stability limit and make the shape explode.
+	var d := minf(delta, 0.05)
+	# Damped spring pulling the impact squash back to neutral.
+	_squash_vel += (-squash_stiffness * _k_stiffness * _squash
+		- squash_damping * _k_damping * _squash_vel) * d
+	_squash += _squash_vel * d
+
+	# Continuous stretch from vertical speed, in either direction: this is what
+	# keeps the shape alive during the airtime the old tween left frozen.
+	var speed_stretch := clampf(absf(velocity.y) * stretch_per_speed, 0.0, max_stretch)
+
+	var deform := squash_deform * _k_deform
+	visual.scale = Vector2(
+		maxf(1.0 + _squash * deform - speed_stretch * 0.5, 0.2),
+		maxf(1.0 - _squash * deform + speed_stretch, 0.2)
+	)
+
+	var target_lean := clampf(velocity.x * lean_per_speed, -max_lean, max_lean)
+	_lean = lerpf(_lean, target_lean, 1.0 - exp(-12.0 * d))
+	visual.rotation = _lean
