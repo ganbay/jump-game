@@ -13,7 +13,7 @@ extends Node2D
 @onready var controls_button: Button = $UI/PausePanel/ControlsButton
 @onready var intro: IntroSequence = $IntroSequence
 @onready var spawner: Node2D = $PlatformSpawner
-@onready var speed_label: Label = $UI/SpeedLabel
+@onready var embers: StreakEmbers = $UI/StreakEmbers
 
 const PUNCH_GLOW_BONUS := 0.7
 const BURST_COLOR := Color(1.15, 1.15, 1.2)
@@ -21,6 +21,21 @@ const SAVE_PATH := "user://highscore.cfg"
 const STREAK_SCALE_STEP := 0.1
 const STREAK_SCALE_CAP := 10
 const VIBRATE_AMOUNT := 8.0
+## Each streak snaps the counter up to this scale, then it springs back to
+## normal before the next one -- a punch per streak rather than a size that
+## creeps up and stays there.
+const STREAK_PUNCH_BASE := 1.35
+const STREAK_PUNCH_STEP := 0.09
+## The punch is held briefly before it springs back, because an elastic ease
+## alone reaches its target in ~0.1s -- too fast to actually read as "bigger".
+const STREAK_HOLD_TIME := 0.10
+const STREAK_SETTLE_TIME := 0.40
+const STREAK_SHAKE_BASE := 11.0
+const STREAK_SHAKE_STEP := 2.6
+## Pixels of shake bled off per second.
+const STREAK_SHAKE_DECAY := 48.0
+const STREAK_BURST_EMBERS := 7
+
 const HUD_DROP_HEIGHT := 240.0
 const HUD_DROP_TIME := 0.55
 const HUD_DROP_STAGGER := 0.07
@@ -29,6 +44,20 @@ const HUD_DROP_STAGGER := 0.07
 ## speed can actually carry the character. Derived from the speed rather than
 ## fixed, so retuning the intro's flight cannot make the opening unlandable.
 @export var intro_platform_lead: float = 0.76
+
+@export_group("Camera Shake")
+## Shake ramps in between these speeds. A normal jump is 900 and a boosted one
+## 1300, so ordinary hops stay steady and only the launch and high-streak jumps
+## rattle the frame. Cruise speed out of the star is 2600.
+##
+## Measured against climbing speed alone, so falling never shakes: the frame
+## punches on the launch and settles as the arc flattens out.
+@export var shake_start_speed: float = 1000.0
+@export var shake_full_speed: float = 2600.0
+## Shake actually seen, in screen pixels, at full ramp. Divided by zoom on the
+## way out, so it stays the same visual size whether the intro is zoomed out or
+## gameplay is at 1:1.
+@export var shake_max_px: float = 10.0
 
 var score: int = 0
 var max_height: float = 0.0
@@ -40,11 +69,20 @@ var high_score: int = 0
 var _score_base_position: Vector2
 var _streak_base_position: Vector2
 var _shown_score: int = -1
-var _shown_speed: int = 999999
 ## Height gained on the launch burst is free, so scoring is measured from where
 ## that burst tops out rather than from the launch point.
 var _score_origin_y: float = 0.0
 var _burst_climbing: bool = false
+const SHAKE_SMOOTHING := 0.45
+## Lerping toward a fresh random target each frame low-passes it, so the
+## excursion actually reached averages ~0.39x the target amplitude -- the
+## steady state of a first-order filter driven by uniform noise. Dividing that
+## back out is what makes shake_max_px mean the pixels you actually see.
+const SHAKE_RESPONSE := 0.39
+
+var _shake: Vector2 = Vector2.ZERO
+var _streak_shake: float = 0.0
+var _streak_tween: Tween
 var _hud_nodes: Array[Control] = []
 var _hud_home: Array[Vector2] = []
 var _death_margin: float = 720.0
@@ -57,9 +95,14 @@ func _ready() -> void:
 	_score_base_position = score_label.position
 	_streak_base_position = streak_label.position
 	_death_margin = get_viewport_rect().size.y / 2.0 + 80.0
-	_hud_nodes = [score_label, streak_label, best_label, speed_label, pause_button]
+	_hud_nodes = [score_label, streak_label, best_label, pause_button]
 	for node in _hud_nodes:
 		_hud_home.append(node.position)
+	embers.position = _streak_base_position + Vector2(10.0, streak_label.size.y * 0.85)
+	embers.width = streak_label.size.x * 0.55
+	# Shed from the counter itself, so they take the counter's colour rather
+	# than the character's. It is a fixed scene value, not a user setting.
+	embers.color = streak_label.get_theme_color("font_color")
 	_update_controls_label()
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
@@ -167,7 +210,11 @@ func _save_high_score() -> void:
 	cfg.set_value("scores", "high_score", high_score)
 	cfg.save(SAVE_PATH)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_decay_streak_shake(delta)
+	# Ahead of the early return: the launch out of the star happens while the
+	# intro still owns the camera, and that is the shake most worth seeing.
+	_apply_camera_shake()
 	if is_game_over or is_intro:
 		return
 	camera.global_position.y = min(camera.global_position.y, player.global_position.y)
@@ -178,7 +225,6 @@ func _process(_delta: float) -> void:
 			_burst_climbing = false  # apex of the launch; the run scores from here
 	max_height = max(max_height, _score_origin_y - camera.global_position.y)
 	score = int(max_height / 10.0)
-	_update_speed_readout()
 	# Assigning Label.text re-shapes the text server run even when the string is
 	# identical, so only touch it when the number actually moved.
 	if score != _shown_score:
@@ -187,27 +233,60 @@ func _process(_delta: float) -> void:
 	if player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
 
-## Positive climbing, negative falling -- the sign is flipped from engine space,
-## where +y points down. Quantised to 10 so the label is not re-shaped on every
-## single frame; assigning Label.text rebuilds the text server run each time.
-func _update_speed_readout() -> void:
-	var shown := roundi(-player.velocity.y / 10.0) * 10
-	if shown != _shown_speed:
-		_shown_speed = shown
-		speed_label.text = str(shown)
+func _decay_streak_shake(delta: float) -> void:
+	if _streak_shake <= 0.0:
+		return
+	_streak_shake = maxf(_streak_shake - STREAK_SHAKE_DECAY * delta, 0.0)
+	if _streak_shake <= 0.0:
+		streak_label.position = _streak_base_position
+		return
+	streak_label.position = _streak_base_position + Vector2(
+		randf_range(-_streak_shake, _streak_shake), randf_range(-_streak_shake, _streak_shake))
 
-func _on_player_landed(platform: Node, counts: bool, streak: int) -> void:
+## Rattles the frame in proportion to how fast the character is moving. The
+## offset is lerped rather than snapped so it reads as a rumble, not a buzz.
+func _apply_camera_shake() -> void:
+	var span := maxf(shake_full_speed - shake_start_speed, 1.0)
+	var climb := maxf(-player.velocity.y, 0.0)
+	var ramp := clampf((climb - shake_start_speed) / span, 0.0, 1.0)
+	var amount := ramp * shake_max_px / SHAKE_RESPONSE
+	_shake = _shake.lerp(
+		Vector2(randf_range(-amount, amount), randf_range(-amount, amount)), SHAKE_SMOOTHING)
+	camera.offset = _shake / maxf(camera.zoom.y, 0.001)
+
+func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 	run_max_streak = maxi(run_max_streak, streak)
-	streak_label.text = "STREAK x%d" % streak if streak > 1 else ""
-	var target_scale := 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP)
-	_grow_to(score_label, target_scale)
-	_grow_to(streak_label, target_scale)
-	if counts:
+	var label := "STREAK x%d" % streak if streak > 1 else ""
+	if label != streak_label.text:
+		streak_label.text = label
+	_grow_to(score_label, 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP))
+	embers.set_streak(streak)
+	# Only a landing that actually extends the streak punches the counter --
+	# ordinary jumps leave it sitting still.
+	if boosted and streak > 1:
+		_punch_streak(streak)
+	if boosted:
 		_spawn_burst(platform)
 		_camera_punch()
 		_glow_pulse(Settings.glow_strength + PUNCH_GLOW_BONUS)
 		_vibrate(score_label, _score_base_position)
-		_vibrate(streak_label, _streak_base_position)
+
+## Snaps the counter up and shakes it, then lets it spring back to normal size
+## so the next streak has somewhere to punch from.
+func _punch_streak(streak: int) -> void:
+	var tier := clampi(streak, 0, STREAK_SCALE_CAP)
+	# Left-aligned text, so it grows rightward from its left edge rather than
+	# sliding sideways as it scales.
+	streak_label.pivot_offset = Vector2(0.0, streak_label.size.y * 0.5)
+	streak_label.scale = Vector2.ONE * (STREAK_PUNCH_BASE + STREAK_PUNCH_STEP * tier)
+	if _streak_tween != null and _streak_tween.is_valid():
+		_streak_tween.kill()
+	_streak_tween = create_tween()
+	_streak_tween.tween_interval(STREAK_HOLD_TIME)
+	_streak_tween.tween_property(streak_label, "scale", Vector2.ONE, STREAK_SETTLE_TIME) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_streak_shake = STREAK_SHAKE_BASE + STREAK_SHAKE_STEP * float(tier)
+	embers.burst(STREAK_BURST_EMBERS)
 
 func _spawn_burst(platform: Node) -> void:
 	var burst := preload("res://scenes/landing_burst.tscn").instantiate()

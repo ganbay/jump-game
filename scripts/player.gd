@@ -52,7 +52,6 @@ var is_fast_falling: bool = false
 var streak: int = 0
 var last_press_ms: int = -999999
 var _last_pointer_x: float = 0.0
-var _last_platform: Node = null
 var _attempted_since_last_landing: bool = false
 var _viewport_width: float = 720.0
 ## Impact compression, 1.0 = fully squashed. Driven as a damped spring rather
@@ -196,21 +195,30 @@ func _land_on(area: Node) -> void:
 	var is_timed := Time.get_ticks_msec() - last_press_ms <= landing_window_ms
 	if area.has_method("should_land") and not area.should_land(is_timed):
 		return
-	var counts := is_timed and (not is_instance_valid(_last_platform) or area != _last_platform)
+	# The boost belongs to the platform, not to "wasn't the last one I touched":
+	# a mistimed landing spends nothing, so the next streak can start right here.
+	var boosted := is_timed and not _boost_spent(area)
 	is_fast_falling = false
 	if is_timed:
-		if counts:
+		if boosted:
 			streak += 1
+			_spend_boost(area)
 	elif _attempted_since_last_landing:
 		streak = 0
 	_attempted_since_last_landing = false
-	velocity.y = _boosted_jump_velocity() if is_timed else jump_velocity
-	_last_platform = area
-	_play_squash(is_timed)
+	velocity.y = _boosted_jump_velocity() if boosted else jump_velocity
+	_play_squash(boosted)
 	Audio.set_streak(streak)
 	if area.has_method("on_landed"):
-		area.on_landed(self, is_timed)
-	landed.emit(area, counts, streak)
+		area.on_landed(self, boosted)
+	landed.emit(area, boosted, streak)
+
+func _boost_spent(area: Node) -> bool:
+	return area is Platform and area.boost_spent
+
+func _spend_boost(area: Node) -> void:
+	if area is Platform:
+		area.boost_spent = true
 
 func _boosted_jump_velocity() -> float:
 	return boost_jump_velocity * (1.0 + streak_jump_step * clampi(streak, 0, streak_jump_cap))

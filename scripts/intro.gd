@@ -28,11 +28,11 @@ signal finished
 ## is dimmest at its edge, where you look through more of its atmosphere, and
 ## white-hot at the centre.
 const STAR_BANDS := [
-	{"r": 1.00, "phase": 0.0, "tint": 0.40, "white": Color(0, 0, 0), "a": 1.0, "churn": 1.0, "drift": 0.0},
-	{"r": 0.95, "phase": 0.7, "tint": 0.70, "white": Color(0.04, 0.04, 0.03), "a": 1.0, "churn": 1.0, "drift": 0.0},
-	{"r": 0.85, "phase": 1.4, "tint": 1.10, "white": Color(0.14, 0.14, 0.10), "a": 1.0, "churn": 1.0, "drift": 0.0},
-	{"r": 0.65, "phase": 2.1, "tint": 1.70, "white": Color(0.45, 0.45, 0.34), "a": 1.0, "churn": 1.0, "drift": 0.0},
-	{"r": 0.25, "phase": 2.8, "tint": 2.20, "white": Color(1.50, 1.50, 1.20), "a": 1.0, "churn": 1.0, "drift": 0.02},
+	{"r": 1.00, "phase": 0.0, "tint": 0.40, "white": Color(0, 0, 0), "a": 1.0, "churn": 0.15, "drift": 0.0},
+	{"r": 0.95, "phase": 0.7, "tint": 0.70, "white": Color(0.04, 0.04, 0.03), "a": 1.0, "churn": 0.30, "drift": 0.004},
+	{"r": 0.85, "phase": 1.4, "tint": 1.10, "white": Color(0.14, 0.14, 0.10), "a": 1.0, "churn": 1.30, "drift": 0.008},
+	{"r": 0.65, "phase": 2.1, "tint": 1.70, "white": Color(0.45, 0.45, 0.34), "a": 1.0, "churn": 2.60, "drift": 0.014},
+	{"r": 0.25, "phase": 2.8, "tint": 2.20, "white": Color(1.50, 1.50, 1.20), "a": 1.0, "churn": 3.20, "drift": 0.022},
 ]
 
 @export_group("Star")
@@ -43,10 +43,21 @@ const STAR_BANDS := [
 @export var sun_segments: int = 160
 ## The star's limb should read as a hard circle, so it deforms far less than the
 ## character does, and churns slowly -- something this large should not look busy.
-@export var sun_wobble: float = 0.004
-@export var sun_flare: float = 0.0
+@export var sun_wobble: float = 0.030
+@export var sun_flare: float = 0.020
+@export var sun_turbulence: float = 0.022
 @export var sun_breathe: float = 0.006
-@export var sun_speed: float = 0.6
+@export var sun_speed: float = 0.9
+
+@export_group("Eruption")
+## A solar flare tears the surface open and throws the character clear of it.
+## Peaks exactly on the launch beat, so the character emerges out of the burst.
+@export var eruption_lead: float = 0.4
+@export var eruption_fade: float = 0.8
+@export var eruption_size: float = 950.0
+@export var eruption_spikes: int = 13
+## Fan width of the tongues of plasma, in radians.
+@export var eruption_spread: float = 2.3
 
 @export_group("Flight")
 ## The speed the ejection settles at, and the exact speed the character is
@@ -107,6 +118,7 @@ func begin(camera: Camera2D, player: CharacterBody2D) -> void:
 	_sun.segments = sun_segments
 	_sun.wobble = sun_wobble
 	_sun.flare = sun_flare
+	_sun.turbulence = sun_turbulence
 	_sun.breathe = sun_breathe
 	_sun.speed = sun_speed
 	_sun.color = Settings.player_color
@@ -202,6 +214,46 @@ func _finish() -> void:
 	queue_free()
 
 func _draw() -> void:
+	_draw_eruption()
+	_draw_tail()
+
+## Solar flare at the launch point. Brightness peaks exactly on the launch beat
+## while the size keeps growing, so the burst is still opening outward as the
+## character clears it rather than already collapsing.
+func _draw_eruption() -> void:
+	var span := eruption_lead + eruption_fade
+	var age := (_t - (sun_time - eruption_lead)) / span
+	if age <= 0.0 or age >= 1.0:
+		return
+	var peak := eruption_lead / span
+	var strength: float = age / peak if age < peak else (1.0 - age) / (1.0 - peak)
+	strength = clampf(strength, 0.0, 1.0)
+	var size := eruption_size * (0.25 + 0.75 * age)
+	var base := _sun.color
+
+	var halo := base * 0.9
+	halo.a = 0.22 * strength
+	draw_circle(_launch, size * 0.62, halo)
+
+	var tongue := Color(base.r * 1.1 + 1.1, base.g * 1.1 + 1.1, base.b * 1.1 + 0.85, 0.80 * strength)
+	for i in range(eruption_spikes):
+		var f := float(i) / float(maxi(eruption_spikes - 1, 1))
+		var a := -PI * 0.5 + (f - 0.5) * eruption_spread
+		# Deterministic per-tongue variation, so the flare does not reshuffle
+		# itself every frame the way per-frame randomness would.
+		var n := sin(float(i) * 12.9898) * 43758.5453
+		var jitter: float = n - floor(n)
+		var length := size * (0.45 + 0.55 * jitter) * (0.86 + 0.14 * sin(_t * 6.0 + float(i)))
+		var dir := Vector2(cos(a), sin(a))
+		var wide := dir.orthogonal() * size * 0.085 * (0.5 + jitter * 0.5)
+		draw_polygon(PackedVector2Array([
+			_launch - wide, _launch + wide, _launch + dir * length,
+		]), PackedColorArray([tongue]))
+
+	var core := Color(base.r + 1.6, base.g + 1.6, base.b + 1.3, 0.9 * strength)
+	draw_circle(_launch, size * 0.26, core)
+
+func _draw_tail() -> void:
 	if _tail_fade <= 0.001:
 		return
 	var length := minf(tail_length, _head.distance_to(_launch))

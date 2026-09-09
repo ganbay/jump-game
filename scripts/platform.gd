@@ -8,6 +8,11 @@ enum Type { STILL, MOVING, BOOST, ONE_TIME }
 @export var boost_multiplier: float = 1.5
 @export var width: float = 90.0
 
+## A platform's boost can be claimed exactly once. Landing here again gives an
+## ordinary jump -- but a failed landing never spends it, so a streak broken on
+## this platform can still be restarted on this same platform.
+var boost_spent: bool = false
+
 var _dir: int = 1
 var _min_x: float
 var _max_x: float

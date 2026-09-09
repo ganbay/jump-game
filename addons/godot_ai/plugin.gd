@@ -148,6 +148,15 @@ var _post_update_stale_reprobes_left := POST_UPDATE_STALE_REPROBE_LIMIT
 ## may not be the last; a few are allowed before the dock takes over.
 const POST_UPDATE_REPLACEMENT_LIMIT := 3
 var _post_update_replacements_left := POST_UPDATE_REPLACEMENT_LIMIT
+## Right after an update the old bridge's backend may still be settling on
+## the port; a status probe that gives up in 800 ms reads it as a foreign
+## process and nothing replaces it. The post-update probe waits longer.
+const POST_UPDATE_PROBE_TIMEOUT_MS := 3000
+## First version whose attach bridge keeps serving a server of the same
+## major version (#1024). A client attached through an update from an older
+## version still runs a bridge that refuses the new server and must be quit
+## and relaunched; from this version on it follows the new server itself.
+const FIRST_BRIDGE_TOLERANT_VERSION := "4.0.4"
 ## Set once the live tree has been renamed; the lock then belongs to the restart.
 var _update_swapped := false
 var _post_update_action := ""
@@ -370,7 +379,9 @@ func _continue_enter_tree_after_update_barrier() -> void:
 	_dispatcher.register_lazy_handler("particle", HANDLERS_DIR + "particle_handler.gd", [undo])
 	_dispatcher.register_lazy_handler("camera", HANDLERS_DIR + "camera_handler.gd", [undo])
 	_dispatcher.register_lazy_handler("audio", HANDLERS_DIR + "audio_handler.gd", [undo])
-	_dispatcher.register_lazy_handler("physics_shape", HANDLERS_DIR + "physics_shape_handler.gd", [undo])
+	_dispatcher.register_lazy_handler(
+		"physics_shape", HANDLERS_DIR + "physics_shape_handler.gd", [undo, _connection]
+	)
 	_dispatcher.register_lazy_handler("environment", HANDLERS_DIR + "environment_handler.gd", [undo, _connection])
 	_dispatcher.register_lazy_handler("texture", HANDLERS_DIR + "texture_handler.gd", [undo, _connection])
 	_dispatcher.register_lazy_handler("curve", HANDLERS_DIR + "curve_handler.gd", [undo, _connection])
@@ -506,6 +517,7 @@ func _continue_enter_tree_after_update_barrier() -> void:
 	_dispatcher.register_lazy("audio_stop", "audio", &"stop")
 	_dispatcher.register_lazy("audio_list", "audio", &"list_streams")
 	_dispatcher.register_lazy("physics_shape_autofit", "physics_shape", &"autofit")
+	_dispatcher.register_lazy("physics_shape_generate", "physics_shape", &"generate")
 	_dispatcher.register_lazy("environment_create", "environment", &"create_environment")
 	_dispatcher.register_lazy("gradient_texture_create", "texture", &"create_gradient_texture")
 	_dispatcher.register_lazy("noise_texture_create", "texture", &"create_noise_texture")
@@ -877,10 +889,14 @@ func _finish_post_update() -> void:
 	_post_update_reprobes_left = POST_UPDATE_REPROBE_LIMIT
 	_post_update_stale_reprobes_left = POST_UPDATE_STALE_REPROBE_LIMIT
 	_post_update_replacements_left = POST_UPDATE_REPLACEMENT_LIMIT
-	print(
-		"MCP | AI clients attached before the update must be quit and relaunched to use v%s"
-		% str(_post_update_outcome.get("to_version", ""))
-	)
+	var to_version := str(_post_update_outcome.get("to_version", ""))
+	if attached_bridges_follow(_post_update_replaced_version, to_version):
+		print("MCP | AI clients attached before the update keep working on v%s" % to_version)
+	else:
+		print(
+			"MCP | AI clients attached before the update must be quit and relaunched to use v%s"
+			% to_version
+		)
 	_present_post_update_complete()
 	_fan_post_update_outcome()
 	_release_normal_startup()
@@ -915,10 +931,26 @@ func _present_post_update_complete() -> void:
 		})
 
 
+## Whether a bridge a client attached at `from_version` keeps serving the
+## server at `to_version` (#1024: same major version, from 4.0.4 on).
+static func attached_bridges_follow(from_version: String, to_version: String) -> bool:
+	var from_tuple := McpServerVersionCheck.version_tuple(from_version)
+	var to_tuple := McpServerVersionCheck.version_tuple(to_version)
+	if from_tuple.is_empty() or to_tuple.is_empty():
+		return false
+	if int(from_tuple[0]) != int(to_tuple[0]):
+		return false
+	var floor_tuple := McpServerVersionCheck.version_tuple(FIRST_BRIDGE_TOLERANT_VERSION)
+	return McpServerVersionCheck.compare(from_tuple, floor_tuple) >= 0
+
+
 func _post_update_complete_label() -> String:
+	var to_version := str(_post_update_outcome.get("to_version", ""))
 	var text := (
-		"Quit and relaunch AI clients that were connected during the update so they use v%s."
-		% str(_post_update_outcome.get("to_version", ""))
+		"AI clients that were connected during the update keep working on v%s." % to_version
+		if attached_bridges_follow(str(_post_update_outcome.get("from_version", "")), to_version)
+		else "Quit and relaunch AI clients that were connected during the update so they use v%s."
+		% to_version
 	)
 	if _post_update_deferred.is_empty():
 		return text
@@ -1251,6 +1283,13 @@ func _capture_lifecycle_plan() -> Dictionary:
 		"server_command": ClientConfigurator.get_server_command(),
 		"pid_file": ProjectSettings.globalize_path(PortResolver.SERVER_PID_FILE),
 		"startup_report": ProjectSettings.globalize_path(PortResolver.SERVER_STARTUP_REPORT),
+		## The lifecycle is configured before the post-update migration runs,
+		## so the arm's own state is not set yet; the recorded outcome is.
+		"probe_timeout_ms": (
+			POST_UPDATE_PROBE_TIMEOUT_MS
+			if str(_post_update_outcome.get("outcome", "")) == "success"
+			else ServerLifecycleManager.DEFAULT_PROBE_TIMEOUT_MS
+		),
 		"http_port_reserved": WindowsPortReservation.is_port_excluded(http_port),
 		"excluded_domains": str(policy.get("excluded_domains", "")),
 		"allow_hosts": str(policy.get("allow_hosts", "")),
@@ -1333,12 +1372,12 @@ func _replace_server_left_by_update(snapshot: Dictionary) -> void:
 			_post_update_reprobes_left -= 1
 			get_tree().create_timer(1.0).timeout.connect(_reprobe_after_update, CONNECT_ONE_SHOT)
 		return
-	if str(snapshot.get("conflict_version", "")) != _post_update_replaced_version:
+	var version := str(snapshot.get("conflict_version", ""))
+	if not _update_may_replace(version):
 		return
 	if _post_update_replacements_left <= 0:
 		return
 	_post_update_replacements_left -= 1
-	var version := _post_update_replaced_version
 	print(
 		"MCP | replacing the v%s server left on port %d by the update"
 		% [version, int(snapshot.get("conflict_port", 0))]
@@ -1348,6 +1387,20 @@ func _replace_server_left_by_update(snapshot: Dictionary) -> void:
 			"MCP | could not replace the v%s server automatically; use Restart Server in the dock"
 			% version
 		)
+
+
+## The server the update superseded, or any older server of our major
+## version an attach bridge left on the port (a client pinned further back).
+## Never a newer one: that is another editor's server, and adoption or the
+## dock's explicit Restart Server decides there.
+func _update_may_replace(conflict_version: String) -> bool:
+	if conflict_version.is_empty():
+		return false
+	if conflict_version == _post_update_replaced_version:
+		return true
+	return McpServerVersionCheck.is_older_same_major(
+		conflict_version, ClientConfigurator.get_plugin_version()
+	)
 
 
 func _reprobe_after_update() -> void:
@@ -1483,7 +1536,13 @@ static func _remove_tree(path: String) -> void:
 ## against the downloaded bytes; nothing outside the editor is executed. The
 ## live tree is touched only by the two renames inside `swap`, and only after
 ## the staged tree has been re-hashed against the signed manifest.
+## Activation runs on the main thread: verification hashes the archive,
+## staging extracts it, and the worker quiescence waits for threads. Each
+## phase names itself in the dock and yields one frame first so the label
+## repaints; without that the dock sat on "Downloading…" for seconds after
+## the download had finished, looking frozen.
 func install_downloaded_update(package: Dictionary) -> void:
+	await _present_install_phase("Verifying signed update…")
 	var manifest_bytes := FileAccess.get_file_as_bytes(str(package.get("manifest", "")))
 	var signature := FileAccess.get_file_as_bytes(str(package.get("signature", "")))
 	var verified: Dictionary = ReleaseVerifier.verify_manifest(
@@ -1504,12 +1563,14 @@ func install_downloaded_update(package: Dictionary) -> void:
 	if not bool(checked.get("ok", false)):
 		_fail_update("Update verification failed", "signed update refused: %s" % str(checked.get("error", "")))
 		return
+	await _present_install_phase("Staging the verified tree…")
 	var staged: Dictionary = UpdateInstaller.stage(str(package.get("archive", "")), manifest)
 	if not bool(staged.get("ok", false)):
 		_fail_update("Update staging failed", "update staging refused: %s" % str(staged.get("error", "")))
 		return
 	if _update_manager != null:
 		_update_manager.discard_downloads()
+	await _present_install_phase("Waiting for client workers…")
 	if _client_jobs != null:
 		var jobs_quiesced: Dictionary = _client_jobs.quiesce(
 			Time.get_ticks_msec() + ClientConfigurator.PREWARM_TIMEOUT_MS
@@ -1564,6 +1625,19 @@ func install_downloaded_update(package: Dictionary) -> void:
 	UpdateInstaller.persist_next_start_enabled(PLUGIN_CFG)
 	print("MCP | update to %s swapped in; restarting the editor" % to_version)
 	UpdateInstaller.request_restart.call_deferred()
+
+
+## Name the activation phase in the dock and let it repaint before the
+## phase's main-thread work begins.
+func _present_install_phase(status_text: String) -> void:
+	_on_update_install_state_changed({
+		"install_in_flight": true,
+		"status_text": status_text,
+		"button_disabled": true,
+	})
+	var tree := get_tree()
+	if tree != null:
+		await tree.process_frame
 
 
 func _fail_update(status_text: String, error: String) -> void:

@@ -27,6 +27,13 @@ const RECOVERING := "RECOVERING"
 ## 0.6 s each) and the launch must capture the new process, then re-read and
 ## kill the old one, before the replacement gives up waiting for the port.
 const REPLACEMENT_WAIT_FOR_PORT_MS := 15_000
+## How long the replacement gives its launched server to reach that port
+## wait before it kills the occupant. The launch may be uvx installing the
+## version the update just brought in; until the server reports it is at its
+## bind loop, the occupant keeps serving and the port never looks free to an
+## attach bridge that would spawn a backend of its own into the gap.
+const REPLACEMENT_LAUNCH_READY_TIMEOUT_MS := 120_000
+const STARTUP_PHASE_WAITING_FOR_PORT := "waiting_for_port"
 const STOPPING := "STOPPING"
 
 const PROBE := "PROBE"
@@ -398,7 +405,13 @@ func _complete_probe(result: Dictionary) -> void:
 
 func _complete_launch(result: Dictionary) -> void:
 	if not bool(result.get("ok", false)):
-		_block(str(result.get("reason", "launch_failed")), str(result.get("message", "Server launch failed.")))
+		## The process usually died before its identity could be captured
+		## because it refused to start; it says why in its startup report.
+		_block(
+			str(result.get("reason", "launch_failed")),
+			str(result.get("message", "Server launch failed."))
+			+ startup_report_summary(str(_plan.get("startup_report", ""))),
+		)
 		return
 	var pid := int(result.get("pid", 0))
 	var fingerprint := str(result.get("fingerprint", ""))
@@ -672,15 +685,48 @@ func _effect_probe(payload: Dictionary) -> Dictionary:
 			}
 		return _blocked_probe_result("incompatible", port, live, true)
 	if PortResolver.is_port_in_use(port):
-		var blocked := _blocked_probe_result("occupied", port, live)
+		var detail := _record_probe_failure_detail(capability, live)
+		var blocked := _blocked_probe_result("occupied", port, live, false, detail)
 		var pre_v4 := _untrusted_pre_v4_occupant_version(port, int(payload.timeout_ms))
 		if not pre_v4.is_empty():
 			blocked["message"] = stale_pre_v4_message(port, pre_v4)
 			blocked["target"]["hint"] = STALE_PRE_V4_HINT
 		return blocked
+	## The server binds both ports before it publishes anything. A held
+	## WebSocket port (a server moved off the HTTP port, or another editor)
+	## would kill the launch at preflight; say so now and name the setting.
+	if expected_ws_port > 0 and PortResolver.is_port_in_use(expected_ws_port):
+		return ws_port_blocked_result(expected_ws_port)
 	return {
 		"outcome": "free",
 		"baseline_instance_id": str(capability.get("instance_nonce", "")),
+	}
+
+
+## Why an existing capability record did not authenticate the occupant, so a
+## "held by another process" report can be acted on. Empty when there was no
+## record to try, or when the probe succeeded and the mismatch is elsewhere.
+static func _record_probe_failure_detail(capability: Dictionary, live: Dictionary) -> String:
+	if str(capability.get("http", "")).is_empty():
+		return ""
+	var error := str(live.get("error", "")).strip_edges()
+	if error.is_empty():
+		if str(live.get("name", "")) != "godot-ai":
+			return "a godot-ai record for this port exists, but the listener did not answer as godot-ai"
+		return "a godot-ai record for this port exists, but it belongs to a different server instance"
+	return "a godot-ai record for this port exists, but its status probe failed: %s" % error
+
+
+static func ws_port_blocked_result(ws_port: int) -> Dictionary:
+	return {
+		"outcome": "blocked",
+		"reason": "ws_occupied",
+		"message": (
+			"WebSocket port %d is already in use by another process. "
+			+ "Set `godot_ai/ws_port` in Editor Settings to a free port "
+			+ "(the dock's port picker moves both ports), then reconfigure your AI clients."
+		) % ws_port,
+		"target": {"instance_id": "", "version": "", "port": ws_port, "replaceable": false},
 	}
 
 
@@ -723,6 +769,19 @@ func _effect_launch(payload: Dictionary) -> Dictionary:
 	var startup_report := str(payload.get("startup_report", ""))
 	if not startup_report.is_empty() and FileAccess.file_exists(startup_report):
 		DirAccess.remove_absolute(startup_report)
+		## A report this launch could not clear would be read as this
+		## launch's: a stale "waiting_for_port" phase would let a replacement
+		## kill its occupant before the new server holds the port.
+		if FileAccess.file_exists(startup_report):
+			return {
+				"ok": false,
+				"reason": "stale_startup_report",
+				"message": "A previous server's startup report could not be removed: %s" % startup_report,
+			}
+	## Names this launch in what the server reports, so a phase read from the
+	## report is never another launch's.
+	var launch_id := "%d-%d-%d" % [OS.get_process_id(), Time.get_ticks_usec(), randi()]
+	environment["GODOT_AI_LAUNCH_ID"] = launch_id
 	var spawned := spawn_capability_process(str(server_command[0]), args, environment)
 	var pid := int(spawned.pid)
 	if pid <= 1:
@@ -751,6 +810,7 @@ func _effect_launch(payload: Dictionary) -> Dictionary:
 		"http_capability": spawned.http,
 		"ws_capability": spawned.websocket,
 		"baseline_instance_id": str(payload.get("baseline_instance_id", "")),
+		"launch_id": launch_id,
 	}
 
 
@@ -921,6 +981,28 @@ func _effect_replace(payload: Dictionary) -> Dictionary:
 				"reason": str(launch.get("reason", "launch_failed")),
 				"message": str(launch.get("message", "Server launch failed.")),
 			}
+		## Kill only once the launched server is at its bind loop; a launch
+		## that spends seconds getting there (uvx installing the new version)
+		## would otherwise leave the port free for a bridge to spawn into.
+		var ready := _wait_for_launch_port_wait(
+			str(launch_plan.get("startup_report", "")),
+			str(launch.get("launch_id", "")),
+			int(launch.pid),
+			str(launch.fingerprint),
+		)
+		if not bool(ready.get("ok", false)):
+			PortResolver.kill_exact_processes(
+				[{"pid": int(launch.pid), "fingerprint": str(launch.fingerprint)}], true
+			)
+			return {"ok": false, "reason": str(ready.reason), "message": str(ready.message)}
+		if (
+			not PortResolver.find_all_pids_on_port(port).has(pid)
+			or PortResolver.process_fingerprint(pid) != fingerprint
+		):
+			PortResolver.kill_exact_processes(
+				[{"pid": int(launch.pid), "fingerprint": str(launch.fingerprint)}], true
+			)
+			return {"ok": false, "reason": "replacement_target_changed", "message": "The authorized server changed before replacement."}
 	var killed := PortResolver.kill_exact_processes(
 		[{"pid": pid, "fingerprint": fingerprint}],
 		true,
@@ -935,6 +1017,63 @@ func _effect_replace(payload: Dictionary) -> Dictionary:
 		PortResolver.wait_for_port_free(port, 5.0)
 		return {"ok": not PortResolver.is_port_in_use(port), "reason": ""}
 	return {"ok": true, "reason": "", "launch": launch}
+
+
+## Poll the launched server's startup report until it says the port wait is
+## running, the process is gone, or the budget is spent. No report path
+## (a plan without one) keeps the old ordering: kill straight away.
+func _wait_for_launch_port_wait(
+	startup_report: String, launch_id: String, pid: int, fingerprint: String
+) -> Dictionary:
+	if startup_report.is_empty():
+		return {"ok": true}
+	var deadline := Time.get_ticks_msec() + REPLACEMENT_LAUNCH_READY_TIMEOUT_MS
+	while true:
+		var reached := launch_reached_port_wait(startup_report, launch_id)
+		## The phase counts only from a process still there to hold the
+		## port: one that exited after writing it must not cost the occupant.
+		if PortResolver.process_fingerprint(pid) != fingerprint:
+			return {
+				"ok": false,
+				"reason": "replacement_launch_exited",
+				"message": (
+					"The replacement server exited before it could wait for the port."
+					+ startup_report_summary(startup_report)
+				),
+			}
+		if reached:
+			return {"ok": true}
+		if Time.get_ticks_msec() >= deadline:
+			return {
+				"ok": false,
+				"reason": "replacement_launch_stalled",
+				"message": "The replacement server did not reach its port wait within %d s." % int(REPLACEMENT_LAUNCH_READY_TIMEOUT_MS / 1000),
+			}
+		OS.delay_msec(100)
+	return {"ok": true}
+
+
+## Whether the startup report records the server of `launch_id` at its port
+## wait (the phase it writes before its first bind attempt when the plugin
+## asked it to wait for the port). A failure written later replaces the
+## phase; a report naming another launch, or none, is never this launch's.
+static func launch_reached_port_wait(startup_report: String, launch_id: String) -> bool:
+	if startup_report.is_empty() or launch_id.is_empty() or not FileAccess.file_exists(startup_report):
+		return false
+	var file := FileAccess.open(startup_report, FileAccess.READ)
+	if file == null:
+		return false
+	var raw := file.get_as_text().strip_edges()
+	file.close()
+	if raw.is_empty() or raw.length() > 8192:
+		return false
+	var parsed: Variant = JSON.parse_string(raw)
+	if not (parsed is Dictionary):
+		return false
+	return (
+		str(parsed.get("phase", "")) == STARTUP_PHASE_WAITING_FOR_PORT
+		and str(parsed.get("launch_id", "")) == launch_id
+	)
 
 
 func _effect_stop(payload: Dictionary) -> Dictionary:
@@ -1183,7 +1322,7 @@ static func _transport_from(port: int, ws_port: int, live: Dictionary, capabilit
 
 
 static func _blocked_probe_result(
-	reason: String, port: int, live: Dictionary, allow_replacement := false
+	reason: String, port: int, live: Dictionary, allow_replacement := false, detail := ""
 ) -> Dictionary:
 	var instance_id := str(live.get("instance_id", ""))
 	var version := str(live.get("version", ""))
@@ -1194,6 +1333,8 @@ static func _blocked_probe_result(
 		and not version.is_empty()
 	)
 	var message := "Port %d is occupied by another process." % port
+	if not detail.is_empty():
+		message = "Port %d is occupied by another process (%s)." % [port, detail]
 	if replaceable:
 		message = "Port %d is occupied by godot-ai v%s; choose Replace to continue." % [port, version]
 	return {

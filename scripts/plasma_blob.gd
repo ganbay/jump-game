@@ -36,6 +36,11 @@ class_name PlasmaBlob
 ## alive without ever making it non-circular.
 @export var breathe: float = 0.03
 
+## High-frequency surface detail, on top of `wobble` / `flare`. Reads as
+## granulation boiling on a star's photosphere. Needs enough `segments` to
+## resolve 17 lobes; left at 0 for the character, whose 32 would alias.
+@export var turbulence: float = 0.0
+
 ## Global multipliers over every band's churn / drift. Drop these to calm the
 ## whole shape at once without editing the band table.
 @export var churn_scale: float = 1.0
@@ -78,6 +83,8 @@ func _ring(scale_mul: float, phase: float, deform_mul: float, centre: Vector2) -
 			sin(a * 3.0 + _t * 1.7 + phase) * wobble
 			+ sin(a * 5.0 - _t * 2.3 + phase) * wobble * 0.55
 			+ sin(a * 7.0 + _t * 1.1 + phase) * flare
+			+ sin(a * 11.0 - _t * 3.1 + phase * 1.7) * turbulence
+			+ sin(a * 17.0 + _t * 4.3 + phase * 2.3) * turbulence * 0.6
 		) * deform_mul
 		pts[i] = centre + Vector2(cos(a), sin(a)) * (radius * scale_mul * breath * (1.0 + wob))
 	return pts

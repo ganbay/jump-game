@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="5_bgparticles"]
 [ext_resource type="Script" path="res://scripts/intro.gd" id="6_intro"]
 [ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="7_plasma"]
+[ext_resource type="Script" path="res://scripts/streak_embers.gd" id="8_embers"]
 
 [sub_resource type="Environment" id="Environment_neon"]
 background_mode = 3
@@ -68,16 +69,18 @@ text = "SCORE 0"
 horizontal_alignment = 1
 
 [node name="StreakLabel" type="Label" parent="UI" unique_id=98542863]
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -150.0
-offset_top = 60.0
-offset_right = 150.0
-offset_bottom = 92.0
+anchors_preset = -1
+anchor_top = 0.25
+anchor_bottom = 0.25
+offset_left = 24.0
+offset_top = -22.0
+offset_right = 344.0
+offset_bottom = 22.0
 theme_override_colors/font_color = Color(0.3, 1, 0.55, 1)
-theme_override_font_sizes/font_size = 22
-horizontal_alignment = 1
+theme_override_font_sizes/font_size = 30
+
+[node name="StreakEmbers" type="Node2D" parent="UI"]
+script = ExtResource("8_embers")
 
 [node name="BestLabel" type="Label" parent="UI" unique_id=164017624]
 offset_left = 24.0
@@ -87,19 +90,6 @@ offset_bottom = 52.0
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
 theme_override_font_sizes/font_size = 18
 text = "BEST 0"
-
-[node name="SpeedLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -220.0
-offset_top = 74.0
-offset_right = -24.0
-offset_bottom = 106.0
-theme_override_colors/font_color = Color(0.55, 1.9, 2.3, 1)
-theme_override_font_sizes/font_size = 24
-text = "0"
-horizontal_alignment = 2
 
 [node name="PauseButton" type="Button" parent="UI" unique_id=330226251]
 anchors_preset = 1
