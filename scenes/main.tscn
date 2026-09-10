@@ -4,11 +4,10 @@
 [ext_resource type="PackedScene" uid="uid://bjlj7sie3pqmh" path="res://scenes/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="3_platform"]
 [ext_resource type="Script" uid="uid://dfybud1h7dvfc" path="res://scripts/platform_spawner.gd" id="4_spawner"]
-[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="5_bgparticles"]
-[ext_resource type="Script" path="res://scripts/intro.gd" id="6_intro"]
-[ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="7_plasma"]
-[ext_resource type="Script" path="res://scripts/streak_embers.gd" id="8_embers"]
-[ext_resource type="Script" path="res://scripts/zone_director.gd" id="9_zones"]
+[ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="5_bgparticles"]
+[ext_resource type="Script" uid="uid://c7onfa4r2mywg" path="res://scripts/intro.gd" id="6_intro"]
+[ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="7_plasma"]
+[ext_resource type="Script" uid="uid://qdpy3ddfr61i" path="res://scripts/zone_director.gd" id="9_zones"]
 
 [sub_resource type="Environment" id="Environment_neon"]
 background_mode = 3
@@ -24,23 +23,23 @@ script = ExtResource("1_game")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=389589756]
 environment = SubResource("Environment_neon")
 
-[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=1786335204]
 layer = -1
 
 [node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=1969231307]
-mouse_filter = 2
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("5_bgparticles")]
+[node name="BackgroundParticles" parent="BackgroundLayer" unique_id=1083291021 instance=ExtResource("5_bgparticles")]
 
-[node name="IntroSequence" type="Node2D" parent="."]
+[node name="IntroSequence" type="Node2D" parent="." unique_id=1611820439]
 z_index = 1
 script = ExtResource("6_intro")
 
-[node name="Sun" type="Node2D" parent="IntroSequence"]
+[node name="Sun" type="Node2D" parent="IntroSequence" unique_id=1894349073]
 z_index = -1
 script = ExtResource("7_plasma")
 
@@ -50,7 +49,7 @@ position = Vector2(360, 0)
 [node name="Player" parent="." unique_id=1823365214 instance=ExtResource("2_player")]
 position = Vector2(360, -20)
 
-[node name="ZoneDirector" type="Node" parent="."]
+[node name="ZoneDirector" type="Node" parent="." unique_id=1534982555]
 script = ExtResource("9_zones")
 
 [node name="PlatformSpawner" type="Node2D" parent="." unique_id=1957377429]
@@ -74,17 +73,18 @@ horizontal_alignment = 1
 
 [node name="StreakLabel" type="Label" parent="UI" unique_id=98542863]
 anchors_preset = -1
+anchor_left = 0.5
 anchor_top = 0.25
+anchor_right = 0.5
 anchor_bottom = 0.25
-offset_left = 24.0
-offset_top = -22.0
-offset_right = 344.0
-offset_bottom = 22.0
-theme_override_colors/font_color = Color(0.3, 1, 0.55, 1)
+offset_left = -200.0
+offset_top = -26.0
+offset_right = 200.0
+offset_bottom = 26.0
+theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
 theme_override_font_sizes/font_size = 30
-
-[node name="StreakEmbers" type="Node2D" parent="UI"]
-script = ExtResource("8_embers")
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="BestLabel" type="Label" parent="UI" unique_id=164017624]
 offset_left = 24.0
@@ -95,7 +95,7 @@ theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
 theme_override_font_sizes/font_size = 18
 text = "BEST 0"
 
-[node name="ZoneLabel" type="Label" parent="UI"]
+[node name="ZoneLabel" type="Label" parent="UI" unique_id=710315499]
 offset_left = 24.0
 offset_top = 56.0
 offset_right = 400.0
@@ -104,7 +104,7 @@ theme_override_colors/font_color = Color(0.9, 1.5, 1.9, 1)
 theme_override_font_sizes/font_size = 16
 text = "ZONE 1  OPEN SPACE"
 
-[node name="ZoneBanner" type="Label" parent="UI"]
+[node name="ZoneBanner" type="Label" parent="UI" unique_id=2128443116]
 visible = false
 anchors_preset = -1
 anchor_left = 0.5
@@ -115,7 +115,7 @@ offset_left = -330.0
 offset_top = -34.0
 offset_right = 330.0
 offset_bottom = 34.0
-theme_override_colors/font_color = Color(1.1, 2.0, 2.4, 1)
+theme_override_colors/font_color = Color(1.1, 2, 2.4, 1)
 theme_override_font_sizes/font_size = 40
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -146,7 +146,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="UI/PausePanel" instance=ExtResource("5_bgparticles")]
+[node name="BackgroundParticles" parent="UI/PausePanel" unique_id=1116464444 instance=ExtResource("5_bgparticles")]
 
 [node name="PausedLabel" type="Label" parent="UI/PausePanel" unique_id=390669626]
 layout_mode = 0
@@ -218,7 +218,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="UI/GameOverPanel" instance=ExtResource("5_bgparticles")]
+[node name="BackgroundParticles" parent="UI/GameOverPanel" unique_id=1593628330 instance=ExtResource("5_bgparticles")]
 
 [node name="GameOverLabel" type="Label" parent="UI/GameOverPanel" unique_id=893355060]
 layout_mode = 0
@@ -275,7 +275,7 @@ offset_bottom = 28.0
 theme_override_font_sizes/font_size = 20
 text = "MENU"
 
-[node name="MilestonePanel" type="Control" parent="UI"]
+[node name="MilestonePanel" type="Control" parent="UI" unique_id=1772725848]
 process_mode = 3
 visible = false
 layout_mode = 3
@@ -285,15 +285,15 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Dim" type="ColorRect" parent="UI/MilestonePanel"]
+[node name="Dim" type="ColorRect" parent="UI/MilestonePanel" unique_id=1943759431]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="UI/MilestonePanel" instance=ExtResource("5_bgparticles")]
+[node name="BackgroundParticles" parent="UI/MilestonePanel" unique_id=1442426250 instance=ExtResource("5_bgparticles")]
 
-[node name="TitleLabel" type="Label" parent="UI/MilestonePanel"]
+[node name="TitleLabel" type="Label" parent="UI/MilestonePanel" unique_id=1522443629]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.3
@@ -308,7 +308,7 @@ theme_override_font_sizes/font_size = 48
 text = "GRAVITY BROKEN"
 horizontal_alignment = 1
 
-[node name="BodyLabel" type="Label" parent="UI/MilestonePanel"]
+[node name="BodyLabel" type="Label" parent="UI/MilestonePanel" unique_id=310565325]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.44
@@ -319,12 +319,12 @@ offset_top = -70.0
 offset_right = 320.0
 offset_bottom = 70.0
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
-theme_override_font_sizes/font_size = 19
 theme_override_constants/line_spacing = 6
+theme_override_font_sizes/font_size = 19
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ContinueButton" type="Button" parent="UI/MilestonePanel"]
+[node name="ContinueButton" type="Button" parent="UI/MilestonePanel" unique_id=505305333]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.6
@@ -337,7 +337,7 @@ offset_bottom = 28.0
 theme_override_font_sizes/font_size = 20
 text = "KEEP CLIMBING"
 
-[node name="EndButton" type="Button" parent="UI/MilestonePanel"]
+[node name="EndButton" type="Button" parent="UI/MilestonePanel" unique_id=220308473]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.66

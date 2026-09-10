@@ -1,7 +1,8 @@
 extends Node2D
 
 @export var platform_scene: PackedScene
-@export var screen_width: float = 720.0
+## How far from each screen edge a platform's centre may be placed.
+@export var edge_margin: float = 50.0
 @export var min_gap: float = 90.0
 @export var max_gap: float = 160.0
 @export var min_gap_cap: float = 150.0
@@ -13,6 +14,11 @@ extends Node2D
 
 # 1000 score points = 10000px climbed, since score = height / 10 (see game.gd).
 const DIFFICULTY_STEP_HEIGHT := 10000.0
+
+## Headroom above the top of the screen that the spawn frontier keeps. Added to
+## half the screen height rather than baked into a single distance, so a taller
+## display gets the same margin instead of building platforms nearly in view.
+const SPAWN_MARGIN := 360.0
 
 ## How far below the bottom of the screen a platform must fall before it is
 ## freed. The player dies at half a screen + 80px below the camera, so nothing
@@ -45,6 +51,11 @@ var zones: ZoneDirector
 ## (largest y) to highest, so despawning only ever pops from the front.
 var _live: Array[Node2D] = []
 var _half_screen_height: float = 640.0
+## Both read from the viewport in _ready. Under the project's `expand` stretch
+## the base 720x1280 is only a floor: height grows on a tall phone and width
+## grows on a tablet, so neither can be a constant.
+var _screen_width: float = 720.0
+var _spawn_lookahead: float = 1000.0
 ## Where this run started. Difficulty is measured as distance climbed from here,
 ## not from world zero -- the intro hands over thousands of pixels up, so an
 ## absolute reading would open the run at maximum difficulty.
@@ -53,7 +64,10 @@ var _origin_y: float = 0.0
 func _ready() -> void:
 	randomize()
 	player = get_tree().get_first_node_in_group("player")
-	_half_screen_height = get_viewport_rect().size.y / 2.0
+	var view := get_viewport_rect().size
+	_screen_width = view.x
+	_half_screen_height = view.y / 2.0
+	_spawn_lookahead = _half_screen_height + SPAWN_MARGIN
 	# Held until the intro finishes; game.gd calls begin().
 	set_process(false)
 
@@ -75,7 +89,7 @@ func _frontier_score() -> int:
 func _process(_delta: float) -> void:
 	if player == null:
 		return
-	while _highest_y > player.global_position.y - 1000.0:
+	while _highest_y > player.global_position.y - _spawn_lookahead:
 		_spawn_next()
 	_despawn_below_camera()
 
@@ -104,7 +118,8 @@ func _spawn_next() -> void:
 	var cur_max_gap := minf(max_gap + gap_step * level, max_gap_cap)
 	_highest_y -= randf_range(cur_min_gap, cur_max_gap)
 	var plat := platform_scene.instantiate()
-	plat.position = Vector2(randf_range(50.0, screen_width - 50.0), _highest_y)
+	plat.position = Vector2(
+		randf_range(edge_margin, _screen_width - edge_margin), _highest_y)
 	plat.attributes = _pick_attributes()
 	plat.width = maxf(platform_width - width_step * level, platform_width_min)
 	add_child(plat)

@@ -13,7 +13,6 @@ extends Node2D
 @onready var controls_button: Button = $UI/PausePanel/ControlsButton
 @onready var intro: IntroSequence = $IntroSequence
 @onready var spawner: Node2D = $PlatformSpawner
-@onready var embers: StreakEmbers = $UI/StreakEmbers
 @onready var zones: ZoneDirector = $ZoneDirector
 @onready var zone_label: Label = $UI/ZoneLabel
 @onready var zone_banner: Label = $UI/ZoneBanner
@@ -40,7 +39,10 @@ const STREAK_SHAKE_BASE := 11.0
 const STREAK_SHAKE_STEP := 2.6
 ## Pixels of shake bled off per second.
 const STREAK_SHAKE_DECAY := 48.0
-const STREAK_BURST_EMBERS := 7
+## The counter reads white whatever the character's colour is. It sits above
+## the environment's HDR glow threshold of 1.0, which is what makes it bloom
+## like the rest of the scene rather than sitting flat on top of it.
+const STREAK_TEXT_COLOR := Color(2.3, 2.3, 2.3)
 
 ## How long a zone announcement stays up between its fade in and fade out.
 const ZONE_BANNER_HOLD := 1.1
@@ -111,15 +113,17 @@ func _ready() -> void:
 	zone_banner.hide()
 	_score_base_position = score_label.position
 	_streak_base_position = streak_label.position
-	_death_margin = get_viewport_rect().size.y / 2.0 + 80.0
+	var view := get_viewport_rect().size
+	_death_margin = view.y / 2.0 + 80.0
+	# The scene parks both at x=360, half of the base 720. Under `expand` a
+	# tablet-shaped display is wider than that, so centring has to be measured
+	# rather than assumed -- and it must happen before the intro starts, which
+	# captures both positions as the origin for its whole flight.
+	camera.global_position.x = view.x / 2.0
+	player.global_position.x = view.x / 2.0
 	_hud_nodes = [score_label, streak_label, best_label, pause_button, zone_label]
 	for node in _hud_nodes:
 		_hud_home.append(node.position)
-	embers.position = _streak_base_position + Vector2(10.0, streak_label.size.y * 0.85)
-	embers.width = streak_label.size.x * 0.55
-	# Shed from the counter itself, so they take the counter's colour rather
-	# than the character's. It is a fixed scene value, not a user setting.
-	embers.color = streak_label.get_theme_color("font_color")
 	_update_controls_label()
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
@@ -171,6 +175,9 @@ func _drop_in_hud() -> void:
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
+	# Replaces the override the scene carries, which is only there so the label
+	# previews sensibly in the editor.
+	streak_label.add_theme_color_override("font_color", STREAK_TEXT_COLOR)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_intro:
@@ -280,7 +287,6 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 	if label != streak_label.text:
 		streak_label.text = label
 	_grow_to(score_label, 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP))
-	embers.set_streak(streak)
 	# Only a landing that actually extends the streak punches the counter --
 	# ordinary jumps leave it sitting still.
 	if boosted and streak > 1:
@@ -295,9 +301,9 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 ## so the next streak has somewhere to punch from.
 func _punch_streak(streak: int) -> void:
 	var tier := clampi(streak, 0, STREAK_SCALE_CAP)
-	# Left-aligned text, so it grows rightward from its left edge rather than
-	# sliding sideways as it scales.
-	streak_label.pivot_offset = Vector2(0.0, streak_label.size.y * 0.5)
+	# Centred text, so it scales about the middle of its own box and stays put
+	# on screen instead of drifting sideways as it grows.
+	streak_label.pivot_offset = streak_label.size / 2.0
 	streak_label.scale = Vector2.ONE * (STREAK_PUNCH_BASE + STREAK_PUNCH_STEP * tier)
 	if _streak_tween != null and _streak_tween.is_valid():
 		_streak_tween.kill()
@@ -306,7 +312,6 @@ func _punch_streak(streak: int) -> void:
 	_streak_tween.tween_property(streak_label, "scale", Vector2.ONE, STREAK_SETTLE_TIME) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_streak_shake = STREAK_SHAKE_BASE + STREAK_SHAKE_STEP * float(tier)
-	embers.burst(STREAK_BURST_EMBERS)
 
 func _spawn_burst(platform: Node) -> void:
 	var burst := preload("res://scenes/landing_burst.tscn").instantiate()

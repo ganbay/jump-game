@@ -66,23 +66,17 @@ func _spawn_particles() -> void:
 		_parallax[i] = lerpf(0.15, 0.85, depth)
 		_boost[i] = lerpf(1.0, 1.6, depth)
 		_alpha[i] = lerpf(0.125, 0.375, depth)
-		_color[i] = _shade(_pick_color(), i)
+		_color[i] = _shade(Settings.background_particle_color, i)
 
 func _shade(base: Color, i: int) -> Color:
 	var col := base * _boost[i]
 	col.a = _alpha[i]
 	return col
 
-func _pick_color() -> Color:
-	if Settings.background_fx == Settings.BackgroundFxMode.SINGLE:
-		return Settings.background_particle_color
-	var colors: Array = Settings.MULTI_PALETTE
-	return colors[randi() % colors.size()]
-
 func _on_visual_settings_changed() -> void:
 	_apply_mode()
 	for i in range(_color.size()):
-		_color[i] = _shade(_pick_color(), i)
+		_color[i] = _shade(Settings.background_particle_color, i)
 	queue_redraw()
 
 ## Only simulate when this instance is actually on screen. main.tscn carries
@@ -90,7 +84,7 @@ func _on_visual_settings_changed() -> void:
 ## panel does not stop its children from processing, so the two hidden ones
 ## would otherwise run a full particle sim behind every frame of gameplay.
 func _apply_mode() -> void:
-	var enabled := Settings.background_fx != Settings.BackgroundFxMode.OFF
+	var enabled: bool = Settings.background_particles
 	visible = enabled
 	set_process(enabled and is_visible_in_tree())
 

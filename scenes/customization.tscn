@@ -1,0 +1,269 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/customization.gd" id="1_custom"]
+[ext_resource type="Script" path="res://scripts/rounded_rect.gd" id="2_rounded"]
+[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
+[ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="4_plasma"]
+
+[sub_resource type="Environment" id="Environment_custom"]
+background_mode = 3
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 0.7
+glow_bloom = 0.05
+glow_blend_mode = 0
+
+[node name="Customization" type="Node2D"]
+script = ExtResource("1_custom")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_custom")
+
+[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="Background" type="ColorRect" parent="BackgroundLayer"]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 1)
+
+[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("3_bgparticles")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="TitleLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.04
+anchor_right = 0.5
+anchor_bottom = 0.04
+offset_left = -260.0
+offset_top = -34.0
+offset_right = 260.0
+offset_bottom = 34.0
+theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
+theme_override_font_sizes/font_size = 46
+text = "CUSTOMIZE"
+horizontal_alignment = 1
+
+[node name="PreviewAnchor" type="Control" parent="UI"]
+mouse_filter = 2
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.319
+anchor_right = 0.5
+anchor_bottom = 0.319
+
+[node name="CharacterPreview" type="Node2D" parent="UI/PreviewAnchor"]
+script = ExtResource("4_plasma")
+radius = 68.0
+color = Color(0.66295815, 2.299754, 0, 1)
+
+[node name="PlatformSwatchAnchor" type="Control" parent="UI"]
+mouse_filter = 2
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.58
+anchor_right = 0.5
+anchor_bottom = 0.58
+
+[node name="PlatformSwatch" type="Node2D" parent="UI/PlatformSwatchAnchor"]
+script = ExtResource("2_rounded")
+rect_size = Vector2(70, 10)
+color = Color(0.3, 1.0, 2.2, 1)
+corner_radius = 4.0
+
+[node name="SwipeArea" type="Control" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.11
+anchor_right = 0.5
+anchor_bottom = 0.34
+offset_left = -360.0
+offset_right = 360.0
+
+[node name="PrevButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.35
+anchor_right = 0.5
+anchor_bottom = 0.35
+offset_left = -300.0
+offset_top = -30.0
+offset_right = -220.0
+offset_bottom = 30.0
+theme_override_font_sizes/font_size = 30
+text = "<"
+
+[node name="CharacterName" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.35
+anchor_right = 0.5
+anchor_bottom = 0.35
+offset_left = -200.0
+offset_top = -26.0
+offset_right = 200.0
+offset_bottom = 26.0
+theme_override_colors/font_color = Color(2.0, 2.2, 2.3, 1)
+theme_override_font_sizes/font_size = 32
+text = "PLASMA"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NextButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.35
+anchor_right = 0.5
+anchor_bottom = 0.35
+offset_left = 220.0
+offset_top = -30.0
+offset_right = 300.0
+offset_bottom = 30.0
+theme_override_font_sizes/font_size = 30
+text = ">"
+
+[node name="SwipeHint" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.415
+anchor_right = 0.5
+anchor_bottom = 0.415
+offset_left = -260.0
+offset_top = -12.0
+offset_right = 260.0
+offset_bottom = 12.0
+theme_override_colors/font_color = Color(0.85, 0.9, 0.95, 1)
+theme_override_font_sizes/font_size = 14
+text = "SWIPE THE CHARACTER TO CHANGE"
+horizontal_alignment = 1
+
+[node name="PlayerColorLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.44
+anchor_right = 0.5
+anchor_bottom = 0.44
+offset_left = -260.0
+offset_top = -14.0
+offset_right = -90.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+text = "CHARACTER"
+horizontal_alignment = 2
+
+[node name="PlayerPicker" type="ColorPickerButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.44
+anchor_right = 0.5
+anchor_bottom = 0.44
+offset_left = 60.0
+offset_top = -18.0
+offset_right = 260.0
+offset_bottom = 18.0
+
+[node name="TrailCheck" type="CheckButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.51
+anchor_right = 0.5
+anchor_bottom = 0.51
+offset_left = -160.0
+offset_top = -26.0
+offset_right = 160.0
+offset_bottom = 26.0
+theme_override_font_sizes/font_size = 20
+text = "CHARACTER TRAIL"
+
+[node name="PlatformColorLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.58
+anchor_right = 0.5
+anchor_bottom = 0.58
+offset_left = -260.0
+offset_top = -14.0
+offset_right = -90.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+text = "PLATFORM"
+horizontal_alignment = 2
+
+[node name="PlatformPicker" type="ColorPickerButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.58
+anchor_right = 0.5
+anchor_bottom = 0.58
+offset_left = 60.0
+offset_top = -18.0
+offset_right = 260.0
+offset_bottom = 18.0
+
+[node name="ParticlesCheck" type="CheckButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.65
+anchor_right = 0.5
+anchor_bottom = 0.65
+offset_left = -160.0
+offset_top = -26.0
+offset_right = 160.0
+offset_bottom = 26.0
+theme_override_font_sizes/font_size = 20
+text = "BACKGROUND DRIFT"
+
+[node name="ParticleColorLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.72
+anchor_right = 0.5
+anchor_bottom = 0.72
+offset_left = -260.0
+offset_top = -14.0
+offset_right = -90.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+text = "DRIFT"
+horizontal_alignment = 2
+
+[node name="ParticlePicker" type="ColorPickerButton" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.72
+anchor_right = 0.5
+anchor_bottom = 0.72
+offset_left = 60.0
+offset_top = -18.0
+offset_right = 260.0
+offset_bottom = 18.0
+
+[node name="BackButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.88
+anchor_right = 0.5
+anchor_bottom = 0.88
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "BACK"
+
+[connection signal="gui_input" from="UI/SwipeArea" to="." method="_on_swipe_gui_input"]
+[connection signal="pressed" from="UI/PrevButton" to="." method="_on_prev_pressed"]
+[connection signal="pressed" from="UI/NextButton" to="." method="_on_next_pressed"]
+[connection signal="color_changed" from="UI/PlayerPicker" to="." method="_on_player_picker_color_changed"]
+[connection signal="toggled" from="UI/TrailCheck" to="." method="_on_trail_check_toggled"]
+[connection signal="color_changed" from="UI/PlatformPicker" to="." method="_on_platform_picker_color_changed"]
+[connection signal="toggled" from="UI/ParticlesCheck" to="." method="_on_particles_check_toggled"]
+[connection signal="color_changed" from="UI/ParticlePicker" to="." method="_on_particle_picker_color_changed"]
+[connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

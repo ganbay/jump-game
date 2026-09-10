@@ -7,19 +7,20 @@ signal landed(platform, boosted, streak)
 ## plasma_blob.gd) in a different Shape -- same churn, glow and squishy physics,
 ## just a different silhouette.
 ##
-## Settings persists this enum as a raw int, so an entry may be swapped in
-## place (DOME took the retired solid-body skin's slot, which is why an old
-## save opens on DOME) but never inserted or reordered; new ones go on the end.
-enum SkinType { DOME, PLASMA, TRIANGLE, SQUARE, PRISM, STAR, HEART, FLAME, SPARKLE }
+## Settings persists this enum as a raw int, so entries must not be inserted
+## or reordered -- new ones go on the end. PLASMA holds slot 0 as the default,
+## which is also the slot the retired solid-body skin used, so a save from that
+## era opens on PLASMA.
+enum SkinType { PLASMA, DOME, TRIANGLE, SQUARE, PRISM, STAR, HEART, FLAME, SPARKLE }
 
 ## Display names for the settings menu, indexed by SkinType.
-const SKIN_NAMES := ["DOME", "PLASMA", "TRIANGLE", "SQUARE", "PRISM", "STAR",
+const SKIN_NAMES := ["PLASMA", "DOME", "TRIANGLE", "SQUARE", "PRISM", "STAR",
 	"HEART", "FLAME", "SPARKLE"]
 
 ## The PlasmaBlob.Shape each skin draws.
 const SKIN_SHAPES := {
-	SkinType.DOME: PlasmaBlob.Shape.DOME,
 	SkinType.PLASMA: PlasmaBlob.Shape.CIRCLE,
+	SkinType.DOME: PlasmaBlob.Shape.DOME,
 	SkinType.TRIANGLE: PlasmaBlob.Shape.TRIANGLE,
 	SkinType.SQUARE: PlasmaBlob.Shape.SQUARE,
 	SkinType.PRISM: PlasmaBlob.Shape.PRISM,
@@ -102,7 +103,7 @@ func _ready() -> void:
 
 func _apply_visual_settings() -> void:
 	var shape: PlasmaBlob.Shape = SKIN_SHAPES.get(
-		Settings.player_skin, PlasmaBlob.Shape.DOME)
+		Settings.player_skin, PlasmaBlob.Shape.CIRCLE)
 	visual.shape = shape
 	visual.color = Settings.player_color
 	trail.color = Settings.player_color

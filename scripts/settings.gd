@@ -1,30 +1,19 @@
 extends Node
 
 enum ControlScheme { TOUCH, TILT }
-enum BackgroundFxMode { OFF, MULTI, SINGLE }
 
 signal control_scheme_changed(scheme: ControlScheme)
 signal visual_settings_changed
 
 const SAVE_PATH := "user://settings.cfg"
 
-## Palette the MULTI background-particle mode draws from. It used to be the
-## platform type colours; platforms are one colour now, so the drift keeps its
-## own palette rather than losing its variety.
-const MULTI_PALETTE := [
-	Color(0.3, 1.0, 2.2),
-	Color(2.2, 2.0, 0.3),
-	Color(0.3, 2.4, 1.0),
-	Color(2.4, 0.4, 0.5),
-]
-
 var control_scheme: ControlScheme = ControlScheme.TOUCH
 var glow_strength: float = 0.4
 var player_color: Color = Player.COLOR
 var platform_color: Color = Platform.BASE_COLOR
-var background_fx: BackgroundFxMode = BackgroundFxMode.MULTI
+var background_particles: bool = true
 var background_particle_color: Color = Color(0.3, 1.8, 2.4)
-var player_skin: Player.SkinType = Player.SkinType.DOME
+var player_skin: Player.SkinType = Player.SkinType.PLASMA
 var trail_enabled: bool = true
 
 func _ready() -> void:
@@ -37,9 +26,13 @@ func _ready() -> void:
 		# keeps its tint by falling back to what the plain platform was.
 		var legacy := cfg.get_value("visual", "platform_color_0", platform_color) as Color
 		platform_color = cfg.get_value("visual", "platform_color", legacy)
-		background_fx = cfg.get_value("visual", "background_fx", BackgroundFxMode.MULTI) as BackgroundFxMode
+		# The drift used to have a third "many colours" mode, drawn from the
+		# platform type palette. Platforms are one colour now, so it is just on
+		# or off; anything but the old OFF migrates to on.
+		var legacy_fx := int(cfg.get_value("visual", "background_fx", 1))
+		background_particles = cfg.get_value("visual", "background_particles", legacy_fx != 0)
 		background_particle_color = cfg.get_value("visual", "background_particle_color", background_particle_color)
-		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.DOME) as Player.SkinType
+		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.PLASMA) as Player.SkinType
 		trail_enabled = cfg.get_value("visual", "trail_enabled", true)
 
 func set_control_scheme(scheme: ControlScheme) -> void:
@@ -70,22 +63,10 @@ func set_platform_color(value: Color) -> void:
 	_save()
 	visual_settings_changed.emit()
 
-func set_background_fx(mode: BackgroundFxMode) -> void:
-	background_fx = mode
+func set_background_particles(value: bool) -> void:
+	background_particles = value
 	_save()
 	visual_settings_changed.emit()
-
-func cycle_background_fx() -> void:
-	set_background_fx(((background_fx + 1) % 3) as BackgroundFxMode)
-
-func background_fx_name() -> String:
-	match background_fx:
-		BackgroundFxMode.OFF:
-			return "OFF"
-		BackgroundFxMode.SINGLE:
-			return "SINGLE"
-		_:
-			return "MULTI"
 
 func set_background_particle_color(value: Color) -> void:
 	background_particle_color = value
@@ -97,9 +78,6 @@ func set_player_skin(value: Player.SkinType) -> void:
 	_save()
 	visual_settings_changed.emit()
 
-func cycle_player_skin() -> void:
-	set_player_skin(((player_skin + 1) % Player.SkinType.size()) as Player.SkinType)
-
 func player_skin_name() -> String:
 	return Player.SKIN_NAMES[player_skin]
 
@@ -108,19 +86,13 @@ func set_trail_enabled(value: bool) -> void:
 	_save()
 	visual_settings_changed.emit()
 
-func toggle_trail() -> void:
-	set_trail_enabled(not trail_enabled)
-
-func trail_name() -> String:
-	return "ON" if trail_enabled else "OFF"
-
 func _save() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("controls", "scheme", control_scheme)
 	cfg.set_value("visual", "glow_strength", glow_strength)
 	cfg.set_value("visual", "player_color", player_color)
 	cfg.set_value("visual", "platform_color", platform_color)
-	cfg.set_value("visual", "background_fx", background_fx)
+	cfg.set_value("visual", "background_particles", background_particles)
 	cfg.set_value("visual", "background_particle_color", background_particle_color)
 	cfg.set_value("visual", "player_skin", player_skin)
 	cfg.set_value("visual", "trail_enabled", trail_enabled)

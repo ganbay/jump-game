@@ -49,9 +49,9 @@ horizontal_alignment = 1
 [node name="PlayButton" type="Button" parent="UI" unique_id=1655830787]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.56
+anchor_top = 0.55
 anchor_right = 0.5
-anchor_bottom = 0.56
+anchor_bottom = 0.55
 offset_left = -110.0
 offset_top = -28.0
 offset_right = 110.0
@@ -59,12 +59,25 @@ offset_bottom = 28.0
 theme_override_font_sizes/font_size = 20
 text = "PLAY"
 
+[node name="CustomizeButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.61
+anchor_right = 0.5
+anchor_bottom = 0.61
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "CUSTOMIZE"
+
 [node name="SettingsButton" type="Button" parent="UI" unique_id=1655830788]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.62
+anchor_top = 0.67
 anchor_right = 0.5
-anchor_bottom = 0.62
+anchor_bottom = 0.67
 offset_left = -110.0
 offset_top = -28.0
 offset_right = 110.0
@@ -75,9 +88,9 @@ text = "SETTINGS"
 [node name="StatisticsButton" type="Button" parent="UI" unique_id=1097067563]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.68
+anchor_top = 0.73
 anchor_right = 0.5
-anchor_bottom = 0.68
+anchor_bottom = 0.73
 offset_left = -110.0
 offset_top = -28.0
 offset_right = 110.0
@@ -86,5 +99,6 @@ theme_override_font_sizes/font_size = 20
 text = "STATISTICS"
 
 [connection signal="pressed" from="UI/PlayButton" to="." method="_on_play_pressed"]
+[connection signal="pressed" from="UI/CustomizeButton" to="." method="_on_customize_pressed"]
 [connection signal="pressed" from="UI/SettingsButton" to="." method="_on_settings_pressed"]
 [connection signal="pressed" from="UI/StatisticsButton" to="." method="_on_statistics_pressed"]

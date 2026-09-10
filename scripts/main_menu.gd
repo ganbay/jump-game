@@ -14,6 +14,10 @@ func _on_play_pressed() -> void:
 	Audio.play_ui_click()
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
+func _on_customize_pressed() -> void:
+	Audio.play_ui_click()
+	get_tree().change_scene_to_file("res://scenes/customization.tscn")
+
 func _on_settings_pressed() -> void:
 	Audio.play_ui_click()
 	get_tree().change_scene_to_file("res://scenes/settings.tscn")
