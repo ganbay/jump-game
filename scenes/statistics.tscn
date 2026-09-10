@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/statistics.gd" id="1_stats"]
 [ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
+[ext_resource type="Script" path="res://scripts/line_graph.gd" id="3_linegraph"]
 
 [sub_resource type="Environment" id="Environment_stats"]
 background_mode = 3
@@ -43,7 +44,7 @@ offset_right = 190.0
 offset_bottom = 36.0
 theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
 theme_override_font_sizes/font_size = 50
-text = "STATISTICS"
+text = "STATS"
 horizontal_alignment = 1
 
 [node name="SummaryLabel" type="Label" parent="UI"]
@@ -62,35 +63,97 @@ text = "GAMES PLAYED 0     AVERAGE SCORE 0     BEST STREAK x0"
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="TopRunsLabel" type="Label" parent="UI"]
+[node name="MetricButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.22
+anchor_top = 0.21
 anchor_right = 0.5
-anchor_bottom = 0.22
+anchor_bottom = 0.21
+offset_left = -230.0
+offset_top = -26.0
+offset_right = -10.0
+offset_bottom = 26.0
+theme_override_font_sizes/font_size = 17
+text = "METRIC: SCORE"
+
+[node name="PeriodButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.21
+anchor_right = 0.5
+anchor_bottom = 0.21
+offset_left = 10.0
+offset_top = -26.0
+offset_right = 230.0
+offset_bottom = 26.0
+theme_override_font_sizes/font_size = 17
+text = "PERIOD: DAILY"
+
+[node name="LineGraph" type="Control" parent="UI"]
+mouse_filter = 2
+script = ExtResource("3_linegraph")
+anchors_preset = -1
+anchor_left = 0.08
+anchor_top = 0.28
+anchor_right = 0.92
+anchor_bottom = 0.72
+
+[node name="MaxValueLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.08
+anchor_top = 0.29
+anchor_right = 0.5
+anchor_bottom = 0.29
+offset_left = 8.0
+offset_top = -12.0
+offset_bottom = 12.0
+theme_override_colors/font_color = Color(1.2, 1.2, 1.2, 1)
+theme_override_font_sizes/font_size = 13
+text = ""
+
+[node name="MidValueLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.08
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 8.0
+offset_top = -12.0
+offset_bottom = 12.0
+theme_override_colors/font_color = Color(1.2, 1.2, 1.2, 1)
+theme_override_font_sizes/font_size = 13
+text = ""
+
+[node name="RangeLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.75
+anchor_right = 0.5
+anchor_bottom = 0.75
+offset_left = -200.0
+offset_top = -14.0
+offset_right = 200.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.2, 1.2, 1.2, 1)
+theme_override_font_sizes/font_size = 15
+text = ""
+horizontal_alignment = 1
+
+[node name="EmptyLabel" type="Label" parent="UI"]
+visible = false
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
 offset_left = -160.0
 offset_top = -16.0
 offset_right = 160.0
 offset_bottom = 16.0
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
-theme_override_font_sizes/font_size = 20
-text = "TOP 10 RUNS"
-horizontal_alignment = 1
-
-[node name="RunsLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.26
-anchor_right = 0.5
-anchor_bottom = 0.87
-offset_left = -320.0
-offset_right = 320.0
-theme_override_colors/font_color = Color(1.8, 1.8, 1.8, 1)
-theme_override_font_sizes/font_size = 16
-theme_override_constants/line_spacing = 10
+theme_override_font_sizes/font_size = 18
 text = "NO RUNS YET"
 horizontal_alignment = 1
-vertical_alignment = 0
 
 [node name="BackButton" type="Button" parent="UI"]
 anchors_preset = -1
@@ -105,4 +168,6 @@ offset_bottom = 28.0
 theme_override_font_sizes/font_size = 20
 text = "BACK"
 
+[connection signal="pressed" from="UI/MetricButton" to="." method="_on_metric_pressed"]
+[connection signal="pressed" from="UI/PeriodButton" to="." method="_on_period_pressed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

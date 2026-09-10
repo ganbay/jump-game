@@ -192,12 +192,26 @@ focus_mode = 0
 theme_override_font_sizes/font_size = 20
 text = "CONTROLS: TOUCH"
 
-[node name="MenuButton" type="Button" parent="UI/PausePanel" unique_id=1109345400]
+[node name="MusicButton" type="Button" parent="UI/PausePanel" unique_id=1109345402]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.58
 anchor_right = 0.5
 anchor_bottom = 0.58
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+focus_mode = 0
+theme_override_font_sizes/font_size = 20
+text = "MUSIC: ON"
+
+[node name="MenuButton" type="Button" parent="UI/PausePanel" unique_id=1109345400]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.64
+anchor_right = 0.5
+anchor_bottom = 0.64
 offset_left = -110.0
 offset_top = -28.0
 offset_right = 110.0
@@ -361,6 +375,7 @@ text = "END RUN"
 [connection signal="pressed" from="UI/PauseButton" to="." method="_on_pause_pressed"]
 [connection signal="pressed" from="UI/PausePanel/ResumeButton" to="." method="_on_resume_pressed"]
 [connection signal="pressed" from="UI/PausePanel/ControlsButton" to="." method="_on_controls_pressed"]
+[connection signal="pressed" from="UI/PausePanel/MusicButton" to="." method="_on_music_pressed"]
 [connection signal="pressed" from="UI/PausePanel/MenuButton" to="." method="_on_menu_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/RestartButton" to="." method="_on_restart_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/GameOverMenuButton" to="." method="_on_menu_pressed"]

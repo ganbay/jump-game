@@ -132,9 +132,18 @@ func begin(camera: Camera2D, player: CharacterBody2D) -> void:
 	set_process(true)
 	_apply(0.0)
 
+## Fast-forwards through the rest of the cinematic instead of cutting straight
+## to the end state -- _apply(t) already supports evaluating any moment
+## directly, so animating t up to total_time() is a smooth zoom-ahead rather
+## than a jarring jump.
 func skip() -> void:
-	if _running:
-		_finish()
+	if not _running:
+		return
+	_running = false
+	set_process(false)
+	var tw := create_tween()
+	tw.tween_method(_apply, _t, total_time(), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(_finish)
 
 func _process(delta: float) -> void:
 	_t += delta

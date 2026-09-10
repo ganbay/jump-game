@@ -89,6 +89,32 @@ offset_bottom = 28.0
 theme_override_font_sizes/font_size = 20
 text = "CONTROLS: TOUCH"
 
+[node name="MusicButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.62
+anchor_right = 0.5
+anchor_bottom = 0.62
+offset_left = -130.0
+offset_top = -28.0
+offset_right = 130.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "MUSIC: ON"
+
+[node name="HapticsButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.72
+anchor_right = 0.5
+anchor_bottom = 0.72
+offset_left = -130.0
+offset_top = -28.0
+offset_right = 130.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "HAPTICS: ON"
+
 [node name="BackButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
@@ -104,4 +130,6 @@ text = "BACK"
 
 [connection signal="value_changed" from="UI/GlowSlider" to="." method="_on_glow_slider_value_changed"]
 [connection signal="pressed" from="UI/ControlsButton" to="." method="_on_controls_pressed"]
+[connection signal="pressed" from="UI/MusicButton" to="." method="_on_music_pressed"]
+[connection signal="pressed" from="UI/HapticsButton" to="." method="_on_haptics_pressed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://scripts/rounded_rect.gd" id="2_rounded"]
 [ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
 [ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="4_plasma"]
+[ext_resource type="Script" path="res://scripts/color_spectrum_slider.gd" id="5_colorslider"]
 
 [sub_resource type="Environment" id="Environment_custom"]
 background_mode = 3
@@ -156,7 +157,8 @@ theme_override_font_sizes/font_size = 16
 text = "CHARACTER"
 horizontal_alignment = 2
 
-[node name="PlayerPicker" type="ColorPickerButton" parent="UI"]
+[node name="PlayerSlider" type="Control" parent="UI"]
+script = ExtResource("5_colorslider")
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.44
@@ -195,7 +197,8 @@ theme_override_font_sizes/font_size = 16
 text = "PLATFORM"
 horizontal_alignment = 2
 
-[node name="PlatformPicker" type="ColorPickerButton" parent="UI"]
+[node name="PlatformSlider" type="Control" parent="UI"]
+script = ExtResource("5_colorslider")
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.58
@@ -234,7 +237,8 @@ theme_override_font_sizes/font_size = 16
 text = "DRIFT"
 horizontal_alignment = 2
 
-[node name="ParticlePicker" type="ColorPickerButton" parent="UI"]
+[node name="ParticleSlider" type="Control" parent="UI"]
+script = ExtResource("5_colorslider")
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.72
@@ -261,9 +265,9 @@ text = "BACK"
 [connection signal="gui_input" from="UI/SwipeArea" to="." method="_on_swipe_gui_input"]
 [connection signal="pressed" from="UI/PrevButton" to="." method="_on_prev_pressed"]
 [connection signal="pressed" from="UI/NextButton" to="." method="_on_next_pressed"]
-[connection signal="color_changed" from="UI/PlayerPicker" to="." method="_on_player_picker_color_changed"]
+[connection signal="color_changed" from="UI/PlayerSlider" to="." method="_on_player_slider_color_changed"]
 [connection signal="toggled" from="UI/TrailCheck" to="." method="_on_trail_check_toggled"]
-[connection signal="color_changed" from="UI/PlatformPicker" to="." method="_on_platform_picker_color_changed"]
+[connection signal="color_changed" from="UI/PlatformSlider" to="." method="_on_platform_slider_color_changed"]
 [connection signal="toggled" from="UI/ParticlesCheck" to="." method="_on_particles_check_toggled"]
-[connection signal="color_changed" from="UI/ParticlePicker" to="." method="_on_particle_picker_color_changed"]
+[connection signal="color_changed" from="UI/ParticleSlider" to="." method="_on_particle_slider_color_changed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

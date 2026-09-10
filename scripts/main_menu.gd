@@ -12,16 +12,23 @@ func _apply_visual_settings() -> void:
 
 func _on_play_pressed() -> void:
 	Audio.play_ui_click()
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	if Stats.tutorial_seen:
+		Transition.change_scene("res://scenes/main.tscn")
+	else:
+		Transition.change_scene("res://scenes/guide.tscn")
+
+func _on_guide_pressed() -> void:
+	Audio.play_ui_click()
+	Transition.change_scene("res://scenes/guide.tscn")
 
 func _on_customize_pressed() -> void:
 	Audio.play_ui_click()
-	get_tree().change_scene_to_file("res://scenes/customization.tscn")
+	Transition.change_scene("res://scenes/customization.tscn")
 
 func _on_settings_pressed() -> void:
 	Audio.play_ui_click()
-	get_tree().change_scene_to_file("res://scenes/settings.tscn")
+	Transition.change_scene("res://scenes/settings.tscn")
 
 func _on_statistics_pressed() -> void:
 	Audio.play_ui_click()
-	get_tree().change_scene_to_file("res://scenes/statistics.tscn")
+	Transition.change_scene("res://scenes/statistics.tscn")

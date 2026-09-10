@@ -23,9 +23,9 @@ const DOT_RADIUS := 4.5
 @onready var preview: PlasmaBlob = $UI/PreviewAnchor/CharacterPreview
 @onready var platform_swatch: RoundedRect = $UI/PlatformSwatchAnchor/PlatformSwatch
 @onready var name_label: Label = $UI/CharacterName
-@onready var player_picker: ColorPickerButton = $UI/PlayerPicker
-@onready var platform_picker: ColorPickerButton = $UI/PlatformPicker
-@onready var particle_picker: ColorPickerButton = $UI/ParticlePicker
+@onready var player_slider: ColorSpectrumSlider = $UI/PlayerSlider
+@onready var platform_slider: ColorSpectrumSlider = $UI/PlatformSlider
+@onready var particle_slider: ColorSpectrumSlider = $UI/ParticleSlider
 @onready var trail_check: CheckButton = $UI/TrailCheck
 @onready var particles_check: CheckButton = $UI/ParticlesCheck
 
@@ -36,31 +36,17 @@ var _slide_tween: Tween
 
 func _ready() -> void:
 	_preview_home = preview.position
-	player_picker.color = Settings.player_color
-	platform_picker.color = Settings.platform_color
-	particle_picker.color = Settings.background_particle_color
+	player_slider.value = Settings.player_color_slider
+	platform_slider.value = Settings.platform_color_slider
+	particle_slider.value = Settings.particle_color_slider
 	# set_pressed_no_signal, not button_pressed: assigning the property emits
 	# `toggled`, and the .tscn wires that up before _ready runs -- so seeding
 	# the boxes from Settings would fire both handlers, clicking twice and
 	# writing the config back on every visit to this screen.
 	trail_check.set_pressed_no_signal(Settings.trail_enabled)
 	particles_check.set_pressed_no_signal(Settings.background_particles)
-	for picker in [player_picker, platform_picker, particle_picker]:
-		_make_picker_opaque(picker)
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
-
-## A ColorPickerButton's popup takes the default translucent panel, which over
-## a screen this busy reads as the rows behind it bleeding through the palette.
-## Giving the popup an opaque panel of its own is what separates the two.
-func _make_picker_opaque(picker: ColorPickerButton) -> void:
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color(0.05, 0.06, 0.08)
-	box.border_color = Color(0.3, 0.45, 0.55)
-	box.set_border_width_all(2)
-	box.set_corner_radius_all(6)
-	box.set_content_margin_all(10)
-	picker.get_popup().add_theme_stylebox_override("panel", box)
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
@@ -133,14 +119,14 @@ func _on_prev_pressed() -> void:
 func _on_next_pressed() -> void:
 	_step(1)
 
-func _on_player_picker_color_changed(color: Color) -> void:
-	Settings.set_player_color(color)
+func _on_player_slider_color_changed(color: Color) -> void:
+	Settings.set_player_color(color, player_slider.value)
 
-func _on_platform_picker_color_changed(color: Color) -> void:
-	Settings.set_platform_color(color)
+func _on_platform_slider_color_changed(color: Color) -> void:
+	Settings.set_platform_color(color, platform_slider.value)
 
-func _on_particle_picker_color_changed(color: Color) -> void:
-	Settings.set_background_particle_color(color)
+func _on_particle_slider_color_changed(color: Color) -> void:
+	Settings.set_background_particle_color(color, particle_slider.value)
 
 func _on_trail_check_toggled(pressed: bool) -> void:
 	Audio.play_ui_click()
@@ -152,4 +138,4 @@ func _on_particles_check_toggled(pressed: bool) -> void:
 
 func _on_back_pressed() -> void:
 	Audio.play_ui_click()
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	Transition.change_scene("res://scenes/main_menu.tscn")

@@ -43,6 +43,9 @@ var _streak_tier := -1
 var _drum_started := false
 var _bar_length := 0.0
 var _layer_tweens: Dictionary = {}
+## Music runs on its own bus so muting it can't fight the volume_db fade
+## tweens the layers already use for streak/menu transitions.
+var _music_bus_idx := -1
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -50,18 +53,26 @@ func _ready() -> void:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		_sfx_pool.append(p)
+	_music_bus_idx = AudioServer.get_bus_index("Music")
 	_lead_player = _make_music_player(null)
 	_drum_player = _make_music_player(null)
 	_menu_player = _make_music_player(MUSIC_MENU)
 	_lead_player.finished.connect(func(): _lead_player.play(0.0))
 	_drum_player.finished.connect(func(): _drum_player.play(0.0))
 	_menu_player.finished.connect(func(): _menu_player.play(0.0))
+	Settings.music_muted_changed.connect(_apply_music_mute)
+	_apply_music_mute(Settings.music_muted)
 
 func _make_music_player(stream: AudioStream) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
 	p.stream = stream
+	p.bus = "Music"
 	add_child(p)
 	return p
+
+func _apply_music_mute(muted: bool) -> void:
+	if _music_bus_idx >= 0:
+		AudioServer.set_bus_mute(_music_bus_idx, muted)
 
 func _play_sfx(stream: AudioStream, volume_db: float = 0.0) -> void:
 	var p := _sfx_pool[_sfx_next]
@@ -72,6 +83,13 @@ func _play_sfx(stream: AudioStream, volume_db: float = 0.0) -> void:
 
 func play_ui_click() -> void:
 	_play_sfx(SFX_UI_CLICK, -4.0)
+	vibrate(12)
+
+## A no-op on desktop/web; Input.vibrate_handheld only does anything on
+## Android/iOS, so callers don't need to check platform themselves.
+func vibrate(duration_ms: int = 20) -> void:
+	if Settings.haptics_enabled:
+		Input.vibrate_handheld(duration_ms)
 
 func play_menu_music() -> void:
 	_stop_gameplay_music()

@@ -1,0 +1,269 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/guide.gd" id="1_guide"]
+[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
+[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="3_platform"]
+
+[sub_resource type="Environment" id="Environment_guide"]
+background_mode = 3
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 0.7
+glow_bloom = 0.05
+glow_blend_mode = 0
+
+[node name="GuideMenu" type="Node2D"]
+script = ExtResource("1_guide")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_guide")
+
+[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="Background" type="ColorRect" parent="BackgroundLayer"]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 1)
+
+[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("2_bgparticles")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="TitleLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.04
+anchor_right = 0.5
+anchor_bottom = 0.04
+offset_left = -190.0
+offset_top = -36.0
+offset_right = 190.0
+offset_bottom = 36.0
+theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
+theme_override_font_sizes/font_size = 44
+text = "HOW TO PLAY"
+horizontal_alignment = 1
+
+[node name="IntroLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.115
+anchor_right = 0.5
+anchor_bottom = 0.115
+offset_left = -320.0
+offset_top = -46.0
+offset_right = 320.0
+offset_bottom = 46.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_constants/line_spacing = 4
+text = "Drag or tilt to steer while you fall. Land on a platform to bounce. Time a single tap right as you land to boost the jump and build your streak."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="NormalIcon" parent="UI" instance=ExtResource("3_platform")]
+position = Vector2(100, 307)
+width = 64.0
+
+[node name="NormalNameLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.24
+anchor_right = 1.0
+anchor_bottom = 0.24
+offset_left = 170.0
+offset_top = -34.0
+offset_right = -40.0
+offset_bottom = -8.0
+theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
+theme_override_font_sizes/font_size = 19
+text = "NORMAL"
+
+[node name="NormalDescLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.24
+anchor_right = 1.0
+anchor_bottom = 0.24
+offset_left = 170.0
+offset_top = -6.0
+offset_right = -40.0
+offset_bottom = 44.0
+theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_constants/line_spacing = 2
+text = "A plain platform. Land on it to bounce and keep climbing."
+autowrap_mode = 2
+
+[node name="DriftIcon" parent="UI" instance=ExtResource("3_platform")]
+position = Vector2(100, 474)
+width = 64.0
+attributes = 2
+move_v_distance = 40.0
+
+[node name="DriftNameLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.37
+anchor_right = 1.0
+anchor_bottom = 0.37
+offset_left = 170.0
+offset_top = -34.0
+offset_right = -40.0
+offset_bottom = -8.0
+theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
+theme_override_font_sizes/font_size = 19
+text = "DRIFT"
+
+[node name="DriftDescLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.37
+anchor_right = 1.0
+anchor_bottom = 0.37
+offset_left = 170.0
+offset_top = -6.0
+offset_right = -40.0
+offset_bottom = 44.0
+theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_constants/line_spacing = 2
+text = "Slides back and forth, or up and down. Lead your jump to land on it."
+autowrap_mode = 2
+
+[node name="GlassIcon" parent="UI" instance=ExtResource("3_platform")]
+position = Vector2(100, 640)
+width = 64.0
+attributes = 4
+
+[node name="GlassNameLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = 170.0
+offset_top = -34.0
+offset_right = -40.0
+offset_bottom = -8.0
+theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
+theme_override_font_sizes/font_size = 19
+text = "GLASS"
+
+[node name="GlassDescLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = 170.0
+offset_top = -6.0
+offset_right = -40.0
+offset_bottom = 44.0
+theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_constants/line_spacing = 2
+text = "See-through and fragile. It shatters right after you land, so it only holds once."
+autowrap_mode = 2
+
+[node name="PhantomIcon" parent="UI" instance=ExtResource("3_platform")]
+position = Vector2(100, 806)
+width = 64.0
+attributes = 8
+
+[node name="PhantomNameLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.63
+anchor_right = 1.0
+anchor_bottom = 0.63
+offset_left = 170.0
+offset_top = -34.0
+offset_right = -40.0
+offset_bottom = -8.0
+theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
+theme_override_font_sizes/font_size = 19
+text = "PHANTOM"
+
+[node name="PhantomDescLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.63
+anchor_right = 1.0
+anchor_bottom = 0.63
+offset_left = 170.0
+offset_top = -6.0
+offset_right = -40.0
+offset_bottom = 44.0
+theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_constants/line_spacing = 2
+text = "Blinks in and out of view. Track its rhythm and jump from memory."
+autowrap_mode = 2
+
+[node name="SquishIcon" parent="UI" instance=ExtResource("3_platform")]
+position = Vector2(100, 973)
+width = 64.0
+attributes = 16
+
+[node name="SquishNameLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.76
+anchor_right = 1.0
+anchor_bottom = 0.76
+offset_left = 170.0
+offset_top = -34.0
+offset_right = -40.0
+offset_bottom = -8.0
+theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
+theme_override_font_sizes/font_size = 19
+text = "SQUISH"
+
+[node name="SquishDescLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.76
+anchor_right = 1.0
+anchor_bottom = 0.76
+offset_left = 170.0
+offset_top = -6.0
+offset_right = -40.0
+offset_bottom = 44.0
+theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
+theme_override_font_sizes/font_size = 14
+theme_override_constants/line_spacing = 2
+text = "A bouncy cushion. A timed landing launches you extra high, but a mistimed one barely bounces you at all."
+autowrap_mode = 2
+
+[node name="PlayButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.88
+anchor_right = 0.5
+anchor_bottom = 0.88
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "PLAY"
+
+[node name="BackButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.95
+anchor_right = 0.5
+anchor_bottom = 0.95
+offset_left = -110.0
+offset_top = -28.0
+offset_right = 110.0
+offset_bottom = 28.0
+theme_override_font_sizes/font_size = 20
+text = "BACK"
+
+[connection signal="pressed" from="UI/PlayButton" to="." method="_on_play_pressed"]
+[connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

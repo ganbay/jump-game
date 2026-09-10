@@ -11,6 +11,7 @@ extends Node2D
 @onready var pause_panel: Control = $UI/PausePanel
 @onready var pause_button: Button = $UI/PauseButton
 @onready var controls_button: Button = $UI/PausePanel/ControlsButton
+@onready var music_button: Button = $UI/PausePanel/MusicButton
 @onready var intro: IntroSequence = $IntroSequence
 @onready var spawner: Node2D = $PlatformSpawner
 @onready var zones: ZoneDirector = $ZoneDirector
@@ -141,6 +142,7 @@ func _ready() -> void:
 	for node in _hud_nodes:
 		_hud_home.append(node.position)
 	_update_controls_label()
+	_update_music_label()
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 	Audio.play_music()
@@ -217,12 +219,33 @@ func _on_resume_pressed() -> void:
 func _toggle_pause() -> void:
 	is_paused = not is_paused
 	get_tree().paused = is_paused
-	pause_panel.visible = is_paused
 	_set_hud_visible(not is_paused)
 	if is_paused:
 		Audio.fade_to_menu_music()
+		_show_pause_panel()
 	else:
 		Audio.fade_to_gameplay_music()
+		_hide_pause_panel()
+
+## Pops the panel in from slightly small and transparent rather than snapping
+## it on -- TWEEN_PAUSE_PROCESS is required here since get_tree().paused is
+## already true by the time this tween is created.
+func _show_pause_panel() -> void:
+	pause_panel.pivot_offset = pause_panel.size / 2.0
+	pause_panel.modulate.a = 0.0
+	pause_panel.scale = Vector2(0.92, 0.92)
+	pause_panel.visible = true
+	var tw := create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_property(pause_panel, "modulate:a", 1.0, 0.18)
+	tw.parallel().tween_property(pause_panel, "scale", Vector2.ONE, 0.22) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _hide_pause_panel() -> void:
+	var tw := create_tween()
+	tw.tween_property(pause_panel, "modulate:a", 0.0, 0.14)
+	tw.parallel().tween_property(pause_panel, "scale", Vector2(0.94, 0.94), 0.14)
+	tw.tween_callback(func(): pause_panel.visible = false)
 
 func _set_hud_visible(shown: bool) -> void:
 	for node in _hud_nodes:
@@ -236,10 +259,18 @@ func _on_controls_pressed() -> void:
 func _update_controls_label() -> void:
 	controls_button.text = "CONTROLS: %s" % Settings.control_scheme_name()
 
+func _on_music_pressed() -> void:
+	Audio.play_ui_click()
+	Settings.toggle_music_muted()
+	_update_music_label()
+
+func _update_music_label() -> void:
+	music_button.text = "MUSIC: OFF" if Settings.music_muted else "MUSIC: ON"
+
 func _on_menu_pressed() -> void:
 	Audio.play_ui_click()
 	get_tree().paused = false
-	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	Transition.change_scene("res://scenes/main_menu.tscn")
 
 func _load_high_score() -> void:
 	var cfg := ConfigFile.new()
@@ -304,6 +335,7 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 	_grow_to(score_label, 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP))
 	if broke:
 		_show_streak_message("FAILED", STREAK_FAIL_COLOR)
+		Audio.vibrate(30)
 	# Only a landing that actually extends the streak punches the counter --
 	# ordinary jumps leave it sitting still.
 	elif boosted and streak > 1:
@@ -314,6 +346,7 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 		_camera_punch()
 		_glow_pulse(Settings.glow_strength + PUNCH_GLOW_BONUS)
 		_vibrate(score_label, _score_base_position)
+		Audio.vibrate(18)
 
 ## Snaps the counter up and shakes it, then lets it spring back to normal size
 ## so the next streak has somewhere to punch from.
@@ -437,6 +470,7 @@ func _on_milestone_end_pressed() -> void:
 func _game_over() -> void:
 	is_game_over = true
 	Audio.fade_to_menu_music()
+	Audio.vibrate(60)
 	if score > high_score:
 		high_score = score
 		_save_high_score()
@@ -444,10 +478,24 @@ func _game_over() -> void:
 	best_label.text = "BEST %d" % high_score
 	result_label.text = "SCORE %d   BEST %d" % [score, high_score]
 	_set_hud_visible(false)
-	game_over_panel.show()
 	get_tree().paused = true
+	_show_game_over_panel()
+
+## A short beat before the panel pops in, so the death itself has a moment to
+## read before the UI arrives on top of it.
+func _show_game_over_panel() -> void:
+	game_over_panel.pivot_offset = game_over_panel.size / 2.0
+	game_over_panel.modulate.a = 0.0
+	game_over_panel.scale = Vector2(0.85, 0.85)
+	game_over_panel.visible = true
+	var tw := create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_interval(0.15)
+	tw.tween_property(game_over_panel, "modulate:a", 1.0, 0.22)
+	tw.parallel().tween_property(game_over_panel, "scale", Vector2.ONE, 0.32) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _on_restart_pressed() -> void:
 	Audio.play_ui_click()
 	get_tree().paused = false
-	get_tree().reload_current_scene()
+	Transition.reload_scene()

@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="JUMP"
+config/name="Jetlet: Solar Escape"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
@@ -21,7 +21,12 @@ config/icon="res://icon.svg"
 Settings="*res://scripts/settings.gd"
 Stats="*res://scripts/stats.gd"
 Audio="*res://scripts/audio.gd"
+Transition="*res://scripts/transition.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+
+[audio]
+
+buses/default_bus_layout="res://default_bus_layout.tres"
 
 [display]
 

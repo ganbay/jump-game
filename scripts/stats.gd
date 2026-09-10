@@ -1,7 +1,9 @@
 extends Node
 
 const SAVE_PATH := "user://stats.cfg"
-const TOP_RUNS_MAX := 10
+## Kept chronological (not a leaderboard) so the stats screen can bucket it by
+## day/week/month -- capped so the save file doesn't grow forever.
+const RUN_HISTORY_MAX := 500
 
 var runs: Array = []
 var games_played: int = 0
@@ -11,6 +13,7 @@ var best_streak_ever: int = 0
 ## escape from Solar gravity, and clearing every zone combination after it.
 var escaped: bool = false
 var true_ending: bool = false
+var tutorial_seen: bool = false
 
 func _ready() -> void:
 	var cfg := ConfigFile.new()
@@ -21,6 +24,7 @@ func _ready() -> void:
 		best_streak_ever = cfg.get_value("stats", "best_streak_ever", 0)
 		escaped = cfg.get_value("stats", "escaped", false)
 		true_ending = cfg.get_value("stats", "true_ending", false)
+		tutorial_seen = cfg.get_value("stats", "tutorial_seen", false)
 
 func record_run(score: int, max_streak: int) -> void:
 	games_played += 1
@@ -29,11 +33,10 @@ func record_run(score: int, max_streak: int) -> void:
 	runs.append({
 		"score": score,
 		"max_streak": max_streak,
-		"date": Time.get_date_string_from_system(),
+		"timestamp": Time.get_unix_time_from_system(),
 	})
-	runs.sort_custom(func(a, b): return a["score"] > b["score"])
-	if runs.size() > TOP_RUNS_MAX:
-		runs.resize(TOP_RUNS_MAX)
+	if runs.size() > RUN_HISTORY_MAX:
+		runs = runs.slice(runs.size() - RUN_HISTORY_MAX)
 	_save()
 
 func mark_escaped() -> void:
@@ -48,6 +51,12 @@ func mark_true_ending() -> void:
 	true_ending = true
 	_save()
 
+func mark_tutorial_seen() -> void:
+	if tutorial_seen:
+		return
+	tutorial_seen = true
+	_save()
+
 func average_score() -> float:
 	return float(total_score) / games_played if games_played > 0 else 0.0
 
@@ -59,4 +68,5 @@ func _save() -> void:
 	cfg.set_value("stats", "best_streak_ever", best_streak_ever)
 	cfg.set_value("stats", "escaped", escaped)
 	cfg.set_value("stats", "true_ending", true_ending)
+	cfg.set_value("stats", "tutorial_seen", tutorial_seen)
 	cfg.save(SAVE_PATH)
