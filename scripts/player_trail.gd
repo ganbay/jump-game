@@ -26,7 +26,7 @@ class_name PlayerTrail
 var color: Color = Color.WHITE
 ## Fragments are drawn as this silhouette (see PlasmaBlob.Shape) instead of a
 ## plain circle, so a shape skin sheds little copies of its own body. CIRCLE
-## draws exactly as before -- BLOB and PLASMA are unaffected.
+## draws exactly as before -- the round PLASMA skin is unaffected.
 var shape: PlasmaBlob.Shape = PlasmaBlob.Shape.CIRCLE
 
 var _pos: PackedVector2Array = PackedVector2Array()

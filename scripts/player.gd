@@ -3,24 +3,30 @@ class_name Player
 
 signal landed(platform, boosted, streak)
 
-## Selectable character visuals. BLOB is the original solid rounded body;
-## everything else is the PlasmaBlob cell (see plasma_blob.gd) in a different
-## Shape -- same churn, glow, and squishier physics, just a different
-## silhouette. New entries must be appended at the end -- Settings persists
-## this enum as a raw int.
-enum SkinType { BLOB, PLASMA, TRIANGLE, SQUARE, PRISM, STAR }
+## Selectable character visuals. Every one is the PlasmaBlob cell (see
+## plasma_blob.gd) in a different Shape -- same churn, glow and squishy physics,
+## just a different silhouette.
+##
+## Settings persists this enum as a raw int, so an entry may be swapped in
+## place (DOME took the retired solid-body skin's slot, which is why an old
+## save opens on DOME) but never inserted or reordered; new ones go on the end.
+enum SkinType { DOME, PLASMA, TRIANGLE, SQUARE, PRISM, STAR, HEART, FLAME, SPARKLE }
 
 ## Display names for the settings menu, indexed by SkinType.
-const SKIN_NAMES := ["BLOB", "PLASMA", "TRIANGLE", "SQUARE", "PRISM", "STAR"]
+const SKIN_NAMES := ["DOME", "PLASMA", "TRIANGLE", "SQUARE", "PRISM", "STAR",
+	"HEART", "FLAME", "SPARKLE"]
 
-## Maps every plasma-family skin to the PlasmaBlob.Shape it draws. BLOB isn't
-## here -- it never uses plasma_visual at all.
+## The PlasmaBlob.Shape each skin draws.
 const SKIN_SHAPES := {
+	SkinType.DOME: PlasmaBlob.Shape.DOME,
 	SkinType.PLASMA: PlasmaBlob.Shape.CIRCLE,
 	SkinType.TRIANGLE: PlasmaBlob.Shape.TRIANGLE,
 	SkinType.SQUARE: PlasmaBlob.Shape.SQUARE,
 	SkinType.PRISM: PlasmaBlob.Shape.PRISM,
 	SkinType.STAR: PlasmaBlob.Shape.STAR,
+	SkinType.HEART: PlasmaBlob.Shape.HEART,
+	SkinType.FLAME: PlasmaBlob.Shape.FLAME,
+	SkinType.SPARKLE: PlasmaBlob.Shape.SPARKLE,
 }
 
 @export var move_speed: float = 900.0
@@ -54,10 +60,9 @@ const SKIN_SHAPES := {
 @export var squash_deform: float = 0.55
 
 @export_group("Plasma Squish")
-## The plasma cell is a fluid blob, not a solid body: it deforms further and
-## keeps jiggling longer after impact. These scale the base Squash & Stretch
-## values above when the PLASMA skin is active, so tuning the base still
-## drives both skins.
+## The plasma cell is a fluid body: it deforms further and keeps jiggling
+## longer after impact than a solid one would. These scale the base Squash &
+## Stretch values above.
 @export var plasma_stiffness_scale: float = 0.68
 @export var plasma_damping_scale: float = 0.5
 @export var plasma_deform_scale: float = 1
@@ -76,12 +81,6 @@ var _viewport_width: float = 720.0
 var _squash: float = 0.0
 var _squash_vel: float = 0.0
 var _lean: float = 0.0
-## Spring coefficients for the active skin, resolved in _apply_visual_settings.
-var _k_stiffness: float = 1.0
-var _k_damping: float = 1.0
-var _k_deform: float = 1.0
-var _k_impulse: float = 1.0
-
 const FEET_HALF_WIDTH := 20.0
 const FEET_HALF_HEIGHT := 5.0
 const PLATFORM_HALF_WIDTH := 45.0
@@ -90,13 +89,8 @@ const PLATFORM_HALF_HEIGHT := 6.0
 const COLOR := Color(0.66295815, 2.299754, 0.0, 1.0)
 
 @onready var feet: Area2D = $Feet
-@onready var blob_visual: Node2D = $Visual
-@onready var plasma_visual: PlasmaBlob = $PlasmaVisual
+@onready var visual: PlasmaBlob = $PlasmaVisual
 @onready var trail: PlayerTrail = $Trail
-
-## The currently active skin node; whichever one is visible.
-var visual: Node2D
-var _skin: SkinType = SkinType.BLOB
 
 func _ready() -> void:
 	add_to_group("player")
@@ -107,32 +101,13 @@ func _ready() -> void:
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 
 func _apply_visual_settings() -> void:
-	_skin = Settings.player_skin
-	var use_plasma := _skin != SkinType.BLOB
-	if visual != null and use_plasma != (visual == plasma_visual):
-		# _process only drives the active skin, so neutralise the one we are
-		# leaving or it stays frozen mid-deformation and pops on the way back.
-		for node in [blob_visual, plasma_visual]:
-			node.scale = Vector2.ONE
-			node.rotation = 0.0
-		_squash = 0.0
-		_squash_vel = 0.0
-		_lean = 0.0
-	blob_visual.visible = not use_plasma
-	plasma_visual.visible = use_plasma
-	plasma_visual.set_process(use_plasma)
-	visual = plasma_visual if use_plasma else blob_visual
-	if use_plasma:
-		plasma_visual.shape = SKIN_SHAPES.get(_skin, PlasmaBlob.Shape.CIRCLE)
-	blob_visual.color = Settings.player_color
-	plasma_visual.color = Settings.player_color
+	var shape: PlasmaBlob.Shape = SKIN_SHAPES.get(
+		Settings.player_skin, PlasmaBlob.Shape.DOME)
+	visual.shape = shape
+	visual.color = Settings.player_color
 	trail.color = Settings.player_color
-	trail.shape = SKIN_SHAPES.get(_skin, PlasmaBlob.Shape.CIRCLE)
+	trail.shape = shape
 	trail.set_enabled(Settings.trail_enabled)
-	_k_stiffness = plasma_stiffness_scale if use_plasma else 1.0
-	_k_damping = plasma_damping_scale if use_plasma else 1.0
-	_k_deform = plasma_deform_scale if use_plasma else 1.0
-	_k_impulse = plasma_impulse_scale if use_plasma else 1.0
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -246,7 +221,7 @@ func _boosted_jump_velocity() -> float:
 func _play_squash(boosted: bool) -> void:
 	# An impact is instantaneous, so set the compression directly and let the
 	# spring in _process resolve it.
-	_squash = (boost_land_impulse if boosted else land_impulse) * _k_impulse
+	_squash = (boost_land_impulse if boosted else land_impulse) * plasma_impulse_scale
 	_squash_vel = 0.0
 
 ## Visual-only, so it runs at render rate rather than the physics tick.
@@ -255,15 +230,15 @@ func _process(delta: float) -> void:
 	# stability limit and make the shape explode.
 	var d := minf(delta, 0.05)
 	# Damped spring pulling the impact squash back to neutral.
-	_squash_vel += (-squash_stiffness * _k_stiffness * _squash
-		- squash_damping * _k_damping * _squash_vel) * d
+	_squash_vel += (-squash_stiffness * plasma_stiffness_scale * _squash
+		- squash_damping * plasma_damping_scale * _squash_vel) * d
 	_squash += _squash_vel * d
 
 	# Continuous stretch from vertical speed, in either direction: this is what
 	# keeps the shape alive during the airtime the old tween left frozen.
 	var speed_stretch := clampf(absf(velocity.y) * stretch_per_speed, 0.0, max_stretch)
 
-	var deform := squash_deform * _k_deform
+	var deform := squash_deform * plasma_deform_scale
 	visual.scale = Vector2(
 		maxf(1.0 + _squash * deform - speed_stretch * 0.5, 0.2),
 		maxf(1.0 - _squash * deform + speed_stretch, 0.2)

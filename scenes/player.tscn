@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://bjlj7sie3pqmh"]
 
 [ext_resource type="Script" uid="uid://6g1ds4hf4xbp" path="res://scripts/player.gd" id="1_player"]
-[ext_resource type="Script" uid="uid://ct2nui0gw0yg2" path="res://scripts/rounded_rect.gd" id="2_rounded"]
 [ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="3_plasma"]
 [ext_resource type="Script" uid="uid://cr2kcpfkt4a4v" path="res://scripts/player_trail.gd" id="4_trail"]
 
@@ -15,18 +14,7 @@ size = Vector2(40, 10)
 z_index = 10
 script = ExtResource("1_player")
 
-[node name="Visual" type="Node2D" parent="." unique_id=441133519]
-position = Vector2(0, 17)
-script = ExtResource("2_rounded")
-rect_size = Vector2(52, 34)
-color = Color(0.66295815, 2.299754, 0, 1)
-corner_radius = 13.0
-taper = 0.35
-anchor_bottom = true
-shine = true
-
 [node name="PlasmaVisual" type="Node2D" parent="." unique_id=773536638]
-visible = false
 position = Vector2(0, 17)
 script = ExtResource("3_plasma")
 color = Color(0.66295815, 2.299754, 0, 1)

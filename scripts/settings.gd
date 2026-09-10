@@ -24,7 +24,7 @@ var player_color: Color = Player.COLOR
 var platform_color: Color = Platform.BASE_COLOR
 var background_fx: BackgroundFxMode = BackgroundFxMode.MULTI
 var background_particle_color: Color = Color(0.3, 1.8, 2.4)
-var player_skin: Player.SkinType = Player.SkinType.BLOB
+var player_skin: Player.SkinType = Player.SkinType.DOME
 var trail_enabled: bool = true
 
 func _ready() -> void:
@@ -39,7 +39,7 @@ func _ready() -> void:
 		platform_color = cfg.get_value("visual", "platform_color", legacy)
 		background_fx = cfg.get_value("visual", "background_fx", BackgroundFxMode.MULTI) as BackgroundFxMode
 		background_particle_color = cfg.get_value("visual", "background_particle_color", background_particle_color)
-		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.BLOB) as Player.SkinType
+		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.DOME) as Player.SkinType
 		trail_enabled = cfg.get_value("visual", "trail_enabled", true)
 
 func set_control_scheme(scheme: ControlScheme) -> void:

@@ -6,7 +6,6 @@ extends Node2D
 @onready var bg_fx_button: Button = $UI/BgFxButton
 @onready var bg_color_swatch: RoundedRect = $BgColorSwatch
 @onready var bg_color_picker: ColorPickerButton = $UI/BgColorPicker
-@onready var player_swatch: RoundedRect = $PlayerSwatch
 @onready var plasma_swatch: PlasmaBlob = $PlasmaSwatch
 @onready var character_button: Button = $UI/CharacterButton
 @onready var trail_button: Button = $UI/TrailButton
@@ -30,13 +29,8 @@ func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
 	# The swatch previews whichever skin is selected, so the character toggle
 	# can be judged here rather than by starting a run.
-	var use_plasma := Settings.player_skin != Player.SkinType.BLOB
-	player_swatch.visible = not use_plasma
-	plasma_swatch.visible = use_plasma
-	plasma_swatch.set_process(use_plasma)
-	if use_plasma:
-		plasma_swatch.shape = Player.SKIN_SHAPES.get(Settings.player_skin, PlasmaBlob.Shape.CIRCLE)
-	player_swatch.color = Settings.player_color
+	plasma_swatch.shape = Player.SKIN_SHAPES.get(
+		Settings.player_skin, PlasmaBlob.Shape.DOME)
 	plasma_swatch.color = Settings.player_color
 	platform_swatch.color = Settings.platform_color
 	bg_color_swatch.color = Settings.background_particle_color

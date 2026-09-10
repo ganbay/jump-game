@@ -31,18 +31,7 @@ color = Color(0, 0, 0, 1)
 
 [node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("3_bgparticles")]
 
-[node name="PlayerSwatch" type="Node2D" parent="."]
-position = Vector2(360, 333)
-script = ExtResource("2_rounded")
-rect_size = Vector2(36, 24)
-color = Color(0.66295815, 2.299754, 0, 1)
-corner_radius = 9.0
-taper = 0.35
-anchor_bottom = true
-shine = true
-
 [node name="PlasmaSwatch" type="Node2D" parent="."]
-visible = false
 position = Vector2(360, 333)
 script = ExtResource("4_plasma")
 radius = 12.0
@@ -226,7 +215,7 @@ offset_top = -28.0
 offset_right = 140.0
 offset_bottom = 28.0
 theme_override_font_sizes/font_size = 20
-text = "CHARACTER: BLOB"
+text = "CHARACTER: DOME"
 
 [node name="TrailButton" type="Button" parent="UI"]
 anchors_preset = -1
