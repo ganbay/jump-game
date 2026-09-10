@@ -39,6 +39,17 @@ const STREAK_SHAKE_BASE := 11.0
 const STREAK_SHAKE_STEP := 2.6
 ## Pixels of shake bled off per second.
 const STREAK_SHAKE_DECAY := 48.0
+## The counter is a hit of feedback, not a readout: it appears on the streak
+## that earned it and takes itself away again, so a long run is not spent with
+## a label parked in the middle of the screen.
+const STREAK_SHOW_TIME := 1.0
+const STREAK_FADE_TIME := 0.3
+## Losing a streak takes the same slot as earning one, in a warning colour --
+## the counter vanishing on its own said nothing about why.
+const STREAK_FAIL_COLOR := Color(2.4, 0.5, 0.6)
+## A streak has to have been worth showing before losing it is worth
+## announcing. Below this a mistimed landing is just a landing.
+const STREAK_FAIL_MIN := 2
 ## The counter reads white whatever the character's colour is. It sits above
 ## the environment's HDR glow threshold of 1.0, which is what makes it bloom
 ## like the rest of the scene rather than sitting flat on top of it.
@@ -80,6 +91,10 @@ var high_score: int = 0
 var _score_base_position: Vector2
 var _streak_base_position: Vector2
 var _shown_score: int = -1
+## The streak the last landing reported. The player only sends the new value,
+## so this is what makes a drop to zero distinguishable from never having had
+## one.
+var _last_streak: int = 0
 ## Height gained on the launch burst is free, so scoring is measured from where
 ## that burst tops out rather than from the launch point.
 var _score_origin_y: float = 0.0
@@ -94,6 +109,7 @@ const SHAKE_RESPONSE := 0.39
 var _shake: Vector2 = Vector2.ZERO
 var _streak_shake: float = 0.0
 var _streak_tween: Tween
+var _streak_fade_tween: Tween
 var _hud_nodes: Array[Control] = []
 var _hud_home: Array[Vector2] = []
 var _death_margin: float = 720.0
@@ -283,13 +299,15 @@ func _apply_camera_shake() -> void:
 
 func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 	run_max_streak = maxi(run_max_streak, streak)
-	var label := "STREAK x%d" % streak if streak > 1 else ""
-	if label != streak_label.text:
-		streak_label.text = label
+	var broke := streak == 0 and _last_streak >= STREAK_FAIL_MIN
+	_last_streak = streak
 	_grow_to(score_label, 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP))
+	if broke:
+		_show_streak_message("FAILED", STREAK_FAIL_COLOR)
 	# Only a landing that actually extends the streak punches the counter --
 	# ordinary jumps leave it sitting still.
-	if boosted and streak > 1:
+	elif boosted and streak > 1:
+		_show_streak_message("STREAK x%d" % streak, STREAK_TEXT_COLOR)
 		_punch_streak(streak)
 	if boosted:
 		_spawn_burst(platform)
@@ -312,6 +330,30 @@ func _punch_streak(streak: int) -> void:
 	_streak_tween.tween_property(streak_label, "scale", Vector2.ONE, STREAK_SETTLE_TIME) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_streak_shake = STREAK_SHAKE_BASE + STREAK_SHAKE_STEP * float(tier)
+
+## Puts one message in the counter's slot and flashes it. Any punch still
+## springing back from the streak that just ended is cancelled first, so a
+## FAILED does not inherit the swagger of the streak it is reporting the loss
+## of; a streak message re-punches straight after this anyway.
+func _show_streak_message(text: String, color: Color) -> void:
+	if streak_label.text != text:
+		streak_label.text = text
+	streak_label.add_theme_color_override("font_color", color)
+	if _streak_tween != null and _streak_tween.is_valid():
+		_streak_tween.kill()
+	streak_label.scale = Vector2.ONE
+	_flash_streak()
+
+## Brings the counter up and then takes it away. Restarted by every streak, so
+## back-to-back streaks hold it on screen continuously instead of blinking it
+## off between them.
+func _flash_streak() -> void:
+	if _streak_fade_tween != null and _streak_fade_tween.is_valid():
+		_streak_fade_tween.kill()
+	streak_label.modulate.a = 1.0
+	_streak_fade_tween = create_tween()
+	_streak_fade_tween.tween_interval(STREAK_SHOW_TIME)
+	_streak_fade_tween.tween_property(streak_label, "modulate:a", 0.0, STREAK_FADE_TIME)
 
 func _spawn_burst(platform: Node) -> void:
 	var burst := preload("res://scenes/landing_burst.tscn").instantiate()

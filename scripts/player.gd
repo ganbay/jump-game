@@ -38,8 +38,12 @@ const SKIN_SHAPES := {
 @export var boost_move_multiplier: float = 1.4
 @export var streak_jump_step: float = 0.1
 @export var streak_jump_cap: int = 10
-@export var landing_window_ms: int = 140
+@export var landing_window_ms: int = 100
 @export var drag_sensitivity: float = 1.3
+## How fast the arrow keys ramp horizontal speed. They used to snap straight to
+## full move_speed on the first frame, which on a keyboard reads as
+## hair-trigger: one tap threw the character across a whole platform.
+@export var key_accel: float = 4200.0
 @export var tilt_sensitivity: float = 220.0
 @export var tilt_deadzone: float = 0.6
 @export var invert_tilt: bool = false
@@ -73,7 +77,19 @@ var is_holding: bool = false
 var is_fast_falling: bool = false
 var streak: int = 0
 var last_press_ms: int = -999999
+## The press before `last_press_ms`. A timed landing has to come from one
+## deliberate tap, so the window must hold exactly one press. Every press
+## refreshes `last_press_ms`, so without this second timestamp a player mashing
+## the screen on the way down satisfies the window on every landing and never
+## has to time anything -- and in TOUCH mode they are already pressing to
+## steer, which made it close to free.
+var _prev_press_ms: int = -999999
 var _last_pointer_x: float = 0.0
+## Whether the hold in progress came from a pointer. A keyboard hold must not
+## run the drag branch below: it would read the (stationary) mouse every frame
+## and zero the horizontal velocity, so tapping space to time a landing killed
+## whatever drift the arrow keys had built up.
+var _hold_is_pointer: bool = true
 var _attempted_since_last_landing: bool = false
 var _viewport_width: float = 720.0
 ## Impact compression, 1.0 = fully squashed. Driven as a damped spring rather
@@ -116,12 +132,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventScreenTouch:
 		_set_hold(event.pressed, event.position.x)
 	elif event is InputEventKey and event.keycode == KEY_SPACE and not event.echo:
-		_set_hold(event.pressed, get_viewport().get_mouse_position().x)
+		_set_hold(event.pressed, get_viewport().get_mouse_position().x, false)
 
-func _set_hold(pressed: bool, pointer_x: float) -> void:
+func _set_hold(pressed: bool, pointer_x: float, from_pointer: bool = true) -> void:
 	var was_holding := is_holding
 	is_holding = pressed
 	if pressed:
+		_hold_is_pointer = from_pointer
+		_prev_press_ms = last_press_ms
 		last_press_ms = Time.get_ticks_msec()
 		_last_pointer_x = pointer_x
 		_attempted_since_last_landing = true
@@ -137,14 +155,14 @@ func _physics_process(delta: float) -> void:
 	var speed := move_speed * (boost_move_multiplier if is_fast_falling else 1.0)
 	var key_axis := Input.get_axis("ui_left", "ui_right")
 	if key_axis != 0.0:
-		velocity.x = key_axis * speed
+		velocity.x = move_toward(velocity.x, key_axis * speed, key_accel * delta)
 	elif Settings.control_scheme == Settings.ControlScheme.TILT:
 		var tilt := Input.get_accelerometer().x * (-1.0 if invert_tilt else 1.0)
 		if absf(tilt) < tilt_deadzone:
 			velocity.x = move_toward(velocity.x, 0.0, move_speed * 4.0 * delta)
 		else:
 			velocity.x = clampf(tilt * tilt_sensitivity, -speed, speed)
-	elif is_holding:
+	elif is_holding and _hold_is_pointer:
 		var pointer_x := get_viewport().get_mouse_position().x
 		var drag_delta := pointer_x - _last_pointer_x
 		_last_pointer_x = pointer_x
@@ -187,7 +205,13 @@ func _platform_half_width(area: Node) -> float:
 	return area.width / 2.0 if area is Platform else PLATFORM_HALF_WIDTH
 
 func _land_on(area: Node) -> void:
-	var is_timed := Time.get_ticks_msec() - last_press_ms <= landing_window_ms
+	var now := Time.get_ticks_msec()
+	# Counting presses since the last landing would not work here: steering is
+	# press-and-drag, so an ordinary flight already spends two or three presses
+	# before the timing tap. What has to be sole is the press inside the window.
+	var in_window := now - last_press_ms <= landing_window_ms
+	var single_tap := now - _prev_press_ms > landing_window_ms
+	var is_timed := in_window and single_tap
 	# The boost belongs to the platform, not to "wasn't the last one I touched":
 	# a mistimed landing spends nothing, so the next streak can start right here.
 	var boosted := is_timed and not _boost_spent(area)
