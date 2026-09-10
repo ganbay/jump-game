@@ -7,6 +7,10 @@ var runs: Array = []
 var games_played: int = 0
 var total_score: int = 0
 var best_streak_ever: int = 0
+## Run-spanning milestones from the zone ladder (see zone_director.gd): the
+## escape from Solar gravity, and clearing every zone combination after it.
+var escaped: bool = false
+var true_ending: bool = false
 
 func _ready() -> void:
 	var cfg := ConfigFile.new()
@@ -15,6 +19,8 @@ func _ready() -> void:
 		games_played = cfg.get_value("stats", "games_played", 0)
 		total_score = cfg.get_value("stats", "total_score", 0)
 		best_streak_ever = cfg.get_value("stats", "best_streak_ever", 0)
+		escaped = cfg.get_value("stats", "escaped", false)
+		true_ending = cfg.get_value("stats", "true_ending", false)
 
 func record_run(score: int, max_streak: int) -> void:
 	games_played += 1
@@ -30,6 +36,18 @@ func record_run(score: int, max_streak: int) -> void:
 		runs.resize(TOP_RUNS_MAX)
 	_save()
 
+func mark_escaped() -> void:
+	if escaped:
+		return
+	escaped = true
+	_save()
+
+func mark_true_ending() -> void:
+	if true_ending:
+		return
+	true_ending = true
+	_save()
+
 func average_score() -> float:
 	return float(total_score) / games_played if games_played > 0 else 0.0
 
@@ -39,4 +57,6 @@ func _save() -> void:
 	cfg.set_value("stats", "games_played", games_played)
 	cfg.set_value("stats", "total_score", total_score)
 	cfg.set_value("stats", "best_streak_ever", best_streak_ever)
+	cfg.set_value("stats", "escaped", escaped)
+	cfg.set_value("stats", "true_ending", true_ending)
 	cfg.save(SAVE_PATH)

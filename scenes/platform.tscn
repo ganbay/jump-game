@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/platform.gd" id="1_platform"]
 [ext_resource type="Script" path="res://scripts/rounded_rect.gd" id="2_rounded"]
+[ext_resource type="Script" path="res://scripts/platform_decor.gd" id="3_decor"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
 size = Vector2(90, 12)
@@ -18,6 +19,10 @@ script = ExtResource("2_rounded")
 rect_size = Vector2(90, 12)
 color = Color(0.3, 1.0, 2.2, 1)
 corner_radius = 4.0
+
+[node name="Decor" type="Node2D" parent="."]
+visible = false
+script = ExtResource("3_decor")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_platform")

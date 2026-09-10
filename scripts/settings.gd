@@ -8,10 +8,20 @@ signal visual_settings_changed
 
 const SAVE_PATH := "user://settings.cfg"
 
+## Palette the MULTI background-particle mode draws from. It used to be the
+## platform type colours; platforms are one colour now, so the drift keeps its
+## own palette rather than losing its variety.
+const MULTI_PALETTE := [
+	Color(0.3, 1.0, 2.2),
+	Color(2.2, 2.0, 0.3),
+	Color(0.3, 2.4, 1.0),
+	Color(2.4, 0.4, 0.5),
+]
+
 var control_scheme: ControlScheme = ControlScheme.TOUCH
 var glow_strength: float = 0.4
 var player_color: Color = Player.COLOR
-var platform_colors: Dictionary = Platform.COLORS.duplicate()
+var platform_color: Color = Platform.BASE_COLOR
 var background_fx: BackgroundFxMode = BackgroundFxMode.MULTI
 var background_particle_color: Color = Color(0.3, 1.8, 2.4)
 var player_skin: Player.SkinType = Player.SkinType.BLOB
@@ -23,8 +33,10 @@ func _ready() -> void:
 		control_scheme = cfg.get_value("controls", "scheme", ControlScheme.TOUCH) as ControlScheme
 		glow_strength = cfg.get_value("visual", "glow_strength", 0.4)
 		player_color = cfg.get_value("visual", "player_color", Player.COLOR)
-		for type in platform_colors.keys():
-			platform_colors[type] = cfg.get_value("visual", "platform_color_%d" % type, platform_colors[type])
+		# Platforms used to be four colour-coded types; a save from that era
+		# keeps its tint by falling back to what the plain platform was.
+		var legacy := cfg.get_value("visual", "platform_color_0", platform_color) as Color
+		platform_color = cfg.get_value("visual", "platform_color", legacy)
 		background_fx = cfg.get_value("visual", "background_fx", BackgroundFxMode.MULTI) as BackgroundFxMode
 		background_particle_color = cfg.get_value("visual", "background_particle_color", background_particle_color)
 		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.BLOB) as Player.SkinType
@@ -53,13 +65,10 @@ func set_player_color(value: Color) -> void:
 	_save()
 	visual_settings_changed.emit()
 
-func set_platform_color(type: int, value: Color) -> void:
-	platform_colors[type] = value
+func set_platform_color(value: Color) -> void:
+	platform_color = value
 	_save()
 	visual_settings_changed.emit()
-
-func get_platform_color(type: int) -> Color:
-	return platform_colors.get(type, Color.WHITE)
 
 func set_background_fx(mode: BackgroundFxMode) -> void:
 	background_fx = mode
@@ -110,8 +119,7 @@ func _save() -> void:
 	cfg.set_value("controls", "scheme", control_scheme)
 	cfg.set_value("visual", "glow_strength", glow_strength)
 	cfg.set_value("visual", "player_color", player_color)
-	for type in platform_colors:
-		cfg.set_value("visual", "platform_color_%d" % type, platform_colors[type])
+	cfg.set_value("visual", "platform_color", platform_color)
 	cfg.set_value("visual", "background_fx", background_fx)
 	cfg.set_value("visual", "background_particle_color", background_particle_color)
 	cfg.set_value("visual", "player_skin", player_skin)

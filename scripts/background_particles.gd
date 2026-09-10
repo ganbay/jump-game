@@ -76,7 +76,7 @@ func _shade(base: Color, i: int) -> Color:
 func _pick_color() -> Color:
 	if Settings.background_fx == Settings.BackgroundFxMode.SINGLE:
 		return Settings.background_particle_color
-	var colors: Array = Settings.platform_colors.values()
+	var colors: Array = Settings.MULTI_PALETTE
 	return colors[randi() % colors.size()]
 
 func _on_visual_settings_changed() -> void:

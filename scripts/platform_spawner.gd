@@ -19,8 +19,28 @@ const DIFFICULTY_STEP_HEIGHT := 10000.0
 ## past this line is ever reachable or visible again.
 const DESPAWN_MARGIN := 200.0
 
+## The attribute a platform rolls naturally, before its zone adds one. Index
+## 0 is "no attribute", which stays the most likely outcome throughout -- a
+## platform normally carries one attribute, not a pile of them.
+const NATURAL_ATTRS := [
+	0,
+	Platform.Attr.MOVE_H,
+	Platform.Attr.MOVE_V,
+	Platform.Attr.GLASS,
+	Platform.Attr.INVISIBLE,
+	Platform.Attr.SQUISHY,
+]
+const NATURAL_WEIGHTS_START := [0.55, 0.20, 0.05, 0.10, 0.06, 0.05]
+const NATURAL_WEIGHTS_END := [0.28, 0.20, 0.14, 0.16, 0.12, 0.10]
+const NATURAL_RAMP_HEIGHT := 12000.0
+
 var _highest_y: float = 100.0
 var player: Node2D
+## Set by game.gd. Platform attributes are chosen from the score a platform
+## will be worth when reached, which has to be measured from the same origin
+## the HUD counts from or zones would drift out of step with their banners.
+var score_origin_y: float = 0.0
+var zones: ZoneDirector
 ## Spawned platforms in the order they were created, i.e. sorted from lowest
 ## (largest y) to highest, so despawning only ever pops from the front.
 var _live: Array[Node2D] = []
@@ -47,6 +67,10 @@ func begin(from_y: float) -> void:
 
 func _climbed() -> float:
 	return maxf(_origin_y - _highest_y, 0.0)
+
+## The score the platform now being placed will be worth once it is reached.
+func _frontier_score() -> int:
+	return int(maxf(score_origin_y - _highest_y, 0.0) / 10.0)
 
 func _process(_delta: float) -> void:
 	if player == null:
@@ -81,25 +105,23 @@ func _spawn_next() -> void:
 	_highest_y -= randf_range(cur_min_gap, cur_max_gap)
 	var plat := platform_scene.instantiate()
 	plat.position = Vector2(randf_range(50.0, screen_width - 50.0), _highest_y)
-	plat.type = _pick_type()
+	plat.attributes = _pick_attributes()
 	plat.width = maxf(platform_width - width_step * level, platform_width_min)
 	add_child(plat)
 	_live.append(plat)
 
-func _pick_type() -> int:
-	var t := clampf(_climbed() / 4000.0, 0.0, 1.0)
-	var w_still := lerpf(0.55, 0.25, t)
-	var w_moving := lerpf(0.20, 0.35, t)
-	var w_boost := lerpf(0.15, 0.15, t)
-	var w_one_time := lerpf(0.10, 0.25, t)
-	var total := w_still + w_moving + w_boost + w_one_time
+func _pick_attributes() -> int:
+	var forced := zones.attrs_for_score(_frontier_score()) if zones != null else 0
+	return forced | _roll_natural()
+
+func _roll_natural() -> int:
+	var t := clampf(_climbed() / NATURAL_RAMP_HEIGHT, 0.0, 1.0)
+	var total := 0.0
+	for i in range(NATURAL_ATTRS.size()):
+		total += lerpf(NATURAL_WEIGHTS_START[i], NATURAL_WEIGHTS_END[i], t)
 	var r := randf() * total
-	if r < w_still:
-		return 0
-	r -= w_still
-	if r < w_moving:
-		return 1
-	r -= w_moving
-	if r < w_boost:
-		return 2
-	return 3
+	for i in range(NATURAL_ATTRS.size()):
+		r -= lerpf(NATURAL_WEIGHTS_START[i], NATURAL_WEIGHTS_END[i], t)
+		if r <= 0.0:
+			return NATURAL_ATTRS[i]
+	return 0

@@ -32,7 +32,7 @@ color = Color(0, 0, 0, 1)
 [node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("3_bgparticles")]
 
 [node name="PlayerSwatch" type="Node2D" parent="."]
-position = Vector2(360, 294)
+position = Vector2(360, 333)
 script = ExtResource("2_rounded")
 rect_size = Vector2(36, 24)
 color = Color(0.66295815, 2.299754, 0, 1)
@@ -43,41 +43,20 @@ shine = true
 
 [node name="PlasmaSwatch" type="Node2D" parent="."]
 visible = false
-position = Vector2(360, 294)
+position = Vector2(360, 333)
 script = ExtResource("4_plasma")
 radius = 12.0
 color = Color(0.66295815, 2.299754, 0, 1)
 
-[node name="StillSwatch" type="Node2D" parent="."]
-position = Vector2(360, 390)
+[node name="PlatformSwatch" type="Node2D" parent="."]
+position = Vector2(360, 448)
 script = ExtResource("2_rounded")
 rect_size = Vector2(70, 10)
 color = Color(0.3, 1.0, 2.2, 1)
 corner_radius = 4.0
 
-[node name="MovingSwatch" type="Node2D" parent="."]
-position = Vector2(360, 486)
-script = ExtResource("2_rounded")
-rect_size = Vector2(70, 10)
-color = Color(2.2, 2.0, 0.3, 1)
-corner_radius = 4.0
-
-[node name="BoostSwatch" type="Node2D" parent="."]
-position = Vector2(360, 582)
-script = ExtResource("2_rounded")
-rect_size = Vector2(70, 10)
-color = Color(0.3, 2.4, 1.0, 1)
-corner_radius = 4.0
-
-[node name="OneTimeSwatch" type="Node2D" parent="."]
-position = Vector2(360, 678)
-script = ExtResource("2_rounded")
-rect_size = Vector2(70, 10)
-color = Color(2.4, 0.4, 0.5, 1)
-corner_radius = 4.0
-
 [node name="BgColorSwatch" type="Node2D" parent="."]
-position = Vector2(360, 851)
+position = Vector2(360, 685)
 script = ExtResource("2_rounded")
 rect_size = Vector2(22, 22)
 color = Color(0.3, 1.8, 2.4, 1)
@@ -148,9 +127,9 @@ horizontal_alignment = 1
 [node name="PlayerLabel" type="Label" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.23
+anchor_top = 0.26
 anchor_right = 0.5
-anchor_bottom = 0.23
+anchor_bottom = 0.26
 offset_left = -260.0
 offset_top = -14.0
 offset_right = -90.0
@@ -163,113 +142,35 @@ horizontal_alignment = 2
 [node name="PlayerPicker" type="ColorPickerButton" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.23
+anchor_top = 0.26
 anchor_right = 0.5
-anchor_bottom = 0.23
+anchor_bottom = 0.26
 offset_left = 60.0
 offset_top = -18.0
 offset_right = 260.0
 offset_bottom = 18.0
 
-[node name="StillLabel" type="Label" parent="UI"]
+[node name="PlatformLabel" type="Label" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.305
+anchor_top = 0.35
 anchor_right = 0.5
-anchor_bottom = 0.305
+anchor_bottom = 0.35
 offset_left = -260.0
 offset_top = -14.0
 offset_right = -90.0
 offset_bottom = 14.0
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
 theme_override_font_sizes/font_size = 16
-text = "STILL"
+text = "PLATFORM"
 horizontal_alignment = 2
 
-[node name="StillPicker" type="ColorPickerButton" parent="UI"]
+[node name="PlatformPicker" type="ColorPickerButton" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.305
+anchor_top = 0.35
 anchor_right = 0.5
-anchor_bottom = 0.305
-offset_left = 60.0
-offset_top = -18.0
-offset_right = 260.0
-offset_bottom = 18.0
-
-[node name="MovingLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.38
-anchor_right = 0.5
-anchor_bottom = 0.38
-offset_left = -260.0
-offset_top = -14.0
-offset_right = -90.0
-offset_bottom = 14.0
-theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
-theme_override_font_sizes/font_size = 16
-text = "MOVING"
-horizontal_alignment = 2
-
-[node name="MovingPicker" type="ColorPickerButton" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.38
-anchor_right = 0.5
-anchor_bottom = 0.38
-offset_left = 60.0
-offset_top = -18.0
-offset_right = 260.0
-offset_bottom = 18.0
-
-[node name="BoostLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.455
-anchor_right = 0.5
-anchor_bottom = 0.455
-offset_left = -260.0
-offset_top = -14.0
-offset_right = -90.0
-offset_bottom = 14.0
-theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
-theme_override_font_sizes/font_size = 16
-text = "BOOST"
-horizontal_alignment = 2
-
-[node name="BoostPicker" type="ColorPickerButton" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.455
-anchor_right = 0.5
-anchor_bottom = 0.455
-offset_left = 60.0
-offset_top = -18.0
-offset_right = 260.0
-offset_bottom = 18.0
-
-[node name="OneTimeLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.53
-anchor_right = 0.5
-anchor_bottom = 0.53
-offset_left = -260.0
-offset_top = -14.0
-offset_right = -90.0
-offset_bottom = 14.0
-theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
-theme_override_font_sizes/font_size = 16
-text = "ONE-TIME"
-horizontal_alignment = 2
-
-[node name="OneTimePicker" type="ColorPickerButton" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.53
-anchor_right = 0.5
-anchor_bottom = 0.53
+anchor_bottom = 0.35
 offset_left = 60.0
 offset_top = -18.0
 offset_right = 260.0
@@ -278,9 +179,9 @@ offset_bottom = 18.0
 [node name="BgFxButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.6
+anchor_top = 0.45
 anchor_right = 0.5
-anchor_bottom = 0.6
+anchor_bottom = 0.45
 offset_left = -140.0
 offset_top = -28.0
 offset_right = 140.0
@@ -291,9 +192,9 @@ text = "BG PARTICLES: MULTI"
 [node name="BgColorLabel" type="Label" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.665
+anchor_top = 0.535
 anchor_right = 0.5
-anchor_bottom = 0.665
+anchor_bottom = 0.535
 offset_left = -260.0
 offset_top = -14.0
 offset_right = -90.0
@@ -306,9 +207,9 @@ horizontal_alignment = 2
 [node name="BgColorPicker" type="ColorPickerButton" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.665
+anchor_top = 0.535
 anchor_right = 0.5
-anchor_bottom = 0.665
+anchor_bottom = 0.535
 offset_left = 60.0
 offset_top = -18.0
 offset_right = 260.0
@@ -317,9 +218,9 @@ offset_bottom = 18.0
 [node name="CharacterButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.72
+anchor_top = 0.62
 anchor_right = 0.5
-anchor_bottom = 0.72
+anchor_bottom = 0.62
 offset_left = -140.0
 offset_top = -28.0
 offset_right = 140.0
@@ -330,9 +231,9 @@ text = "CHARACTER: BLOB"
 [node name="TrailButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.785
+anchor_top = 0.7
 anchor_right = 0.5
-anchor_bottom = 0.785
+anchor_bottom = 0.7
 offset_left = -140.0
 offset_top = -28.0
 offset_right = 140.0
@@ -343,9 +244,9 @@ text = "TRAIL: ON"
 [node name="ControlsButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.85
+anchor_top = 0.78
 anchor_right = 0.5
-anchor_bottom = 0.85
+anchor_bottom = 0.78
 offset_left = -130.0
 offset_top = -28.0
 offset_right = 130.0
@@ -356,9 +257,9 @@ text = "CONTROLS: TOUCH"
 [node name="BackButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.92
+anchor_top = 0.88
 anchor_right = 0.5
-anchor_bottom = 0.92
+anchor_bottom = 0.88
 offset_left = -110.0
 offset_top = -28.0
 offset_right = 110.0
@@ -368,10 +269,7 @@ text = "BACK"
 
 [connection signal="value_changed" from="UI/GlowSlider" to="." method="_on_glow_slider_value_changed"]
 [connection signal="color_changed" from="UI/PlayerPicker" to="." method="_on_player_picker_color_changed"]
-[connection signal="color_changed" from="UI/StillPicker" to="." method="_on_still_picker_color_changed"]
-[connection signal="color_changed" from="UI/MovingPicker" to="." method="_on_moving_picker_color_changed"]
-[connection signal="color_changed" from="UI/BoostPicker" to="." method="_on_boost_picker_color_changed"]
-[connection signal="color_changed" from="UI/OneTimePicker" to="." method="_on_one_time_picker_color_changed"]
+[connection signal="color_changed" from="UI/PlatformPicker" to="." method="_on_platform_picker_color_changed"]
 [connection signal="pressed" from="UI/BgFxButton" to="." method="_on_bg_fx_button_pressed"]
 [connection signal="color_changed" from="UI/BgColorPicker" to="." method="_on_bg_color_picker_color_changed"]
 [connection signal="pressed" from="UI/CharacterButton" to="." method="_on_character_pressed"]

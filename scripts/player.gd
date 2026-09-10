@@ -212,8 +212,6 @@ func _platform_half_width(area: Node) -> float:
 
 func _land_on(area: Node) -> void:
 	var is_timed := Time.get_ticks_msec() - last_press_ms <= landing_window_ms
-	if area.has_method("should_land") and not area.should_land(is_timed):
-		return
 	# The boost belongs to the platform, not to "wasn't the last one I touched":
 	# a mistimed landing spends nothing, so the next streak can start right here.
 	var boosted := is_timed and not _boost_spent(area)
@@ -229,7 +227,10 @@ func _land_on(area: Node) -> void:
 	_play_squash(boosted)
 	Audio.set_streak(streak)
 	if area.has_method("on_landed"):
-		area.on_landed(self, boosted)
+		# is_timed goes along with boosted: a platform that rewards a perfect
+		# landing has to see the timing itself, not just whether this landing
+		# happened to be the one that claimed the platform's streak boost.
+		area.on_landed(self, boosted, is_timed)
 	landed.emit(area, boosted, streak)
 
 func _boost_spent(area: Node) -> bool:
