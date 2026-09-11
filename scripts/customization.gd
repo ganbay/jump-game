@@ -28,6 +28,21 @@ const DOT_RADIUS := 4.5
 @onready var particle_slider: ColorSpectrumSlider = $UI/ParticleSlider
 @onready var trail_check: CheckButton = $UI/TrailCheck
 @onready var particles_check: CheckButton = $UI/ParticlesCheck
+@onready var coins_label: Label = $UI/CoinsRow/Value
+@onready var coins_icon: TextureRect = $UI/CoinsRow/Icon
+@onready var hint_label: Label = $UI/SwipeHint
+@onready var unlock_button: Button = $UI/UnlockButton
+
+const HINT_SWIPE := "SWIPE THE CHARACTER TO CHANGE"
+## How far the preview fades while its character is still locked. Faded, never
+## hidden -- the whole point of letting a locked skin be browsed is that the
+## player can see what they would be buying.
+const LOCKED_PREVIEW_ALPHA := 0.4
+
+## Which character the picker is sitting on, which is no longer the same thing
+## as which one is worn: a locked skin can be browsed and priced, and only
+## becomes Settings.player_skin once it is owned.
+var _browse: int = 0
 
 ## Drag distance banked since the last character change.
 var _drag: float = 0.0
@@ -35,6 +50,8 @@ var _preview_home: Vector2
 var _slide_tween: Tween
 
 func _ready() -> void:
+	IconPop.attach([$UI/PrevButton, $UI/NextButton, $UI/BackButton, unlock_button])
+	_browse = Settings.player_skin
 	_preview_home = preview.position
 	player_slider.value = Settings.player_color_slider
 	platform_slider.value = Settings.platform_color_slider
@@ -50,11 +67,28 @@ func _ready() -> void:
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
-	preview.shape = Player.SKIN_SHAPES.get(Settings.player_skin, PlasmaBlob.Shape.CIRCLE)
+	UiOpacity.apply($UI)
+	# modulate, not self_modulate: UiOpacity owns self_modulate on every Control
+	# under the UI layer, so the star's tint has to live on the other channel.
+	coins_icon.modulate = Settings.background_particle_color
+	preview.shape = Player.SKIN_SHAPES.get(_browse, PlasmaBlob.Shape.CIRCLE)
 	preview.color = Settings.player_color
 	platform_swatch.color = Settings.platform_color
-	name_label.text = Settings.player_skin_name()
+	name_label.text = Player.SKIN_NAMES[_browse]
+	_refresh_lock_state()
 	queue_redraw()
+
+## Everything that depends on whether the browsed character is owned. Split out
+## because the unlock button changes it without any visual setting having moved.
+func _refresh_lock_state() -> void:
+	var id := Unlocks.skin_id(_browse)
+	var owned := Unlocks.is_unlocked(id)
+	var price := Unlocks.price_of(id)
+	coins_label.text = "%d" % Stats.coins
+	preview.modulate.a = 1.0 if owned else LOCKED_PREVIEW_ALPHA
+	unlock_button.visible = not owned
+	unlock_button.disabled = not Unlocks.can_afford(id)
+	hint_label.text = HINT_SWIPE if owned else "LOCKED  -  %d COINS" % price
 
 ## Which character is selected, as a row of dots under the name. Drawn here
 ## rather than as nine nodes in the scene -- there is nothing to lay out, and
@@ -66,12 +100,17 @@ func _draw() -> void:
 	var row_y := view.y * DOT_Y_FRACTION
 	var accent := Settings.player_color
 	var dim := Color(accent.r, accent.g, accent.b, 0.25)
+	var locked_dim := Color(accent.r, accent.g, accent.b, 0.1)
 	for i in range(count):
 		var at := Vector2(start + i * DOT_SPACING, row_y)
-		if i == Settings.player_skin:
+		if i == _browse:
 			draw_circle(at, DOT_RADIUS, accent)
-		else:
+		elif Unlocks.is_unlocked(Unlocks.skin_id(i)):
 			draw_circle(at, DOT_RADIUS * 0.55, dim)
+		else:
+			# Fainter again, so the roster shows at a glance how much of it is
+			# still to buy without having to swipe the whole way through.
+			draw_circle(at, DOT_RADIUS * 0.55, locked_dim)
 
 ## Drag anywhere over the character to flick through the roster. Both event
 ## families are handled: touch reaches this as a screen drag on a device, and
@@ -98,10 +137,26 @@ func _bank_drag(dx: float) -> void:
 
 func _step(dir: int) -> void:
 	var count := Player.SkinType.size()
-	Settings.set_player_skin(
-		((Settings.player_skin + dir + count) % count) as Player.SkinType)
+	_browse = (_browse + dir + count) % count
 	Audio.play_ui_click()
+	_equip_if_owned()
+	_apply_visual_settings()
 	_slide_in(dir)
+
+## Browsing onto a character you own wears it straight away, exactly as the
+## picker did before locks existed. Browsing onto one you do not leaves the worn
+## skin alone -- nothing is taken off just because you looked at the shop.
+func _equip_if_owned() -> void:
+	if Unlocks.is_unlocked(Unlocks.skin_id(_browse)):
+		Settings.set_player_skin(_browse as Player.SkinType)
+
+func _on_unlock_pressed() -> void:
+	if not Unlocks.unlock(Unlocks.skin_id(_browse)):
+		return
+	Audio.play_ui_click()
+	# Bought is worn: nobody buys a character to leave it on the shelf.
+	_equip_if_owned()
+	_apply_visual_settings()
 
 ## The new character enters from whichever side it was pulled in from, so the
 ## roster reads as a strip being scrolled rather than a shape being swapped.

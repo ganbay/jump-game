@@ -43,9 +43,10 @@ var _streak_tier := -1
 var _drum_started := false
 var _bar_length := 0.0
 var _layer_tweens: Dictionary = {}
-## Music runs on its own bus so muting it can't fight the volume_db fade
-## tweens the layers already use for streak/menu transitions.
-var _music_bus_idx := -1
+## The mute lands on the master bus, not the music one: it silences the whole
+## game, and muting a bus can't fight the volume_db fade tweens the music layers
+## already use for streak/menu transitions.
+var _master_bus_idx := -1
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -53,15 +54,15 @@ func _ready() -> void:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		_sfx_pool.append(p)
-	_music_bus_idx = AudioServer.get_bus_index("Music")
+	_master_bus_idx = AudioServer.get_bus_index("Master")
 	_lead_player = _make_music_player(null)
 	_drum_player = _make_music_player(null)
 	_menu_player = _make_music_player(MUSIC_MENU)
 	_lead_player.finished.connect(func(): _lead_player.play(0.0))
 	_drum_player.finished.connect(func(): _drum_player.play(0.0))
 	_menu_player.finished.connect(func(): _menu_player.play(0.0))
-	Settings.music_muted_changed.connect(_apply_music_mute)
-	_apply_music_mute(Settings.music_muted)
+	Settings.sound_muted_changed.connect(_apply_sound_mute)
+	_apply_sound_mute(Settings.sound_muted)
 
 func _make_music_player(stream: AudioStream) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
@@ -70,9 +71,9 @@ func _make_music_player(stream: AudioStream) -> AudioStreamPlayer:
 	add_child(p)
 	return p
 
-func _apply_music_mute(muted: bool) -> void:
-	if _music_bus_idx >= 0:
-		AudioServer.set_bus_mute(_music_bus_idx, muted)
+func _apply_sound_mute(muted: bool) -> void:
+	if _master_bus_idx >= 0:
+		AudioServer.set_bus_mute(_master_bus_idx, muted)
 
 func _play_sfx(stream: AudioStream, volume_db: float = 0.0) -> void:
 	var p := _sfx_pool[_sfx_next]

@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/statistics.gd" id="1_stats"]
 [ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
 [ext_resource type="Script" path="res://scripts/line_graph.gd" id="3_linegraph"]
+[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="22_home"]
 
 [sub_resource type="Environment" id="Environment_stats"]
 background_mode = 3
@@ -69,12 +70,14 @@ anchor_left = 0.5
 anchor_top = 0.21
 anchor_right = 0.5
 anchor_bottom = 0.21
-offset_left = -230.0
+offset_left = 15.0
 offset_top = -26.0
-offset_right = -10.0
+offset_right = 145.0
 offset_bottom = 26.0
-theme_override_font_sizes/font_size = 17
-text = "METRIC: SCORE"
+focus_mode = 0
+theme_override_font_sizes/font_size = 18
+text = "SCORE"
+alignment = 1
 
 [node name="PeriodButton" type="Button" parent="UI"]
 anchors_preset = -1
@@ -82,12 +85,14 @@ anchor_left = 0.5
 anchor_top = 0.21
 anchor_right = 0.5
 anchor_bottom = 0.21
-offset_left = 10.0
+offset_left = -145.0
 offset_top = -26.0
-offset_right = 230.0
+offset_right = -15.0
 offset_bottom = 26.0
-theme_override_font_sizes/font_size = 17
-text = "PERIOD: DAILY"
+focus_mode = 0
+theme_override_font_sizes/font_size = 18
+text = "DAILY"
+alignment = 1
 
 [node name="LineGraph" type="Control" parent="UI"]
 mouse_filter = 2
@@ -161,12 +166,16 @@ anchor_left = 0.5
 anchor_top = 0.93
 anchor_right = 0.5
 anchor_bottom = 0.93
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "BACK"
+offset_left = -52.0
+offset_top = -52.0
+offset_right = 52.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+flat = true
+icon = ExtResource("22_home")
+icon_alignment = 1
 
 [connection signal="pressed" from="UI/MetricButton" to="." method="_on_metric_pressed"]
 [connection signal="pressed" from="UI/PeriodButton" to="." method="_on_period_pressed"]

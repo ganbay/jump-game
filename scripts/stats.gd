@@ -9,6 +9,10 @@ var runs: Array = []
 var games_played: int = 0
 var total_score: int = 0
 var best_streak_ever: int = 0
+## The spendable balance, banked one run at a time. Separate from a lifetime
+## total on purpose -- once there is something to spend it on, this is the
+## number that goes down.
+var coins: int = 0
 ## Run-spanning milestones from the zone ladder (see zone_director.gd): the
 ## escape from Solar gravity, and clearing every zone combination after it.
 var escaped: bool = false
@@ -22,22 +26,43 @@ func _ready() -> void:
 		games_played = cfg.get_value("stats", "games_played", 0)
 		total_score = cfg.get_value("stats", "total_score", 0)
 		best_streak_ever = cfg.get_value("stats", "best_streak_ever", 0)
+		coins = cfg.get_value("stats", "coins", 0)
 		escaped = cfg.get_value("stats", "escaped", false)
 		true_ending = cfg.get_value("stats", "true_ending", false)
 		tutorial_seen = cfg.get_value("stats", "tutorial_seen", false)
 
-func record_run(score: int, max_streak: int) -> void:
+func record_run(score: int, max_streak: int, coins_earned: int = 0) -> void:
 	games_played += 1
 	total_score += score
 	best_streak_ever = maxi(best_streak_ever, max_streak)
+	coins += coins_earned
 	runs.append({
 		"score": score,
 		"max_streak": max_streak,
+		"coins": coins_earned,
 		"timestamp": Time.get_unix_time_from_system(),
 	})
 	if runs.size() > RUN_HISTORY_MAX:
 		runs = runs.slice(runs.size() - RUN_HISTORY_MAX)
 	_save()
+
+## Mission payouts and anything else that hands coins over, as opposed to the
+## run itself banking them through record_run.
+func award_coins(amount: int) -> void:
+	if amount <= 0:
+		return
+	coins += amount
+	_save()
+
+## Returns false and changes nothing when the balance is short, so a caller
+## cannot half-complete a purchase. Spending nothing is a success -- a free
+## item still counts as bought.
+func spend_coins(amount: int) -> bool:
+	if amount < 0 or coins < amount:
+		return false
+	coins -= amount
+	_save()
+	return true
 
 func mark_escaped() -> void:
 	if escaped:
@@ -66,6 +91,7 @@ func _save() -> void:
 	cfg.set_value("stats", "games_played", games_played)
 	cfg.set_value("stats", "total_score", total_score)
 	cfg.set_value("stats", "best_streak_ever", best_streak_ever)
+	cfg.set_value("stats", "coins", coins)
 	cfg.set_value("stats", "escaped", escaped)
 	cfg.set_value("stats", "true_ending", true_ending)
 	cfg.set_value("stats", "tutorial_seen", tutorial_seen)

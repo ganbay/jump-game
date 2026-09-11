@@ -8,6 +8,14 @@
 [ext_resource type="Script" uid="uid://c7onfa4r2mywg" path="res://scripts/intro.gd" id="6_intro"]
 [ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="7_plasma"]
 [ext_resource type="Script" uid="uid://qdpy3ddfr61i" path="res://scripts/zone_director.gd" id="9_zones"]
+[ext_resource type="Texture2D" uid="uid://dlmladlytvnv0" path="res://assets/icons/pause.png" id="10_pause"]
+[ext_resource type="Texture2D" uid="uid://c7po2gpg0ndc7" path="res://assets/icons/right.png" id="11_resume"]
+[ext_resource type="Texture2D" uid="uid://bachcfbplrmx8" path="res://assets/icons/joystick.png" id="12_controls"]
+[ext_resource type="Texture2D" uid="uid://cew8oc8bp722c" path="res://assets/icons/audioOn.png" id="13_sound"]
+[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="14_home"]
+[ext_resource type="Texture2D" uid="uid://dnqgr4dbvhjup" path="res://assets/icons/return.png" id="15_restart"]
+[ext_resource type="Texture2D" uid="uid://cc81i4u1i8p55" path="res://assets/icons/menuList.png" id="16_hud"]
+[ext_resource type="Texture2D" uid="uid://bx4ntwbjy3rai" path="res://assets/icons/star.png" id="19_star"]
 
 [sub_resource type="Environment" id="Environment_neon"]
 background_mode = 3
@@ -86,14 +94,28 @@ theme_override_font_sizes/font_size = 30
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="BestLabel" type="Label" parent="UI" unique_id=164017624]
+[node name="CoinRow" type="HBoxContainer" parent="UI" unique_id=1730117809]
 offset_left = 24.0
-offset_top = 24.0
-offset_right = 220.0
-offset_bottom = 52.0
-theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+offset_top = 84.0
+offset_right = 300.0
+offset_bottom = 110.0
+mouse_filter = 2
+theme_override_constants/separation = 7
+
+[node name="Icon" type="TextureRect" parent="UI/CoinRow" unique_id=875774295]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+texture = ExtResource("19_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="UI/CoinRow" unique_id=172216444]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 1.5, 1.9, 1)
 theme_override_font_sizes/font_size = 18
-text = "BEST 0"
+text = "0"
 
 [node name="ZoneLabel" type="Label" parent="UI" unique_id=710315499]
 offset_left = 24.0
@@ -103,6 +125,19 @@ offset_bottom = 80.0
 theme_override_colors/font_color = Color(0.9, 1.5, 1.9, 1)
 theme_override_font_sizes/font_size = 16
 text = "ZONE 1  OPEN SPACE"
+
+[node name="MissionToast" type="Label" parent="UI" unique_id=682571746]
+visible = false
+anchors_preset = -1
+anchor_top = 0.25
+anchor_bottom = 0.25
+offset_left = 24.0
+offset_right = 290.0
+offset_bottom = 96.0
+theme_override_colors/font_color = Color(0.6, 2.2, 1.2, 1)
+theme_override_constants/line_spacing = 2
+theme_override_font_sizes/font_size = 15
+autowrap_mode = 2
 
 [node name="ZoneBanner" type="Label" parent="UI" unique_id=2128443116]
 visible = false
@@ -124,12 +159,16 @@ vertical_alignment = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -76.0
+offset_left = -96.0
 offset_top = 24.0
 offset_right = -24.0
-offset_bottom = 64.0
+offset_bottom = 96.0
 focus_mode = 0
-text = "II"
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 40
+icon = ExtResource("10_pause")
+flat = true
+icon_alignment = 1
 
 [node name="PausePanel" type="Control" parent="UI" unique_id=938220116]
 process_mode = 3
@@ -164,61 +203,98 @@ theme_override_font_sizes/font_size = 56
 text = "PAUSED"
 horizontal_alignment = 1
 
-[node name="ResumeButton" type="Button" parent="UI/PausePanel" unique_id=1786516461]
+[node name="ResumeIcon" type="TextureRect" parent="UI/PausePanel" unique_id=2041932558]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.46
+anchor_top = 0.5
 anchor_right = 0.5
-anchor_bottom = 0.46
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
+anchor_bottom = 0.5
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+texture = ExtResource("11_resume")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ResumeLabel" type="Label" parent="UI/PausePanel" unique_id=436240198]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.575
+anchor_right = 0.5
+anchor_bottom = 0.575
+offset_left = -180.0
+offset_top = -16.0
+offset_right = 180.0
+offset_bottom = 16.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "TAP TO RESUME"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HudButton" type="Button" parent="UI/PausePanel" unique_id=2096846672]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -116.0
+offset_top = 28.0
+offset_right = -28.0
+offset_bottom = 116.0
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
-text = "RESUME"
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 48
+icon = ExtResource("16_hud")
+flat = true
+icon_alignment = 1
 
 [node name="ControlsButton" type="Button" parent="UI/PausePanel" unique_id=1109345401]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.52
+anchor_top = 0.82
 anchor_right = 0.5
-anchor_bottom = 0.52
-offset_left = -130.0
-offset_top = -28.0
-offset_right = 130.0
-offset_bottom = 28.0
+anchor_bottom = 0.82
+offset_left = -133.0
+offset_top = -52.0
+offset_right = -29.0
+offset_bottom = 52.0
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
-text = "CONTROLS: TOUCH"
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+icon = ExtResource("12_controls")
+flat = true
+icon_alignment = 1
 
-[node name="MusicButton" type="Button" parent="UI/PausePanel" unique_id=1109345402]
+[node name="SoundButton" type="Button" parent="UI/PausePanel" unique_id=1109345402]
 layout_mode = 0
-anchor_left = 0.5
-anchor_top = 0.58
-anchor_right = 0.5
-anchor_bottom = 0.58
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
+offset_left = 28.0
+offset_top = 28.0
+offset_right = 116.0
+offset_bottom = 116.0
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
-text = "MUSIC: ON"
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 48
+icon = ExtResource("13_sound")
+flat = true
+icon_alignment = 1
 
 [node name="MenuButton" type="Button" parent="UI/PausePanel" unique_id=1109345400]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.64
+anchor_top = 0.82
 anchor_right = 0.5
-anchor_bottom = 0.64
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
+anchor_bottom = 0.82
+offset_left = 29.0
+offset_top = -52.0
+offset_right = 133.0
+offset_bottom = 52.0
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
-text = "MENU"
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+icon = ExtResource("14_home")
+flat = true
+icon_alignment = 1
 
 [node name="GameOverPanel" type="Control" parent="UI" unique_id=1613205919]
 process_mode = 3
@@ -270,30 +346,36 @@ horizontal_alignment = 1
 [node name="RestartButton" type="Button" parent="UI/GameOverPanel" unique_id=421866550]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.55
+anchor_top = 0.58
 anchor_right = 0.5
-anchor_bottom = 0.55
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
+anchor_bottom = 0.58
+offset_left = -133.0
+offset_top = -52.0
+offset_right = -29.0
+offset_bottom = 52.0
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
-text = "RESTART"
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+icon = ExtResource("15_restart")
+flat = true
+icon_alignment = 1
 
 [node name="GameOverMenuButton" type="Button" parent="UI/GameOverPanel" unique_id=999163537]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.61
+anchor_top = 0.58
 anchor_right = 0.5
-anchor_bottom = 0.61
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
+anchor_bottom = 0.58
+offset_left = 29.0
+offset_top = -52.0
+offset_right = 133.0
+offset_bottom = 52.0
 focus_mode = 0
-theme_override_font_sizes/font_size = 20
-text = "MENU"
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+icon = ExtResource("14_home")
+flat = true
+icon_alignment = 1
 
 [node name="MilestonePanel" type="Control" parent="UI" unique_id=1772725848]
 process_mode = 3
@@ -373,9 +455,10 @@ theme_override_font_sizes/font_size = 20
 text = "END RUN"
 
 [connection signal="pressed" from="UI/PauseButton" to="." method="_on_pause_pressed"]
-[connection signal="pressed" from="UI/PausePanel/ResumeButton" to="." method="_on_resume_pressed"]
+[connection signal="gui_input" from="UI/PausePanel/Dim" to="." method="_on_pause_dim_input"]
+[connection signal="pressed" from="UI/PausePanel/HudButton" to="." method="_on_hud_pressed"]
 [connection signal="pressed" from="UI/PausePanel/ControlsButton" to="." method="_on_controls_pressed"]
-[connection signal="pressed" from="UI/PausePanel/MusicButton" to="." method="_on_music_pressed"]
+[connection signal="pressed" from="UI/PausePanel/SoundButton" to="." method="_on_sound_pressed"]
 [connection signal="pressed" from="UI/PausePanel/MenuButton" to="." method="_on_menu_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/RestartButton" to="." method="_on_restart_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/GameOverMenuButton" to="." method="_on_menu_pressed"]

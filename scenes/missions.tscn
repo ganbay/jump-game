@@ -1,0 +1,103 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/missions_menu.gd" id="1_missions"]
+[ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
+[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="3_home"]
+[ext_resource type="Texture2D" uid="uid://bx4ntwbjy3rai" path="res://assets/icons/star.png" id="4_star"]
+
+[sub_resource type="Environment" id="Environment_missions"]
+background_mode = 3
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 0.7
+glow_bloom = 0.05
+glow_blend_mode = 0
+
+[node name="MissionsMenu" type="Node2D"]
+script = ExtResource("1_missions")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_missions")
+
+[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="Background" type="ColorRect" parent="BackgroundLayer"]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 1)
+
+[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("2_bgparticles")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="TitleLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.06
+anchor_right = 0.5
+anchor_bottom = 0.06
+offset_left = -300.0
+offset_top = -36.0
+offset_right = 300.0
+offset_bottom = 36.0
+theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
+theme_override_font_sizes/font_size = 46
+text = "TODAY"
+horizontal_alignment = 1
+
+[node name="CoinsRow" type="HBoxContainer" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.145
+anchor_right = 0.5
+anchor_bottom = 0.145
+offset_left = -160.0
+offset_top = -15.0
+offset_right = 160.0
+offset_bottom = 15.0
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="Icon" type="TextureRect" parent="UI/CoinsRow"]
+custom_minimum_size = Vector2(22, 22)
+size_flags_vertical = 4
+mouse_filter = 2
+texture = ExtResource("4_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="UI/CoinsRow"]
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 1.5, 1.9, 1)
+theme_override_font_sizes/font_size = 20
+text = "0"
+
+[node name="Rows" type="Control" parent="UI"]
+mouse_filter = 2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="BackButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.88
+anchor_right = 0.5
+anchor_bottom = 0.88
+offset_left = -52.0
+offset_top = -52.0
+offset_right = 52.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+flat = true
+icon = ExtResource("3_home")
+icon_alignment = 1
+
+[connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

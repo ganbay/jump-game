@@ -1,20 +1,46 @@
 extends Node2D
 
+## The pause and game over panels are unlabelled glyphs, so the two toggles in
+## them swap their icon to show state -- there is no text left to rewrite.
+const CONTROLS_TOUCH_ICON := preload("res://assets/icons/joystick.png")
+const CONTROLS_TILT_ICON := preload("res://assets/icons/phone.png")
+const SOUND_ON_ICON := preload("res://assets/icons/audioOn.png")
+const SOUND_OFF_ICON := preload("res://assets/icons/audioOff.png")
+const HUD_SHOWN_ICON := preload("res://assets/icons/menuList.png")
+const HUD_HIDDEN_ICON := preload("res://assets/icons/cross.png")
+## The pause button is the one readout a hidden HUD keeps, so that the menu
+## that turns the HUD back on stays reachable. It drops to a ghost rather than
+## sitting at the player's chosen opacity -- the point of hiding is a clean
+## screen, and this is the compromise that keeps the run recoverable.
+const HIDDEN_PAUSE_OPACITY := 0.2
+
 @onready var player: CharacterBody2D = $Player
 @onready var camera: Camera2D = $Camera2D
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var score_label: Label = $UI/ScoreLabel
 @onready var streak_label: Label = $UI/StreakLabel
-@onready var best_label: Label = $UI/BestLabel
 @onready var game_over_panel: Control = $UI/GameOverPanel
 @onready var result_label: Label = $UI/GameOverPanel/ResultLabel
 @onready var pause_panel: Control = $UI/PausePanel
 @onready var pause_button: Button = $UI/PauseButton
 @onready var controls_button: Button = $UI/PausePanel/ControlsButton
-@onready var music_button: Button = $UI/PausePanel/MusicButton
+@onready var sound_button: Button = $UI/PausePanel/SoundButton
+@onready var hud_button: Button = $UI/PausePanel/HudButton
+@onready var resume_icon: TextureRect = $UI/PausePanel/ResumeIcon
+@onready var resume_label: Label = $UI/PausePanel/ResumeLabel
+@onready var _icon_buttons: Array[Node] = [
+	$UI/PauseButton,
+	$UI/PausePanel/ControlsButton, $UI/PausePanel/SoundButton,
+	$UI/PausePanel/HudButton,
+	$UI/PausePanel/MenuButton,
+	$UI/GameOverPanel/RestartButton, $UI/GameOverPanel/GameOverMenuButton]
 @onready var intro: IntroSequence = $IntroSequence
 @onready var spawner: Node2D = $PlatformSpawner
 @onready var zones: ZoneDirector = $ZoneDirector
+@onready var coin_row: HBoxContainer = $UI/CoinRow
+@onready var coin_icon: TextureRect = $UI/CoinRow/Icon
+@onready var coin_label: Label = $UI/CoinRow/Value
+@onready var mission_toast: Label = $UI/MissionToast
 @onready var zone_label: Label = $UI/ZoneLabel
 @onready var zone_banner: Label = $UI/ZoneBanner
 @onready var milestone_panel: Control = $UI/MilestonePanel
@@ -27,6 +53,20 @@ const SAVE_PATH := "user://highscore.cfg"
 const STREAK_SCALE_STEP := 0.1
 const STREAK_SCALE_CAP := 10
 const VIBRATE_AMOUNT := 8.0
+
+## A coin lands on every perfect jump, so during a streak this fires as fast as
+## the player is bouncing. The kick is much smaller than the streak counter's
+## and settles straight away; a full punch each time would leave the readout
+## permanently jittering.
+const COIN_PUNCH_SCALE := 1.18
+const COIN_SETTLE_TIME := 0.16
+
+## The mission toast holds for a second, with a quick fade at either end so it
+## does not pop. Queued rather than stacked: two missions can clear on the same
+## landing, and two labels fighting over one slot would just flicker.
+const TOAST_HOLD := 1.0
+const TOAST_IN := 0.12
+const TOAST_OUT := 0.25
 ## Each streak snaps the counter up to this scale, then it springs back to
 ## normal before the next one -- a punch per streak rather than a size that
 ## creeps up and stays there.
@@ -85,6 +125,12 @@ const HUD_DROP_STAGGER := 0.07
 var score: int = 0
 var max_height: float = 0.0
 var run_max_streak: int = 0
+## Banked into Stats when the run ends, not as each coin lands: a coin is not
+## earned until the run is over, and saving mid-flight would hitch the frame.
+var run_coins: int = 0
+## Perfect landings this run -- currently one per coin, but tracked separately
+## because a mission counts flares while coins can come from anywhere.
+var run_flares: int = 0
 var is_game_over: bool = false
 var is_intro: bool = false
 var is_paused: bool = false
@@ -110,8 +156,15 @@ const SHAKE_RESPONSE := 0.39
 var _shake: Vector2 = Vector2.ZERO
 var _streak_shake: float = 0.0
 var _streak_tween: Tween
+var _coin_tween: Tween
+var _toast_tween: Tween
+var _toast_queue: Array[String] = []
 var _streak_fade_tween: Tween
 var _hud_nodes: Array[Control] = []
+## Set from the pause menu and deliberately not saved: it is a per-run choice,
+## so the next run starts with the readouts back. The pause button is exempt --
+## see _set_hud_visible.
+var _hud_hidden: bool = false
 var _hud_home: Array[Vector2] = []
 var _death_margin: float = 720.0
 ## A milestone popup pauses the run the same way the pause menu does, so the
@@ -120,11 +173,12 @@ var _milestone_open: bool = false
 
 func _ready() -> void:
 	_load_high_score()
-	best_label.text = "BEST %d" % high_score
 	player.landed.connect(_on_player_landed)
 	zones.zone_changed.connect(_on_zone_changed)
 	zones.milestone_reached.connect(_on_milestone_reached)
 	spawner.zones = zones
+	_update_coin_label()
+	Missions.completed.connect(_on_mission_completed)
 	game_over_panel.hide()
 	milestone_panel.hide()
 	zone_banner.hide()
@@ -138,11 +192,14 @@ func _ready() -> void:
 	# captures both positions as the origin for its whole flight.
 	camera.global_position.x = view.x / 2.0
 	player.global_position.x = view.x / 2.0
-	_hud_nodes = [score_label, streak_label, best_label, pause_button, zone_label]
+	_hud_nodes = [score_label, streak_label, pause_button, zone_label, coin_row]
 	for node in _hud_nodes:
 		_hud_home.append(node.position)
-	_update_controls_label()
-	_update_music_label()
+	_update_controls_icon()
+	_update_sound_icon()
+	_update_hud_icon()
+	IconPop.attach(_icon_buttons)
+	IconPop.pulse(resume_icon, resume_label)
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 	Audio.play_music()
@@ -174,6 +231,7 @@ func _on_intro_finished() -> void:
 	spawner.score_origin_y = _score_origin_y
 	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
 	spawner.begin(player.global_position.y - reach * intro_platform_lead)
+	Missions.begin_run()
 	_drop_in_hud()
 
 ## Slides the HUD down into place instead of switching it on. Each element is
@@ -181,6 +239,8 @@ func _on_intro_finished() -> void:
 func _drop_in_hud() -> void:
 	for i in range(_hud_nodes.size()):
 		var node: Control = _hud_nodes[i]
+		if _hud_hidden and node != pause_button:
+			continue
 		var home: Vector2 = _hud_home[i]
 		node.position = home - Vector2(0.0, HUD_DROP_HEIGHT)
 		node.modulate.a = 0.0
@@ -196,6 +256,12 @@ func _apply_visual_settings() -> void:
 	# Replaces the override the scene carries, which is only there so the label
 	# previews sensibly in the editor.
 	streak_label.add_theme_color_override("font_color", STREAK_TEXT_COLOR)
+	coin_label.add_theme_color_override("font_color", Settings.background_particle_color)
+	# modulate, not self_modulate: UiOpacity owns self_modulate on every Control
+	# under the UI layer, so the tint has to live on the other channel.
+	coin_icon.modulate = Settings.background_particle_color
+	UiOpacity.apply($UI)
+	_update_pause_button_opacity()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_intro:
@@ -212,9 +278,16 @@ func _on_pause_pressed() -> void:
 	Audio.play_ui_click()
 	_toggle_pause()
 
-func _on_resume_pressed() -> void:
-	Audio.play_ui_click()
-	_toggle_pause()
+## The dim sits under the panel's buttons, so a tap that lands on the sound,
+## controls or home icon is taken by that button and never reaches here. The
+## panel runs while the tree is paused, which is what lets it hear the tap at
+## all -- the game root does not.
+func _on_pause_dim_input(event: InputEvent) -> void:
+	# Guarded on is_paused rather than toggling: a touch also arrives as an
+	# emulated mouse click, and a toggle would unpause then pause straight back.
+	if is_paused and event.is_pressed() and not event.is_echo():
+		Audio.play_ui_click()
+		_toggle_pause()
 
 func _toggle_pause() -> void:
 	is_paused = not is_paused
@@ -249,23 +322,39 @@ func _hide_pause_panel() -> void:
 
 func _set_hud_visible(shown: bool) -> void:
 	for node in _hud_nodes:
-		node.visible = shown
+		node.visible = shown and (node == pause_button or not _hud_hidden)
+
+func _on_hud_pressed() -> void:
+	Audio.play_ui_click()
+	_hud_hidden = not _hud_hidden
+	_update_hud_icon()
+	_update_pause_button_opacity()
+	if _hud_hidden:
+		zone_banner.hide()
+
+func _update_pause_button_opacity() -> void:
+	pause_button.self_modulate = UiOpacity.tint(
+		HIDDEN_PAUSE_OPACITY if _hud_hidden else Settings.ui_opacity)
+
+func _update_hud_icon() -> void:
+	hud_button.icon = HUD_HIDDEN_ICON if _hud_hidden else HUD_SHOWN_ICON
 
 func _on_controls_pressed() -> void:
 	Audio.play_ui_click()
 	Settings.toggle_control_scheme()
-	_update_controls_label()
+	_update_controls_icon()
 
-func _update_controls_label() -> void:
-	controls_button.text = "CONTROLS: %s" % Settings.control_scheme_name()
+func _update_controls_icon() -> void:
+	controls_button.icon = (CONTROLS_TILT_ICON
+		if Settings.control_scheme == Settings.ControlScheme.TILT else CONTROLS_TOUCH_ICON)
 
-func _on_music_pressed() -> void:
+func _on_sound_pressed() -> void:
 	Audio.play_ui_click()
-	Settings.toggle_music_muted()
-	_update_music_label()
+	Settings.toggle_sound_muted()
+	_update_sound_icon()
 
-func _update_music_label() -> void:
-	music_button.text = "MUSIC: OFF" if Settings.music_muted else "MUSIC: ON"
+func _update_sound_icon() -> void:
+	sound_button.icon = SOUND_OFF_ICON if Settings.sound_muted else SOUND_ON_ICON
 
 func _on_menu_pressed() -> void:
 	Audio.play_ui_click()
@@ -304,6 +393,7 @@ func _process(delta: float) -> void:
 		_shown_score = score
 		score_label.text = "SCORE %d" % score
 		zones.update(score)
+		Missions.update_run(_run_summary())
 	if player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
 
@@ -342,6 +432,14 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 		_show_streak_message("STREAK x%d" % streak, STREAK_TEXT_COLOR)
 		_punch_streak(streak)
 	if boosted:
+		# `boosted` is already once per platform -- player.gd spends the
+		# platform's boost on the landing that claims it, and a mistimed one
+		# never spends it -- so the coin needs no separate guard.
+		run_coins += 1
+		run_flares += 1
+		_update_coin_label()
+		_punch_coin_label()
+		Missions.update_run(_run_summary())
 		_spawn_burst(platform)
 		_camera_punch()
 		_glow_pulse(Settings.glow_strength + PUNCH_GLOW_BONUS)
@@ -388,11 +486,14 @@ func _flash_streak() -> void:
 	_streak_fade_tween.tween_interval(STREAK_SHOW_TIME)
 	_streak_fade_tween.tween_property(streak_label, "modulate:a", 0.0, STREAK_FADE_TIME)
 
-func _spawn_burst(platform: Node) -> void:
+func _spawn_burst(source: Node) -> void:
 	var burst := preload("res://scenes/landing_burst.tscn").instantiate()
-	burst.color = Settings.platform_color if platform is Platform else BURST_COLOR
+	if source is Platform:
+		burst.color = Settings.platform_color
+	else:
+		burst.color = BURST_COLOR
 	add_child(burst)
-	burst.global_position = platform.global_position
+	burst.global_position = source.global_position
 
 func _camera_punch() -> void:
 	camera.zoom = Vector2(0.97, 0.97)
@@ -423,9 +524,58 @@ func _vibrate(label: Label, base_pos: Vector2) -> void:
 ## The zone label is the always-on reading; the banner is the moment it
 ## changes. The opening stretch forces nothing, so it gets the label but no
 ## announcement -- there is no new rule to announce.
+func _run_summary() -> Dictionary:
+	return {
+		"score": score,
+		"max_streak": run_max_streak,
+		"flares": run_flares,
+		"coins": run_coins,
+		"stage": zones.stage_for_score(score),
+	}
+
+## Left edge at a quarter height, deliberately clear of the character's lane and
+## of anywhere a thumb rests. The label is MOUSE_FILTER_IGNORE, so even sitting
+## over the play area it cannot swallow the tap that times a landing.
+func _on_mission_completed(_id: String, reward: int, text: String) -> void:
+	# Nothing is shown once the run is over -- the death screen is not the place
+	# for it -- and a hidden HUD stays hidden.
+	if is_game_over or _hud_hidden:
+		return
+	_toast_queue.append("MISSION COMPLETE  +%d\n%s" % [reward, text])
+	if _toast_tween == null or not _toast_tween.is_valid():
+		_show_next_toast()
+
+func _show_next_toast() -> void:
+	if _toast_queue.is_empty():
+		mission_toast.visible = false
+		return
+	mission_toast.text = _toast_queue.pop_front()
+	mission_toast.modulate.a = 0.0
+	mission_toast.visible = true
+	_toast_tween = create_tween()
+	_toast_tween.tween_property(mission_toast, "modulate:a", 1.0, TOAST_IN)
+	_toast_tween.tween_interval(TOAST_HOLD)
+	_toast_tween.tween_property(mission_toast, "modulate:a", 0.0, TOAST_OUT)
+	_toast_tween.tween_callback(_show_next_toast)
+
+## Same shape as _punch_streak, minus the shake and the hold.
+func _punch_coin_label() -> void:
+	coin_row.pivot_offset = coin_row.size / 2.0
+	coin_row.scale = Vector2.ONE * COIN_PUNCH_SCALE
+	if _coin_tween != null and _coin_tween.is_valid():
+		_coin_tween.kill()
+	_coin_tween = create_tween()
+	_coin_tween.tween_property(coin_row, "scale", Vector2.ONE, COIN_SETTLE_TIME) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _update_coin_label() -> void:
+	coin_label.text = "%d" % run_coins
+
 func _on_zone_changed(stage: int, zone_name: String) -> void:
 	zone_label.text = "ZONE %d  %s" % [stage + 1, zone_name]
 	if stage == 0:
+		return
+	if _hud_hidden:
 		return
 	zone_banner.text = zone_name
 	zone_banner.modulate.a = 0.0
@@ -474,8 +624,12 @@ func _game_over() -> void:
 	if score > high_score:
 		high_score = score
 		_save_high_score()
-	Stats.record_run(score, run_max_streak)
-	best_label.text = "BEST %d" % high_score
+	Stats.record_run(score, run_max_streak, run_coins)
+	# After record_run, so a mission payout lands on a balance that already
+	# includes the coins this run earned.
+	var summary := _run_summary()
+	summary["finished"] = true
+	Missions.end_run(summary)
 	result_label.text = "SCORE %d   BEST %d" % [score, high_score]
 	_set_hud_visible(false)
 	get_tree().paused = true

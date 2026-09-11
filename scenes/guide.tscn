@@ -1,8 +1,12 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3 uid="uid://blht4aqge60i5"]
 
-[ext_resource type="Script" path="res://scripts/guide.gd" id="1_guide"]
-[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
+[ext_resource type="Script" uid="uid://cjp7l37hgc5jk" path="res://scripts/guide.gd" id="1_guide"]
+[ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
 [ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="3_platform"]
+[ext_resource type="Texture2D" uid="uid://cidqof0fmj5xs" path="res://assets/icons/arrowLeft.png" id="20_prev"]
+[ext_resource type="Texture2D" uid="uid://cb84tkwktj4sr" path="res://assets/icons/arrowRight.png" id="21_next"]
+[ext_resource type="Texture2D" uid="uid://c7po2gpg0ndc7" path="res://assets/icons/right.png" id="22_play"]
+[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="23_home"]
 
 [sub_resource type="Environment" id="Environment_guide"]
 background_mode = 3
@@ -12,65 +16,85 @@ glow_strength = 0.7
 glow_bloom = 0.05
 glow_blend_mode = 0
 
-[node name="GuideMenu" type="Node2D"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_zone"]
+bg_color = Color(0.05, 0.08, 0.13, 0.55)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.3, 1, 2.2, 0.35)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[node name="GuideMenu" type="Node2D" unique_id=163849779]
 script = ExtResource("1_guide")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=604223807]
 environment = SubResource("Environment_guide")
 
-[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=1069379642]
 layer = -1
 
-[node name="Background" type="ColorRect" parent="BackgroundLayer"]
-mouse_filter = 2
+[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=505596223]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("2_bgparticles")]
+[node name="BackgroundParticles" parent="BackgroundLayer" unique_id=719583211 instance=ExtResource("2_bgparticles")]
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=480032]
 
-[node name="TitleLabel" type="Label" parent="UI"]
+[node name="TitleLabel" type="Label" parent="UI" unique_id=291753276]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.04
 anchor_right = 0.5
 anchor_bottom = 0.04
-offset_left = -190.0
+offset_left = -320.0
 offset_top = -36.0
-offset_right = 190.0
+offset_right = 320.0
 offset_bottom = 36.0
 theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
 theme_override_font_sizes/font_size = 44
 text = "HOW TO PLAY"
 horizontal_alignment = 1
 
-[node name="IntroLabel" type="Label" parent="UI"]
-anchors_preset = -1
+[node name="Page1" type="Control" parent="UI" unique_id=535881056]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="IntroLabel" type="Label" parent="UI/Page1" unique_id=1205751990]
+layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.115
 anchor_right = 0.5
 anchor_bottom = 0.115
 offset_left = -320.0
-offset_top = -46.0
+offset_top = -14.0
 offset_right = 320.0
-offset_bottom = 46.0
+offset_bottom = 60.0
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
-theme_override_font_sizes/font_size = 16
 theme_override_constants/line_spacing = 4
-text = "Drag or tilt to steer while you fall. Land on a platform to bounce. Time a single tap right as you land to boost the jump and build your streak."
+theme_override_font_sizes/font_size = 16
+text = "Drag or tilt to steer. Tap the moment you land to boost the jump."
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="NormalIcon" parent="UI" instance=ExtResource("3_platform")]
+[node name="NormalIcon" parent="UI/Page1" unique_id=984785464 instance=ExtResource("3_platform")]
 position = Vector2(100, 307)
 width = 64.0
 
-[node name="NormalNameLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="NormalNameLabel" type="Label" parent="UI/Page1" unique_id=2062891484]
+layout_mode = 0
 anchor_top = 0.24
 anchor_right = 1.0
 anchor_bottom = 0.24
@@ -82,9 +106,8 @@ theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "NORMAL"
 
-[node name="NormalDescLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="NormalDescLabel" type="Label" parent="UI/Page1" unique_id=864110401]
+layout_mode = 0
 anchor_top = 0.24
 anchor_right = 1.0
 anchor_bottom = 0.24
@@ -93,20 +116,19 @@ offset_top = -6.0
 offset_right = -40.0
 offset_bottom = 44.0
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
-theme_override_font_sizes/font_size = 14
 theme_override_constants/line_spacing = 2
-text = "A plain platform. Land on it to bounce and keep climbing."
+theme_override_font_sizes/font_size = 14
+text = "Bounce off it and keep climbing."
 autowrap_mode = 2
 
-[node name="DriftIcon" parent="UI" instance=ExtResource("3_platform")]
+[node name="DriftIcon" parent="UI/Page1" unique_id=903212939 instance=ExtResource("3_platform")]
 position = Vector2(100, 474)
-width = 64.0
 attributes = 2
 move_v_distance = 40.0
+width = 64.0
 
-[node name="DriftNameLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="DriftNameLabel" type="Label" parent="UI/Page1" unique_id=1100937907]
+layout_mode = 0
 anchor_top = 0.37
 anchor_right = 1.0
 anchor_bottom = 0.37
@@ -118,9 +140,8 @@ theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "DRIFT"
 
-[node name="DriftDescLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="DriftDescLabel" type="Label" parent="UI/Page1" unique_id=623230164]
+layout_mode = 0
 anchor_top = 0.37
 anchor_right = 1.0
 anchor_bottom = 0.37
@@ -129,19 +150,18 @@ offset_top = -6.0
 offset_right = -40.0
 offset_bottom = 44.0
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
-theme_override_font_sizes/font_size = 14
 theme_override_constants/line_spacing = 2
-text = "Slides back and forth, or up and down. Lead your jump to land on it."
+theme_override_font_sizes/font_size = 14
+text = "Never holds still. Lead your jump."
 autowrap_mode = 2
 
-[node name="GlassIcon" parent="UI" instance=ExtResource("3_platform")]
+[node name="GlassIcon" parent="UI/Page1" unique_id=1947073646 instance=ExtResource("3_platform")]
 position = Vector2(100, 640)
-width = 64.0
 attributes = 4
+width = 64.0
 
-[node name="GlassNameLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="GlassNameLabel" type="Label" parent="UI/Page1" unique_id=361253117]
+layout_mode = 0
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
@@ -153,9 +173,8 @@ theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "GLASS"
 
-[node name="GlassDescLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="GlassDescLabel" type="Label" parent="UI/Page1" unique_id=1464189973]
+layout_mode = 0
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
@@ -164,19 +183,18 @@ offset_top = -6.0
 offset_right = -40.0
 offset_bottom = 44.0
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
-theme_override_font_sizes/font_size = 14
 theme_override_constants/line_spacing = 2
-text = "See-through and fragile. It shatters right after you land, so it only holds once."
+theme_override_font_sizes/font_size = 14
+text = "Shatters right after you land. One landing only."
 autowrap_mode = 2
 
-[node name="PhantomIcon" parent="UI" instance=ExtResource("3_platform")]
+[node name="PhantomIcon" parent="UI/Page1" unique_id=1277256259 instance=ExtResource("3_platform")]
 position = Vector2(100, 806)
-width = 64.0
 attributes = 8
+width = 64.0
 
-[node name="PhantomNameLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="PhantomNameLabel" type="Label" parent="UI/Page1" unique_id=1572017898]
+layout_mode = 0
 anchor_top = 0.63
 anchor_right = 1.0
 anchor_bottom = 0.63
@@ -188,9 +206,8 @@ theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "PHANTOM"
 
-[node name="PhantomDescLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="PhantomDescLabel" type="Label" parent="UI/Page1" unique_id=1790685904]
+layout_mode = 0
 anchor_top = 0.63
 anchor_right = 1.0
 anchor_bottom = 0.63
@@ -199,19 +216,18 @@ offset_top = -6.0
 offset_right = -40.0
 offset_bottom = 44.0
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
-theme_override_font_sizes/font_size = 14
 theme_override_constants/line_spacing = 2
-text = "Blinks in and out of view. Track its rhythm and jump from memory."
+theme_override_font_sizes/font_size = 14
+text = "Blinks out of view. Jump from memory."
 autowrap_mode = 2
 
-[node name="SquishIcon" parent="UI" instance=ExtResource("3_platform")]
+[node name="SquishIcon" parent="UI/Page1" unique_id=1958953097 instance=ExtResource("3_platform")]
 position = Vector2(100, 973)
-width = 64.0
 attributes = 16
+width = 64.0
 
-[node name="SquishNameLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="SquishNameLabel" type="Label" parent="UI/Page1" unique_id=1955779303]
+layout_mode = 0
 anchor_top = 0.76
 anchor_right = 1.0
 anchor_bottom = 0.76
@@ -223,9 +239,8 @@ theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "SQUISH"
 
-[node name="SquishDescLabel" type="Label" parent="UI"]
-anchors_preset = -1
-anchor_left = 0.0
+[node name="SquishDescLabel" type="Label" parent="UI/Page1" unique_id=521050277]
+layout_mode = 0
 anchor_top = 0.76
 anchor_right = 1.0
 anchor_bottom = 0.76
@@ -234,36 +249,253 @@ offset_top = -6.0
 offset_right = -40.0
 offset_bottom = 44.0
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
-theme_override_font_sizes/font_size = 14
 theme_override_constants/line_spacing = 2
-text = "A bouncy cushion. A timed landing launches you extra high, but a mistimed one barely bounces you at all."
+theme_override_font_sizes/font_size = 14
+text = "Time it and you launch high. Miss and you barely bounce."
 autowrap_mode = 2
 
-[node name="PlayButton" type="Button" parent="UI"]
+[node name="Page2" type="Control" parent="UI" unique_id=159665459]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ZonesHeadLabel" type="Label" parent="UI/Page2" unique_id=770454272]
+layout_mode = 0
+anchor_top = 0.13
+anchor_right = 1.0
+anchor_bottom = 0.13
+offset_left = 60.0
+offset_top = -16.0
+offset_right = -60.0
+offset_bottom = 12.0
+theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
+theme_override_font_sizes/font_size = 22
+text = "ZONES"
+
+[node name="ZonesBodyLabel" type="Label" parent="UI/Page2" unique_id=1359839730]
+layout_mode = 0
+anchor_top = 0.13
+anchor_right = 1.0
+anchor_bottom = 0.13
+offset_left = 60.0
+offset_top = 16.0
+offset_right = -60.0
+offset_bottom = 72.0
+theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
+theme_override_constants/line_spacing = 3
+theme_override_font_sizes/font_size = 15
+text = "A new zone every 2000 score. The HUD names the one you are in."
+autowrap_mode = 2
+
+[node name="ComboHeadLabel" type="Label" parent="UI/Page2" unique_id=767457416]
+layout_mode = 0
+anchor_top = 0.25
+anchor_right = 1.0
+anchor_bottom = 0.25
+offset_left = 60.0
+offset_top = -16.0
+offset_right = -60.0
+offset_bottom = 12.0
+theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
+theme_override_font_sizes/font_size = 22
+text = "TWO AT A TIME"
+
+[node name="ComboBodyLabel" type="Label" parent="UI/Page2" unique_id=2005895387]
+layout_mode = 0
+anchor_top = 0.25
+anchor_right = 1.0
+anchor_bottom = 0.25
+offset_left = 60.0
+offset_top = 16.0
+offset_right = -60.0
+offset_bottom = 82.0
+theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
+theme_override_constants/line_spacing = 3
+theme_override_font_sizes/font_size = 15
+text = "A zone stamps its attribute on every platform, on top of the one it already rolled. Two at once, from the first zone on."
+autowrap_mode = 2
+
+[node name="ZoneFrame" type="Panel" parent="UI/Page2" unique_id=805255057]
+layout_mode = 0
+anchor_top = 0.335
+anchor_right = 1.0
+anchor_bottom = 0.635
+offset_left = 60.0
+offset_right = -60.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_zone")
+
+[node name="ZoneTitleLabel" type="Label" parent="UI/Page2" unique_id=1664474789]
+layout_mode = 0
+anchor_top = 0.335
+anchor_right = 1.0
+anchor_bottom = 0.335
+offset_left = 60.0
+offset_top = 16.0
+offset_right = -60.0
+offset_bottom = 46.0
+theme_override_colors/font_color = Color(1.2, 2, 2.6, 1)
+theme_override_font_sizes/font_size = 20
+text = "GLASS ZONE"
+horizontal_alignment = 1
+
+[node name="ZoneRowAIcon" parent="UI/Page2" unique_id=1377018557 instance=ExtResource("3_platform")]
+position = Vector2(180, 520)
+attributes = 4
+
+[node name="ZoneRowALabel" type="Label" parent="UI/Page2" unique_id=1585894672]
+layout_mode = 0
+anchor_top = 0.406
+anchor_right = 1.0
+anchor_bottom = 0.406
+offset_left = 250.0
+offset_top = -13.0
+offset_right = -90.0
+offset_bottom = 13.0
+theme_override_colors/font_color = Color(1.3, 1.3, 1.3, 1)
+theme_override_font_sizes/font_size = 16
+text = "PLAIN  +  GLASS"
+
+[node name="ZoneRowBIcon" parent="UI/Page2" unique_id=1259402309 instance=ExtResource("3_platform")]
+position = Vector2(180, 620)
+attributes = 6
+move_v_distance = 40.0
+
+[node name="ZoneRowBLabel" type="Label" parent="UI/Page2" unique_id=861869887]
+layout_mode = 0
+anchor_top = 0.484
+anchor_right = 1.0
+anchor_bottom = 0.484
+offset_left = 250.0
+offset_top = -13.0
+offset_right = -90.0
+offset_bottom = 13.0
+theme_override_colors/font_color = Color(1.3, 1.3, 1.3, 1)
+theme_override_font_sizes/font_size = 16
+text = "DRIFT  +  GLASS"
+
+[node name="ZoneRowCIcon" parent="UI/Page2" unique_id=1632757760 instance=ExtResource("3_platform")]
+position = Vector2(180, 720)
+attributes = 20
+
+[node name="ZoneRowCLabel" type="Label" parent="UI/Page2" unique_id=130761191]
+layout_mode = 0
+anchor_top = 0.5625
+anchor_right = 1.0
+anchor_bottom = 0.5625
+offset_left = 250.0
+offset_top = -13.0
+offset_right = -90.0
+offset_bottom = 13.0
+theme_override_colors/font_color = Color(1.3, 1.3, 1.3, 1)
+theme_override_font_sizes/font_size = 16
+text = "SQUISH  +  GLASS"
+
+[node name="ZoneCaptionLabel" type="Label" parent="UI/Page2" unique_id=899962151]
+layout_mode = 0
+anchor_top = 0.635
+anchor_right = 1.0
+anchor_bottom = 0.635
+offset_left = 60.0
+offset_top = 12.0
+offset_right = -60.0
+offset_bottom = 68.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_constants/line_spacing = 3
+theme_override_font_sizes/font_size = 14
+text = "Three platforms inside one zone. Each keeps what it rolled and picks up the zone's glass."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="PageLabel" type="Label" parent="UI" unique_id=1059945821]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.88
+anchor_top = 0.835
 anchor_right = 0.5
-anchor_bottom = 0.88
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "PLAY"
+anchor_bottom = 0.835
+offset_left = -60.0
+offset_top = -14.0
+offset_right = 60.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "1 / 2"
+horizontal_alignment = 1
 
-[node name="BackButton" type="Button" parent="UI"]
+[node name="PrevButton" type="Button" parent="UI" unique_id=676415841]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.9
+anchor_right = 0.0
+anchor_bottom = 0.9
+offset_left = 28.0
+offset_top = -44.0
+offset_right = 116.0
+offset_bottom = 44.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 44
+flat = true
+icon = ExtResource("20_prev")
+icon_alignment = 1
+
+[node name="PlayButton" type="Button" parent="UI" unique_id=33443293]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.95
+anchor_top = 0.9
 anchor_right = 0.5
-anchor_bottom = 0.95
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "BACK"
+anchor_bottom = 0.9
+offset_left = -133.0
+offset_top = -52.0
+offset_right = -29.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+flat = true
+icon = ExtResource("22_play")
+icon_alignment = 1
 
+[node name="NextButton" type="Button" parent="UI" unique_id=727436136]
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.9
+anchor_right = 1.0
+anchor_bottom = 0.9
+offset_left = -116.0
+offset_top = -44.0
+offset_right = -28.0
+offset_bottom = 44.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 44
+flat = true
+icon = ExtResource("21_next")
+icon_alignment = 1
+
+[node name="BackButton" type="Button" parent="UI" unique_id=2009698780]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.9
+anchor_right = 0.5
+anchor_bottom = 0.9
+offset_left = 29.0
+offset_top = -52.0
+offset_right = 133.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+flat = true
+icon = ExtResource("23_home")
+icon_alignment = 1
+
+[connection signal="pressed" from="UI/PrevButton" to="." method="_on_prev_pressed"]
 [connection signal="pressed" from="UI/PlayButton" to="." method="_on_play_pressed"]
+[connection signal="pressed" from="UI/NextButton" to="." method="_on_next_pressed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

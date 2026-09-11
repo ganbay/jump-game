@@ -2,6 +2,13 @@
 
 [ext_resource type="Script" uid="uid://b6tkijfu3oa4f" path="res://scripts/main_menu.gd" id="1_menu"]
 [ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
+[ext_resource type="Texture2D" uid="uid://c7po2gpg0ndc7" path="res://assets/icons/right.png" id="3_tap"]
+[ext_resource type="Texture2D" uid="uid://brwglf8emw44o" path="res://assets/icons/shoppingCart.png" id="4_customize"]
+[ext_resource type="Texture2D" uid="uid://b2vwh2lgl4sgg" path="res://assets/icons/gear.png" id="5_settings"]
+[ext_resource type="Texture2D" uid="uid://kqjl1eqrrl1s" path="res://assets/icons/signal3.png" id="6_stats"]
+[ext_resource type="Texture2D" uid="uid://ei8o75vpdm6t" path="res://assets/icons/question.png" id="7_guide"]
+[ext_resource type="Texture2D" uid="uid://l6p5r4jyqrac" path="res://assets/icons/checkmark.png" id="9_missions"]
+[ext_resource type="Texture2D" uid="uid://cew8oc8bp722c" path="res://assets/icons/audioOn.png" id="8_sound"]
 
 [sub_resource type="Environment" id="Environment_menu"]
 background_mode = 3
@@ -11,127 +18,192 @@ glow_strength = 0.7
 glow_bloom = 0.05
 glow_blend_mode = 0
 
-[sub_resource type="LabelSettings" id="LabelSettings_oou0r"]
-font_size = 40
-
-[node name="MainMenu" type="Node2D" unique_id=2067909729]
+[node name="MainMenu" type="Node2D" unique_id=897745660]
 script = ExtResource("1_menu")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=665367721]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1741593147]
 environment = SubResource("Environment_menu")
 
-[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=308988234]
+[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=885309367]
 layer = -1
 
-[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=2050714574]
+[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=2125785270]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="BackgroundLayer" unique_id=536820318 instance=ExtResource("2_bgparticles")]
+[node name="BackgroundParticles" parent="BackgroundLayer" unique_id=1376138780 instance=ExtResource("2_bgparticles")]
 
-[node name="UI" type="CanvasLayer" parent="." unique_id=304286163]
+[node name="UI" type="CanvasLayer" parent="." unique_id=1978812319]
 
-[node name="TitleLabel" type="Label" parent="UI" unique_id=147439569]
+[node name="TitleLabel" type="Label" parent="UI" unique_id=1830205862]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.2
+anchor_top = 0.22
 anchor_right = 0.5
-anchor_bottom = 0.2
-offset_left = -220.0
-offset_top = -75.0
-offset_right = 220.0
-offset_bottom = 75.0
+anchor_bottom = 0.22
+offset_left = -300.0
+offset_top = -70.0
+offset_right = 300.0
+offset_bottom = 70.0
 theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
 theme_override_font_sizes/font_size = 96
 text = "JETLET"
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="SubtitleLabel" type="Label" parent="UI" unique_id=232505622]
+[node name="SubtitleLabel" type="Label" parent="UI" unique_id=1314165648]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.3
+anchor_top = 0.305
 anchor_right = 0.5
-anchor_bottom = 0.3
-offset_left = -219.0
-offset_top = -115.0
-offset_right = 221.0
-offset_bottom = -59.0
+anchor_bottom = 0.305
+offset_left = -300.0
+offset_top = -26.0
+offset_right = 300.0
+offset_bottom = 26.0
 theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 26
 text = "SOLAR ESCAPE"
-label_settings = SubResource("LabelSettings_oou0r")
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="PlayButton" type="Button" parent="UI" unique_id=1655830787]
+[node name="TapIcon" type="TextureRect" parent="UI" unique_id=153465056]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.55
+anchor_top = 0.56
 anchor_right = 0.5
-anchor_bottom = 0.55
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "PLAY"
+anchor_bottom = 0.56
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+texture = ExtResource("3_tap")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="CustomizeButton" type="Button" parent="UI" unique_id=325263898]
+[node name="TapLabel" type="Label" parent="UI" unique_id=1426425171]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.61
+anchor_top = 0.635
 anchor_right = 0.5
-anchor_bottom = 0.61
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "CUSTOMIZE"
+anchor_bottom = 0.635
+offset_left = -180.0
+offset_top = -16.0
+offset_right = 180.0
+offset_bottom = 16.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "TAP TO PLAY"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="SettingsButton" type="Button" parent="UI" unique_id=1655830788]
+[node name="SoundButton" type="Button" parent="UI" unique_id=644827847]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_right = 0.0
+offset_left = 28.0
+offset_top = 28.0
+offset_right = 116.0
+offset_bottom = 116.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 48
+icon = ExtResource("8_sound")
+flat = true
+icon_alignment = 1
+
+[node name="CustomizeButton" type="Button" parent="UI" unique_id=453665329]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.67
+anchor_top = 0.88
 anchor_right = 0.5
-anchor_bottom = 0.67
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "SETTINGS"
+anchor_bottom = 0.88
+offset_left = -312.0
+offset_top = -48.0
+offset_right = -216.0
+offset_bottom = 48.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 52
+icon = ExtResource("4_customize")
+flat = true
+icon_alignment = 1
 
-[node name="StatisticsButton" type="Button" parent="UI" unique_id=1097067563]
+[node name="StatisticsButton" type="Button" parent="UI" unique_id=1318597547]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.73
+anchor_top = 0.88
 anchor_right = 0.5
-anchor_bottom = 0.73
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "STATS"
+anchor_bottom = 0.88
+offset_left = -180.0
+offset_top = -48.0
+offset_right = -84.0
+offset_bottom = 48.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 52
+icon = ExtResource("6_stats")
+flat = true
+icon_alignment = 1
 
-[node name="GuideButton" type="Button" parent="UI" unique_id=485841002]
+[node name="MissionsButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.79
+anchor_top = 0.88
 anchor_right = 0.5
-anchor_bottom = 0.79
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "HOW TO PLAY"
+anchor_bottom = 0.88
+offset_left = -48.0
+offset_top = -48.0
+offset_right = 48.0
+offset_bottom = 48.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 52
+flat = true
+icon = ExtResource("9_missions")
+icon_alignment = 1
 
-[connection signal="pressed" from="UI/PlayButton" to="." method="_on_play_pressed"]
+[node name="GuideButton" type="Button" parent="UI" unique_id=1626263419]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.88
+anchor_right = 0.5
+anchor_bottom = 0.88
+offset_left = 84.0
+offset_top = -48.0
+offset_right = 180.0
+offset_bottom = 48.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 52
+icon = ExtResource("7_guide")
+flat = true
+icon_alignment = 1
+
+[node name="SettingsButton" type="Button" parent="UI" unique_id=1298815438]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.88
+anchor_right = 0.5
+anchor_bottom = 0.88
+offset_left = 216.0
+offset_top = -48.0
+offset_right = 312.0
+offset_bottom = 48.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 52
+icon = ExtResource("5_settings")
+flat = true
+icon_alignment = 1
+
+[connection signal="pressed" from="UI/SoundButton" to="." method="_on_sound_pressed"]
 [connection signal="pressed" from="UI/CustomizeButton" to="." method="_on_customize_pressed"]
-[connection signal="pressed" from="UI/SettingsButton" to="." method="_on_settings_pressed"]
 [connection signal="pressed" from="UI/StatisticsButton" to="." method="_on_statistics_pressed"]
+[connection signal="pressed" from="UI/MissionsButton" to="." method="_on_missions_pressed"]
 [connection signal="pressed" from="UI/GuideButton" to="." method="_on_guide_pressed"]
+[connection signal="pressed" from="UI/SettingsButton" to="." method="_on_settings_pressed"]

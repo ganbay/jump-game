@@ -3,6 +3,9 @@ extends Node2D
 enum Metric { SCORE, STREAK }
 enum Period { DAILY, WEEKLY, MONTHLY }
 
+## These two stay words rather than glyphs: they pick what the graph is showing,
+## and no icon says "streak over the last week" the way the word does. Only the
+## state is printed -- what it selects is obvious from the graph underneath.
 const METRIC_NAMES := ["SCORE", "STREAK"]
 const PERIOD_NAMES := ["DAILY", "WEEKLY", "MONTHLY"]
 const DAY_SECONDS := 86400
@@ -43,6 +46,7 @@ func _ready() -> void:
 	_update_metric_label()
 	_update_period_label()
 	_refresh_graph()
+	IconPop.attach([metric_button, period_button, $UI/BackButton])
 
 ## The two zone-ladder milestones are the only permanent things a player can
 ## finish, so they get their own line rather than hiding among the run list.
@@ -56,6 +60,7 @@ func _badges() -> String:
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
+	UiOpacity.apply($UI)
 
 func _on_metric_pressed() -> void:
 	Audio.play_ui_click()
@@ -64,7 +69,7 @@ func _on_metric_pressed() -> void:
 	_refresh_graph()
 
 func _update_metric_label() -> void:
-	metric_button.text = "METRIC: %s" % METRIC_NAMES[_metric]
+	metric_button.text = METRIC_NAMES[_metric]
 
 func _on_period_pressed() -> void:
 	Audio.play_ui_click()
@@ -73,7 +78,7 @@ func _on_period_pressed() -> void:
 	_refresh_graph()
 
 func _update_period_label() -> void:
-	period_button.text = "PERIOD: %s" % PERIOD_NAMES[_period]
+	period_button.text = PERIOD_NAMES[_period]
 
 ## Every match within the period window becomes its own point, oldest to
 ## newest, capped to the most recent MAX_POINTS -- a real per-match trend line

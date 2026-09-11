@@ -4,9 +4,13 @@ enum ControlScheme { TOUCH, TILT }
 
 signal control_scheme_changed(scheme: ControlScheme)
 signal visual_settings_changed
-signal music_muted_changed(muted: bool)
+signal sound_muted_changed(muted: bool)
 
 const SAVE_PATH := "user://settings.cfg"
+
+const UI_OPACITY_MIN := 0.6
+const UI_OPACITY_MAX := 1.0
+const UI_OPACITY_DEFAULT := 0.8
 
 var control_scheme: ControlScheme = ControlScheme.TOUCH
 var glow_strength: float = 0.4
@@ -16,8 +20,12 @@ var background_particles: bool = true
 var background_particle_color: Color = Color(0.3, 1.8, 2.4)
 var player_skin: Player.SkinType = Player.SkinType.PLASMA
 var trail_enabled: bool = true
-var music_muted: bool = false
+var sound_muted: bool = false
 var haptics_enabled: bool = true
+## How solid every label, button and readout draws, across the game. Floored
+## well above zero: the pause button is the only way back out of a run, so the
+## UI can be faded but never made invisible.
+var ui_opacity: float = UI_OPACITY_DEFAULT
 ## Where each colour slider's handle sits along ColorSpectrumSlider's gradient
 ## (0..1) -- kept alongside the colour itself purely so the handle lands back
 ## in the same spot next visit, since a colour alone can't be inverted back to
@@ -44,8 +52,13 @@ func _ready() -> void:
 		background_particle_color = cfg.get_value("visual", "background_particle_color", background_particle_color)
 		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.PLASMA) as Player.SkinType
 		trail_enabled = cfg.get_value("visual", "trail_enabled", true)
-		music_muted = cfg.get_value("audio", "music_muted", false)
+		# The toggle used to mute only the music bus; a save from that era carries
+		# its choice over to the mute that now covers everything.
+		sound_muted = cfg.get_value("audio", "sound_muted",
+			cfg.get_value("audio", "music_muted", false))
 		haptics_enabled = cfg.get_value("audio", "haptics_enabled", true)
+		ui_opacity = clampf(cfg.get_value("visual", "ui_opacity", UI_OPACITY_DEFAULT),
+			UI_OPACITY_MIN, UI_OPACITY_MAX)
 		player_color_slider = cfg.get_value("visual", "player_color_slider", 0.0)
 		platform_color_slider = cfg.get_value("visual", "platform_color_slider", 0.0)
 		particle_color_slider = cfg.get_value("visual", "particle_color_slider", 0.0)
@@ -59,9 +72,6 @@ func set_control_scheme(scheme: ControlScheme) -> void:
 
 func toggle_control_scheme() -> void:
 	set_control_scheme(ControlScheme.TILT if control_scheme == ControlScheme.TOUCH else ControlScheme.TOUCH)
-
-func control_scheme_name() -> String:
-	return "TILT" if control_scheme == ControlScheme.TILT else "TOUCH"
 
 func set_glow_strength(value: float) -> void:
 	glow_strength = value
@@ -96,23 +106,25 @@ func set_player_skin(value: Player.SkinType) -> void:
 	_save()
 	visual_settings_changed.emit()
 
-func player_skin_name() -> String:
-	return Player.SKIN_NAMES[player_skin]
-
 func set_trail_enabled(value: bool) -> void:
 	trail_enabled = value
 	_save()
 	visual_settings_changed.emit()
 
-func set_music_muted(value: bool) -> void:
-	if value == music_muted:
+func set_sound_muted(value: bool) -> void:
+	if value == sound_muted:
 		return
-	music_muted = value
+	sound_muted = value
 	_save()
-	music_muted_changed.emit(value)
+	sound_muted_changed.emit(value)
 
-func toggle_music_muted() -> void:
-	set_music_muted(not music_muted)
+func toggle_sound_muted() -> void:
+	set_sound_muted(not sound_muted)
+
+func set_ui_opacity(value: float) -> void:
+	ui_opacity = clampf(value, UI_OPACITY_MIN, UI_OPACITY_MAX)
+	_save()
+	visual_settings_changed.emit()
 
 func set_haptics_enabled(value: bool) -> void:
 	haptics_enabled = value
@@ -131,8 +143,9 @@ func _save() -> void:
 	cfg.set_value("visual", "background_particle_color", background_particle_color)
 	cfg.set_value("visual", "player_skin", player_skin)
 	cfg.set_value("visual", "trail_enabled", trail_enabled)
-	cfg.set_value("audio", "music_muted", music_muted)
+	cfg.set_value("audio", "sound_muted", sound_muted)
 	cfg.set_value("audio", "haptics_enabled", haptics_enabled)
+	cfg.set_value("visual", "ui_opacity", ui_opacity)
 	cfg.set_value("visual", "player_color_slider", player_color_slider)
 	cfg.set_value("visual", "platform_color_slider", platform_color_slider)
 	cfg.set_value("visual", "particle_color_slider", particle_color_slider)

@@ -5,6 +5,11 @@
 [ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
 [ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="4_plasma"]
 [ext_resource type="Script" path="res://scripts/color_spectrum_slider.gd" id="5_colorslider"]
+[ext_resource type="Texture2D" uid="uid://cidqof0fmj5xs" path="res://assets/icons/arrowLeft.png" id="20_prev"]
+[ext_resource type="Texture2D" uid="uid://cb84tkwktj4sr" path="res://assets/icons/arrowRight.png" id="21_next"]
+[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="22_home"]
+[ext_resource type="Texture2D" uid="uid://40geshknetsh" path="res://assets/icons/unlocked.png" id="23_unlock"]
+[ext_resource type="Texture2D" uid="uid://bx4ntwbjy3rai" path="res://assets/icons/star.png" id="24_star"]
 
 [sub_resource type="Environment" id="Environment_custom"]
 background_mode = 3
@@ -49,6 +54,35 @@ theme_override_font_sizes/font_size = 46
 text = "CUSTOMIZE"
 horizontal_alignment = 1
 
+[node name="CoinsRow" type="HBoxContainer" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.1
+anchor_right = 0.5
+anchor_bottom = 0.1
+offset_left = -160.0
+offset_top = -15.0
+offset_right = 160.0
+offset_bottom = 15.0
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="Icon" type="TextureRect" parent="UI/CoinsRow"]
+custom_minimum_size = Vector2(22, 22)
+size_flags_vertical = 4
+mouse_filter = 2
+texture = ExtResource("24_star")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="UI/CoinsRow"]
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 1.5, 1.9, 1)
+theme_override_font_sizes/font_size = 20
+text = "0"
+
 [node name="PreviewAnchor" type="Control" parent="UI"]
 mouse_filter = 2
 anchors_preset = -1
@@ -92,11 +126,15 @@ anchor_top = 0.35
 anchor_right = 0.5
 anchor_bottom = 0.35
 offset_left = -300.0
-offset_top = -30.0
+offset_top = -40.0
 offset_right = -220.0
-offset_bottom = 30.0
-theme_override_font_sizes/font_size = 30
-text = "<"
+offset_bottom = 40.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 44
+flat = true
+icon = ExtResource("20_prev")
+icon_alignment = 1
 
 [node name="CharacterName" type="Label" parent="UI"]
 anchors_preset = -1
@@ -121,11 +159,33 @@ anchor_top = 0.35
 anchor_right = 0.5
 anchor_bottom = 0.35
 offset_left = 220.0
-offset_top = -30.0
+offset_top = -40.0
 offset_right = 300.0
-offset_bottom = 30.0
-theme_override_font_sizes/font_size = 30
-text = ">"
+offset_bottom = 40.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 44
+flat = true
+icon = ExtResource("21_next")
+icon_alignment = 1
+
+[node name="UnlockButton" type="Button" parent="UI"]
+visible = false
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.35
+anchor_right = 0.5
+anchor_bottom = 0.35
+offset_left = 130.0
+offset_top = -38.0
+offset_right = 206.0
+offset_bottom = 38.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 40
+flat = true
+icon = ExtResource("23_unlock")
+icon_alignment = 1
 
 [node name="SwipeHint" type="Label" parent="UI"]
 anchors_preset = -1
@@ -255,14 +315,19 @@ anchor_left = 0.5
 anchor_top = 0.88
 anchor_right = 0.5
 anchor_bottom = 0.88
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "BACK"
+offset_left = -52.0
+offset_top = -52.0
+offset_right = 52.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+flat = true
+icon = ExtResource("22_home")
+icon_alignment = 1
 
 [connection signal="gui_input" from="UI/SwipeArea" to="." method="_on_swipe_gui_input"]
+[connection signal="pressed" from="UI/UnlockButton" to="." method="_on_unlock_pressed"]
 [connection signal="pressed" from="UI/PrevButton" to="." method="_on_prev_pressed"]
 [connection signal="pressed" from="UI/NextButton" to="." method="_on_next_pressed"]
 [connection signal="color_changed" from="UI/PlayerSlider" to="." method="_on_player_slider_color_changed"]

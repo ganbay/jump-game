@@ -1,7 +1,11 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://bn2d4ggx2owi0"]
 
-[ext_resource type="Script" path="res://scripts/settings_menu.gd" id="1_settings"]
-[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
+[ext_resource type="Script" uid="uid://03fu8jmrf3pj" path="res://scripts/settings_menu.gd" id="1_settings"]
+[ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
+[ext_resource type="Texture2D" uid="uid://bachcfbplrmx8" path="res://assets/icons/joystick.png" id="4_controls"]
+[ext_resource type="Texture2D" uid="uid://cew8oc8bp722c" path="res://assets/icons/audioOn.png" id="5_sound"]
+[ext_resource type="Texture2D" uid="uid://l6p5r4jyqrac" path="res://assets/icons/checkmark.png" id="6_haptics"]
+[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="7_home"]
 
 [sub_resource type="Environment" id="Environment_settings"]
 background_mode = 3
@@ -11,27 +15,27 @@ glow_strength = 0.7
 glow_bloom = 0.05
 glow_blend_mode = 0
 
-[node name="SettingsMenu" type="Node2D"]
+[node name="SettingsMenu" type="Node2D" unique_id=2087996465]
 script = ExtResource("1_settings")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1559722844]
 environment = SubResource("Environment_settings")
 
-[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=1515214113]
 layer = -1
 
-[node name="Background" type="ColorRect" parent="BackgroundLayer"]
-mouse_filter = 2
+[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=1332588562]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("3_bgparticles")]
+[node name="BackgroundParticles" parent="BackgroundLayer" unique_id=2108153397 instance=ExtResource("3_bgparticles")]
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=44455857]
 
-[node name="TitleLabel" type="Label" parent="UI"]
+[node name="TitleLabel" type="Label" parent="UI" unique_id=1607770288]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.05
@@ -46,12 +50,12 @@ theme_override_font_sizes/font_size = 50
 text = "SETTINGS"
 horizontal_alignment = 1
 
-[node name="GlowLabel" type="Label" parent="UI"]
+[node name="GlowLabel" type="Label" parent="UI" unique_id=1516743856]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.3
+anchor_top = 0.21
 anchor_right = 0.5
-anchor_bottom = 0.3
+anchor_bottom = 0.21
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 140.0
@@ -61,75 +65,166 @@ theme_override_font_sizes/font_size = 18
 text = "GLOW STRENGTH"
 horizontal_alignment = 1
 
-[node name="GlowSlider" type="HSlider" parent="UI"]
+[node name="GlowSlider" type="HSlider" parent="UI" unique_id=1238064475]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.36
+anchor_top = 0.26
 anchor_right = 0.5
-anchor_bottom = 0.36
+anchor_bottom = 0.26
 offset_left = -140.0
 offset_top = -10.0
 offset_right = 140.0
 offset_bottom = 10.0
-min_value = 0.0
 max_value = 1.5
 step = 0.05
 value = 0.4
 
-[node name="ControlsButton" type="Button" parent="UI"]
+[node name="OpacityLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.33
+anchor_right = 0.5
+anchor_bottom = 0.33
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 140.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "UI OPACITY"
+horizontal_alignment = 1
+
+[node name="OpacitySlider" type="HSlider" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.38
+anchor_right = 0.5
+anchor_bottom = 0.38
+offset_left = -140.0
+offset_top = -10.0
+offset_right = 140.0
+offset_bottom = 10.0
+min_value = 0.6
+max_value = 1.0
+step = 0.05
+value = 0.8
+
+[node name="ControlsLabel" type="Label" parent="UI" unique_id=1952482922]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.52
 anchor_right = 0.5
 anchor_bottom = 0.52
-offset_left = -130.0
-offset_top = -28.0
-offset_right = 130.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "CONTROLS: TOUCH"
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 20.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "CONTROLS"
+vertical_alignment = 1
 
-[node name="MusicButton" type="Button" parent="UI"]
+[node name="ControlsButton" type="Button" parent="UI" unique_id=391914364]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.52
+anchor_right = 0.5
+anchor_bottom = 0.52
+offset_left = 52.0
+offset_top = -44.0
+offset_right = 140.0
+offset_bottom = 44.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 48
+icon = ExtResource("4_controls")
+flat = true
+icon_alignment = 1
+
+[node name="SoundLabel" type="Label" parent="UI" unique_id=1995807125]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.62
 anchor_right = 0.5
 anchor_bottom = 0.62
-offset_left = -130.0
-offset_top = -28.0
-offset_right = 130.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "MUSIC: ON"
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 20.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "SOUND"
+vertical_alignment = 1
 
-[node name="HapticsButton" type="Button" parent="UI"]
+[node name="SoundButton" type="Button" parent="UI" unique_id=498754723]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.62
+anchor_right = 0.5
+anchor_bottom = 0.62
+offset_left = 52.0
+offset_top = -44.0
+offset_right = 140.0
+offset_bottom = 44.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 48
+icon = ExtResource("5_sound")
+flat = true
+icon_alignment = 1
+
+[node name="HapticsLabel" type="Label" parent="UI" unique_id=826691771]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.72
 anchor_right = 0.5
 anchor_bottom = 0.72
-offset_left = -130.0
-offset_top = -28.0
-offset_right = 130.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "HAPTICS: ON"
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 20.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "HAPTICS"
+vertical_alignment = 1
 
-[node name="BackButton" type="Button" parent="UI"]
+[node name="HapticsButton" type="Button" parent="UI" unique_id=252595316]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.72
+anchor_right = 0.5
+anchor_bottom = 0.72
+offset_left = 52.0
+offset_top = -44.0
+offset_right = 140.0
+offset_bottom = 44.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 48
+icon = ExtResource("6_haptics")
+flat = true
+icon_alignment = 1
+
+[node name="BackButton" type="Button" parent="UI" unique_id=408759512]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.86
 anchor_right = 0.5
 anchor_bottom = 0.86
-offset_left = -110.0
-offset_top = -28.0
-offset_right = 110.0
-offset_bottom = 28.0
-theme_override_font_sizes/font_size = 20
-text = "BACK"
+offset_left = -52.0
+offset_top = -52.0
+offset_right = 52.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+icon = ExtResource("7_home")
+flat = true
+icon_alignment = 1
 
 [connection signal="value_changed" from="UI/GlowSlider" to="." method="_on_glow_slider_value_changed"]
+[connection signal="value_changed" from="UI/OpacitySlider" to="." method="_on_opacity_slider_value_changed"]
 [connection signal="pressed" from="UI/ControlsButton" to="." method="_on_controls_pressed"]
-[connection signal="pressed" from="UI/MusicButton" to="." method="_on_music_pressed"]
+[connection signal="pressed" from="UI/SoundButton" to="." method="_on_sound_pressed"]
 [connection signal="pressed" from="UI/HapticsButton" to="." method="_on_haptics_pressed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

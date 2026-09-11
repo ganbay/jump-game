@@ -23,10 +23,9 @@ Stats="*res://scripts/stats.gd"
 Audio="*res://scripts/audio.gd"
 Transition="*res://scripts/transition.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
-
-[audio]
-
-buses/default_bus_layout="res://default_bus_layout.tres"
+Unlocks="*res://scripts/unlocks.gd"
+Notify="*res://scripts/notifications.gd"
+Missions="*res://scripts/missions.gd"
 
 [display]
 
