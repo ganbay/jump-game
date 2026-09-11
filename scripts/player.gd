@@ -128,6 +128,14 @@ func _apply_visual_settings() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		# On a touchscreen every tap also arrives a second time as an emulated
+		# mouse click (device -1). Letting both through pushes the same tap into
+		# `last_press_ms` twice, which leaves `_prev_press_ms` sitting on the very
+		# same timestamp -- so `single_tap` is never true and a timed landing is
+		# impossible on mobile. The emulation stays on: the drag steering below
+		# reads the mouse position, which is only fed by it.
+		if event.device == InputEvent.DEVICE_ID_EMULATION:
+			return
 		_set_hold(event.pressed, event.position.x)
 	elif event is InputEventScreenTouch:
 		_set_hold(event.pressed, event.position.x)
