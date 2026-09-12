@@ -21,6 +21,7 @@ const DOT_RADIUS := 4.5
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var preview: PlasmaBlob = $UI/PreviewAnchor/CharacterPreview
+@onready var lock_icon: TextureRect = $UI/PreviewAnchor/LockIcon
 @onready var platform_swatch: RoundedRect = $UI/PlatformSwatchAnchor/PlatformSwatch
 @onready var name_label: Label = $UI/CharacterName
 @onready var player_slider: ColorSpectrumSlider = $UI/PlayerSlider
@@ -34,14 +35,34 @@ const DOT_RADIUS := 4.5
 @onready var unlock_button: Button = $UI/UnlockButton
 
 const HINT_SWIPE := "SWIPE THE CHARACTER TO CHANGE"
-## How far the preview fades while its character is still locked. Faded, never
-## hidden -- the whole point of letting a locked skin be browsed is that the
-## player can see what they would be buying.
-const LOCKED_PREVIEW_ALPHA := 0.4
+## How dark the preview goes while its character is still locked -- a colour
+## multiplier, not alpha, so the shape stays fully opaque (reads as dimmed,
+## not faded/transparent) and the white lock icon sitting on top of it stands
+## out cleanly instead of blending into a see-through character.
+const LOCKED_PREVIEW_DARKEN := 0.2
+
+## Where the unlock button sends the player for a RATE-gated skin. There is no
+## cross-platform way to confirm a review was actually left from inside the
+## app, so reaching the listing at all is what counts.
+const RATE_URL := "https://play.google.com/store/apps/details?id=com.eternalsky.jetlet"
+
+## Hint text for a locked skin, per Unlocks.Requirement. PURCHASE has no
+## working buy flow yet -- see Unlocks.gd -- so it reads as unavailable rather
+## than offering a button that would do nothing.
+const REQUIREMENT_HINTS := {
+	Unlocks.Requirement.RATE: "LOCKED  -  RATE THE GAME TO UNLOCK",
+	Unlocks.Requirement.ESCAPE: "LOCKED  -  ESCAPE SOLAR GRAVITY TO UNLOCK",
+	Unlocks.Requirement.TRUE_ENDING: "LOCKED  -  REACH THE TRUE ENDING TO UNLOCK",
+	Unlocks.Requirement.PURCHASE: "LOCKED  -  COMING SOON",
+}
+
+## How long a "just unlocked" announcement holds before the hint label reverts
+## to its normal per-skin text.
+const UNLOCK_ANNOUNCE_TIME := 2.2
 
 ## Which character the picker is sitting on, which is no longer the same thing
-## as which one is worn: a locked skin can be browsed and priced, and only
-## becomes Settings.player_skin once it is owned.
+## as which one is worn: a locked skin can be browsed and its requirement
+## checked, and only becomes Settings.player_skin once it is unlocked.
 var _browse: int = 0
 
 ## Drag distance banked since the last character change.
@@ -64,13 +85,44 @@ func _ready() -> void:
 	particles_check.set_pressed_no_signal(Settings.background_particles)
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
+	_announce_new_unlocks()
+
+## Surfaces anything unlocked away from this screen -- an ESCAPE or
+## TRUE_ENDING milestone hit mid-run -- rather than leaving the player to
+## notice only by browsing past it later. Jumps the picker onto the first
+## thing unlocked, exactly like a manual swipe onto it would, so the character
+## itself lights up rather than just a hint line being easy to miss. Overwrites
+## the hint label briefly for the announcement text; _refresh_lock_state()
+## (queued below) restores its normal per-skin text once that clears.
+func _announce_new_unlocks() -> void:
+	var newly := Unlocks.claim_newly_unlocked()
+	if newly.is_empty():
+		return
+	var names := PackedStringArray()
+	for id in newly:
+		names.append(id.trim_prefix(Unlocks.SKIN_PREFIX))
+	var target := Player.SKIN_NAMES.find(names[0])
+	if target != -1 and target != _browse:
+		var dir := 1 if target > _browse else -1
+		_browse = target
+		_equip_if_owned()
+		_apply_visual_settings()
+		_slide_in(dir)
+	hint_label.text = "%s UNLOCKED!" % " & ".join(names)
+	queue_redraw()
+	var tw := create_tween()
+	tw.tween_interval(UNLOCK_ANNOUNCE_TIME)
+	tw.tween_callback(_refresh_lock_state)
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
 	UiOpacity.apply($UI)
+	# Currency display disabled -- CoinsRow is hidden (see customization.tscn).
+	# Uncomment alongside it to bring the star count back.
 	# modulate, not self_modulate: UiOpacity owns self_modulate on every Control
 	# under the UI layer, so the star's tint has to live on the other channel.
-	coins_icon.modulate = Settings.background_particle_color
+	# coins_icon.modulate = Settings.background_particle_color
+	# coins_label.add_theme_color_override("font_color", Settings.background_particle_color)
 	preview.shape = Player.SKIN_SHAPES.get(_browse, PlasmaBlob.Shape.CIRCLE)
 	preview.color = Settings.player_color
 	platform_swatch.color = Settings.platform_color
@@ -83,12 +135,19 @@ func _apply_visual_settings() -> void:
 func _refresh_lock_state() -> void:
 	var id := Unlocks.skin_id(_browse)
 	var owned := Unlocks.is_unlocked(id)
-	var price := Unlocks.price_of(id)
-	coins_label.text = "%d" % Stats.coins
-	preview.modulate.a = 1.0 if owned else LOCKED_PREVIEW_ALPHA
-	unlock_button.visible = not owned
-	unlock_button.disabled = not Unlocks.can_afford(id)
-	hint_label.text = HINT_SWIPE if owned else "LOCKED  -  %d COINS" % price
+	# coins_label.text = "%d" % Stats.coins  # currency display disabled
+	preview.modulate = Color.WHITE if owned else Color(LOCKED_PREVIEW_DARKEN, LOCKED_PREVIEW_DARKEN, LOCKED_PREVIEW_DARKEN)
+	lock_icon.visible = not owned
+	if owned:
+		unlock_button.visible = false
+		hint_label.text = HINT_SWIPE
+		return
+	# Only RATE has a button to press -- ESCAPE/TRUE_ENDING unlock themselves
+	# the moment the milestone is hit in a run, and PURCHASE has nothing to
+	# wire the button to yet.
+	var requirement := Unlocks.requirement_of(id)
+	unlock_button.visible = requirement == Unlocks.Requirement.RATE
+	hint_label.text = REQUIREMENT_HINTS.get(requirement, "LOCKED")
 
 ## Which character is selected, as a row of dots under the name. Drawn here
 ## rather than as nine nodes in the scene -- there is nothing to lay out, and
@@ -150,11 +209,14 @@ func _equip_if_owned() -> void:
 	if Unlocks.is_unlocked(Unlocks.skin_id(_browse)):
 		Settings.set_player_skin(_browse as Player.SkinType)
 
+## Only ever wired to a RATE-gated skin (see _refresh_lock_state) -- opens the
+## store listing and trusts the tap, since nothing inside the app can confirm
+## a review was actually left.
 func _on_unlock_pressed() -> void:
-	if not Unlocks.unlock(Unlocks.skin_id(_browse)):
-		return
+	OS.shell_open(RATE_URL)
 	Audio.play_ui_click()
-	# Bought is worn: nobody buys a character to leave it on the shelf.
+	Stats.mark_rated()
+	# Unlocked is worn: nobody rates the game just to leave the skin unworn.
 	_equip_if_owned()
 	_apply_visual_settings()
 

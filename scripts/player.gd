@@ -8,22 +8,30 @@ signal landed(platform, boosted, streak)
 ## just a different silhouette.
 ##
 ## Settings persists this enum as a raw int, so entries must not be inserted
-## or reordered -- new ones go on the end. PLASMA holds slot 0 as the default,
-## which is also the slot the retired solid-body skin used, so a save from that
-## era opens on PLASMA.
-enum SkinType { PLASMA, DOME, TRIANGLE, SQUARE, PRISM, STAR, HEART, FLAME, SPARKLE }
+## or reordered -- new ones go on the end -- except for the one deliberate
+## renumbering below, done while DIAMOND/CRESCENT/COMET were still fresh
+## enough that no released save depended on their slots (see Unlocks.gd for
+## fixing up an already-equipped index across that renumbering).
+##
+## PLASMA holds slot 0 as the default, which is also the slot the retired
+## solid-body skin used, so a save from that era opens on PLASMA. After it,
+## the basic tier (PRISM, SQUARE, TRIANGLE, DOME, DIAMOND) is free; the
+## complex tier (STAR, HEART, FLAME, SPARKLE) is gated -- see Unlocks.gd for
+## what gates each one.
+enum SkinType { PLASMA, PRISM, SQUARE, TRIANGLE, DOME, DIAMOND, STAR, HEART, FLAME, SPARKLE }
 
 ## Display names for the settings menu, indexed by SkinType.
-const SKIN_NAMES := ["PLASMA", "DOME", "TRIANGLE", "SQUARE", "PRISM", "STAR",
-	"HEART", "FLAME", "SPARKLE"]
+const SKIN_NAMES := ["PLASMA", "PRISM", "SQUARE", "TRIANGLE", "DOME", "DIAMOND",
+	"STAR", "HEART", "FLAME", "SPARKLE"]
 
 ## The PlasmaBlob.Shape each skin draws.
 const SKIN_SHAPES := {
 	SkinType.PLASMA: PlasmaBlob.Shape.CIRCLE,
-	SkinType.DOME: PlasmaBlob.Shape.DOME,
-	SkinType.TRIANGLE: PlasmaBlob.Shape.TRIANGLE,
-	SkinType.SQUARE: PlasmaBlob.Shape.SQUARE,
 	SkinType.PRISM: PlasmaBlob.Shape.PRISM,
+	SkinType.SQUARE: PlasmaBlob.Shape.SQUARE,
+	SkinType.TRIANGLE: PlasmaBlob.Shape.TRIANGLE,
+	SkinType.DOME: PlasmaBlob.Shape.DOME,
+	SkinType.DIAMOND: PlasmaBlob.Shape.DIAMOND,
 	SkinType.STAR: PlasmaBlob.Shape.STAR,
 	SkinType.HEART: PlasmaBlob.Shape.HEART,
 	SkinType.FLAME: PlasmaBlob.Shape.FLAME,
@@ -73,6 +81,17 @@ const SKIN_SHAPES := {
 @export var plasma_deform_scale: float = 1
 @export var plasma_impulse_scale: float = 1.25
 
+@export_group("Solar Wind")
+## Triggered every SOLAR_WIND_MILESTONE streak (see game.gd:_on_player_landed).
+## solar_wind_launch_mult hits the current jump's velocity immediately and
+## once; solar_wind_speed_mult eases move_speed up, holds, and eases back
+## down. See enter_solar_wind() for why the launch boost has to be applied
+## immediately rather than at some later landing.
+@export var solar_wind_duration: float = 2.0
+@export var solar_wind_ease_time: float = 0.35
+@export var solar_wind_speed_mult: float = 2.0
+@export var solar_wind_launch_mult: float = 2.0
+
 var is_holding: bool = false
 var is_fast_falling: bool = false
 var streak: int = 0
@@ -98,6 +117,10 @@ var _viewport_width: float = 720.0
 var _squash: float = 0.0
 var _squash_vel: float = 0.0
 var _lean: float = 0.0
+## Captured once in _ready() so repeated Solar Wind bursts always ease back to
+## the true baseline, not to whatever the last burst left behind.
+var _base_move_speed: float = 0.0
+var _solar_wind_tween: Tween
 const FEET_HALF_WIDTH := 20.0
 const FEET_HALF_HEIGHT := 5.0
 const PLATFORM_HALF_WIDTH := 45.0
@@ -114,6 +137,7 @@ func _ready() -> void:
 	# Orientation is locked to portrait, so this never changes mid-run and does
 	# not need re-querying every physics frame.
 	_viewport_width = get_viewport_rect().size.x
+	_base_move_speed = move_speed
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 
@@ -125,6 +149,35 @@ func _apply_visual_settings() -> void:
 	trail.color = Settings.player_color
 	trail.shape = shape
 	trail.set_enabled(Settings.trail_enabled)
+
+## Streak milestone burst. velocity.y was just set moments ago in _land_on()
+## for this exact launch -- boosting it immediately, rather than waiting on
+## some future landing's _boosted_jump_velocity() call, is what makes THIS
+## jump the one that visibly rockets. Waiting does not work here: at streak
+## 10+ a single jump arc already takes longer than the whole burst window (the
+## already-capped streak boost alone is a ~3s round trip against gravity), so
+## the window would close again before the player ever landed to read a flag.
+## move_speed also eases up to double (holds, eases back down); re-triggering
+## (another milestone hit before that move_speed ease finishes) kills whatever
+## tween is running and starts fresh from the current -- already boosted --
+## speed, so back-to-back milestones don't snap, they just extend.
+func enter_solar_wind() -> void:
+	velocity.y *= solar_wind_launch_mult
+	if _solar_wind_tween != null and _solar_wind_tween.is_valid():
+		_solar_wind_tween.kill()
+	_solar_wind_tween = create_tween()
+	_tween_solar_wind_speed(_base_move_speed * solar_wind_speed_mult, Tween.EASE_OUT)
+	_solar_wind_tween.tween_interval(
+		maxf(solar_wind_duration - solar_wind_ease_time * 2.0, 0.0))
+	_solar_wind_tween.tween_callback(_exit_solar_wind)
+
+func _exit_solar_wind() -> void:
+	_solar_wind_tween = create_tween()
+	_tween_solar_wind_speed(_base_move_speed, Tween.EASE_IN)
+
+func _tween_solar_wind_speed(target: float, ease: Tween.EaseType) -> void:
+	_solar_wind_tween.tween_property(self, "move_speed", target, solar_wind_ease_time) \
+		.set_trans(Tween.TRANS_SINE).set_ease(ease)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:

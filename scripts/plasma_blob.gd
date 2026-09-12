@@ -52,7 +52,7 @@ class_name PlasmaBlob
 ## The cell's base silhouette before churn deforms it. CIRCLE is the original
 ## look; the rest are the same wobbling/glowing bands stretched over a polygon,
 ## star or dome outline instead, so they read as the same plasma "family."
-enum Shape { CIRCLE, TRIANGLE, SQUARE, PRISM, STAR, DOME, HEART, FLAME, SPARKLE }
+enum Shape { CIRCLE, TRIANGLE, SQUARE, PRISM, STAR, DOME, HEART, FLAME, SPARKLE, DIAMOND }
 
 @export var shape: Shape = Shape.CIRCLE:
 	set(value):
@@ -71,6 +71,7 @@ const _SHAPE_ROTATION := {
 	# _star_radius puts a spike at the middle of each segment, so a quarter
 	# turn plus half a segment lands one straight up.
 	Shape.SPARKLE: 3.0 * PI / 4.0,
+	Shape.DIAMOND: 0.0,
 	# DOME, HEART and FLAME are absent on purpose: each is written against
 	# absolute up/down, so rotating it would tip it over.
 }
@@ -128,6 +129,8 @@ static func shape_radius(a: float, shape_type: Shape) -> float:
 			return _flame_radius(rotated)
 		Shape.SPARKLE:
 			return _star_radius(rotated, 4, 0.28)
+		Shape.DIAMOND:
+			return _ngon_radius(rotated, 4)
 		_:
 			return 1.0
 

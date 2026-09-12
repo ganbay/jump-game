@@ -1,37 +1,40 @@
 extends Node
 
-## What currency can buy, and what has already been bought.
+## What has to be earned before a skin can be worn, and what already has been.
 ##
 ## Deliberately its own store rather than a field on either neighbour: Settings
 ## holds the choice a player has made, Stats holds what they have earned, and an
-## unlock is neither -- it is permission to make the choice. Keeping it apart is
-## also what makes it extensible. An id is an opaque string and nothing in here
-## knows what a skin is, so adding trails, platform styles, music sets or
-## anything else later is entries in CATALOGUE plus a screen to show them; the
-## buying, the balance check and the save file all already work.
-
-signal unlocked(id: String)
+## unlock is neither -- it is permission to make the choice. Coins are not spent
+## on any of this -- the currency is disabled here for now (Stats.coins still
+## exists, still gets earned and shown, it just isn't a purchase mechanism at
+## the moment; that may come back later). Every complex-tier skin instead gates
+## on something the player did, read straight off Stats.
 
 const SAVE_PATH := "user://unlocks.cfg"
 
 const SKIN_PREFIX := "skin:"
 
-## id -> price in coins. Anything absent is free and always owned, so a category
-## can be added a few entries at a time without stranding the rest of it. Skins
-## are priced in tiers rather than flat: the roster is browsed in order, so a
-## climbing price is what stops the last one being the obvious first buy.
-const CATALOGUE := {
-	"skin:DOME": 150,
-	"skin:TRIANGLE": 150,
-	"skin:SQUARE": 250,
-	"skin:PRISM": 250,
-	"skin:STAR": 400,
-	"skin:HEART": 400,
-	"skin:FLAME": 600,
-	"skin:SPARKLE": 800,
+## What has to be true for a gated skin's Stats flag to flip. RATE and
+## PURCHASE both need a player action this class can't perform on its own --
+## RATE's is a button that opens the store listing (see customization.gd),
+## PURCHASE has no real payment flow wired up yet, so it stays permanently
+## locked until one exists.
+enum Requirement { RATE, ESCAPE, TRUE_ENDING, PURCHASE }
+
+## id -> requirement. Anything absent is free and always owned -- PLASMA and
+## the whole basic tier (PRISM, SQUARE, TRIANGLE, DOME, DIAMOND) fall through
+## to that default without needing their own entries.
+const REQUIREMENTS := {
+	"skin:STAR": Requirement.RATE,
+	"skin:FLAME": Requirement.ESCAPE,
+	"skin:SPARKLE": Requirement.TRUE_ENDING,
+	"skin:HEART": Requirement.PURCHASE,
 }
 
-## Used as a set; only the keys matter.
+## Used as a set; only the keys matter. Kept for two reasons rather than
+## dropped now that nothing charges coins any more: it grandfathers in
+## whatever a save already earned under the old coin-purchase system, and it
+## is where a real PURCHASE flow would record a completed sale later.
 var _owned: Dictionary = {}
 
 func _ready() -> void:
@@ -46,32 +49,44 @@ func _ready() -> void:
 	_owned[skin_id(Settings.player_skin)] = true
 	_save()
 
-## PLASMA is absent from CATALOGUE, so the starter skin is free by omission
-## rather than by a special case here.
+## PLASMA is absent from REQUIREMENTS, so the starter skin is free by
+## omission rather than by a special case here.
 static func skin_id(skin: int) -> String:
 	return SKIN_PREFIX + Player.SKIN_NAMES[skin]
 
-func price_of(id: String) -> int:
-	return CATALOGUE.get(id, 0)
+## -1 when the skin is free and has no requirement at all.
+func requirement_of(id: String) -> int:
+	return REQUIREMENTS.get(id, -1)
 
 func is_unlocked(id: String) -> bool:
-	return price_of(id) == 0 or _owned.has(id)
+	if _owned.has(id):
+		return true
+	match REQUIREMENTS.get(id, -1):
+		Requirement.RATE:
+			return Stats.rated_game
+		Requirement.ESCAPE:
+			return Stats.escaped
+		Requirement.TRUE_ENDING:
+			return Stats.true_ending
+		Requirement.PURCHASE:
+			return false
+		_:
+			return true
 
-func can_afford(id: String) -> bool:
-	return Stats.coins >= price_of(id)
-
-## Buys `id` if it is affordable and not already owned. Returns whether the
-## purchase actually happened, so a caller can answer a refusal differently from
-## a sale rather than assuming it went through.
-func unlock(id: String) -> bool:
-	if is_unlocked(id):
-		return false
-	if not Stats.spend_coins(price_of(id)):
-		return false
-	_owned[id] = true
-	_save()
-	unlocked.emit(id)
-	return true
+## Promotes any gated skin whose condition has become true since it was last
+## checked into _owned, and returns the ids newly promoted. ESCAPE and
+## TRUE_ENDING flip mid-run, far from the customization screen, so without
+## this the player would only find out by browsing past the skin some other
+## time -- call this on entering that screen to catch and announce it instead.
+func claim_newly_unlocked() -> Array[String]:
+	var newly: Array[String] = []
+	for id in REQUIREMENTS:
+		if not _owned.has(id) and is_unlocked(id):
+			_owned[id] = true
+			newly.append(id)
+	if not newly.is_empty():
+		_save()
+	return newly
 
 func _save() -> void:
 	var cfg := ConfigFile.new()

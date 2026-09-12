@@ -18,6 +18,10 @@ var coins: int = 0
 var escaped: bool = false
 var true_ending: bool = false
 var tutorial_seen: bool = false
+## Set once the player has followed the store-rating prompt in Customize (see
+## Unlocks.gd). Trusts the tap rather than verifying a submitted review --
+## there is no cross-platform way to confirm one from inside the app.
+var rated_game: bool = false
 
 func _ready() -> void:
 	var cfg := ConfigFile.new()
@@ -30,6 +34,7 @@ func _ready() -> void:
 		escaped = cfg.get_value("stats", "escaped", false)
 		true_ending = cfg.get_value("stats", "true_ending", false)
 		tutorial_seen = cfg.get_value("stats", "tutorial_seen", false)
+		rated_game = cfg.get_value("stats", "rated_game", false)
 
 func record_run(score: int, max_streak: int, coins_earned: int = 0) -> void:
 	games_played += 1
@@ -82,6 +87,12 @@ func mark_tutorial_seen() -> void:
 	tutorial_seen = true
 	_save()
 
+func mark_rated() -> void:
+	if rated_game:
+		return
+	rated_game = true
+	_save()
+
 func average_score() -> float:
 	return float(total_score) / games_played if games_played > 0 else 0.0
 
@@ -95,4 +106,5 @@ func _save() -> void:
 	cfg.set_value("stats", "escaped", escaped)
 	cfg.set_value("stats", "true_ending", true_ending)
 	cfg.set_value("stats", "tutorial_seen", tutorial_seen)
+	cfg.set_value("stats", "rated_game", rated_game)
 	cfg.save(SAVE_PATH)

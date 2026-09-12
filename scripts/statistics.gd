@@ -6,7 +6,7 @@ enum Period { DAILY, WEEKLY, MONTHLY }
 ## These two stay words rather than glyphs: they pick what the graph is showing,
 ## and no icon says "streak over the last week" the way the word does. Only the
 ## state is printed -- what it selects is obvious from the graph underneath.
-const METRIC_NAMES := ["SCORE", "STREAK"]
+const METRIC_NAMES := ["SCORE", "FLARE"]
 const PERIOD_NAMES := ["DAILY", "WEEKLY", "MONTHLY"]
 const DAY_SECONDS := 86400
 ## The period is a recency window, not a bucket size -- every match inside it
@@ -32,12 +32,12 @@ const MAX_POINTS := 40
 @onready var empty_label: Label = $UI/EmptyLabel
 
 var _metric: int = Metric.SCORE
-var _period: int = Period.DAILY
+var _period: int = Period.MONTHLY
 
 func _ready() -> void:
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
-	summary_label.text = "GAMES PLAYED %d     AVERAGE SCORE %d     BEST STREAK x%d%s" % [
+	summary_label.text = "GAMES PLAYED %d     AVERAGE SCORE %d     BEST FLARE x%d%s" % [
 		Stats.games_played,
 		int(round(Stats.average_score())),
 		Stats.best_streak_ever,
@@ -61,6 +61,8 @@ func _badges() -> String:
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
 	UiOpacity.apply($UI)
+	graph.line_color = Settings.background_particle_color
+	graph.queue_redraw()
 
 func _on_metric_pressed() -> void:
 	Audio.play_ui_click()

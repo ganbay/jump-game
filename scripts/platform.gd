@@ -31,11 +31,10 @@ const SQUISH_STIFFNESS := 190.0
 const SQUISH_DAMPING := 11.0
 
 ## An invisible platform is solid the entire time -- only its rendering cycles.
-## It shows briefly, fades out, then stays gone for well over twice as long
-## before fading back: fully drawn for less than a quarter of the cycle, so the
-## player is mostly working from memory rather than waiting for a blink.
-const PHANTOM_VISIBLE_HOLD := 0.6
-const PHANTOM_GONE_HOLD := 1.0
+## It shows, fades out, stays gone, then fades back -- shown and gone for equal
+## stretches of the cycle.
+const PHANTOM_VISIBLE_HOLD := 0.7
+const PHANTOM_GONE_HOLD := 0.7
 const PHANTOM_FADE := 0.2
 const PHANTOM_CYCLE := PHANTOM_VISIBLE_HOLD + PHANTOM_GONE_HOLD + PHANTOM_FADE * 2.0
 
