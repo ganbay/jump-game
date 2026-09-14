@@ -51,9 +51,9 @@ color = Color(0, 0, 0, 1)
 [node name="TitleLabel" type="Label" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.045
+anchor_top = 0.04
 anchor_right = 0.5
-anchor_bottom = 0.045
+anchor_bottom = 0.04
 offset_left = -320.0
 offset_top = -40.0
 offset_right = 320.0

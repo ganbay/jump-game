@@ -1,9 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene format=3 uid="uid://djn8xhn6732qn"]
 
-[ext_resource type="Script" path="res://scripts/statistics.gd" id="1_stats"]
-[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
-[ext_resource type="Script" path="res://scripts/line_graph.gd" id="3_linegraph"]
-[ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="22_home"]
+[ext_resource type="Script" uid="uid://b578feh5n8fbd" path="res://scripts/statistics.gd" id="1_stats"]
+[ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
+[ext_resource type="Script" uid="uid://cvcyke8kn6wbe" path="res://scripts/line_graph.gd" id="3_linegraph"]
+[ext_resource type="Texture2D" uid="uid://cc3ikk231fgx7" path="res://assets/icons/house.svg" id="4_home"]
 
 [sub_resource type="Environment" id="Environment_stats"]
 background_mode = 3
@@ -13,32 +13,32 @@ glow_strength = 0.7
 glow_bloom = 0.05
 glow_blend_mode = 0
 
-[node name="Statistics" type="Node2D"]
+[node name="Statistics" type="Node2D" unique_id=357119456]
 script = ExtResource("1_stats")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1860169066]
 environment = SubResource("Environment_stats")
 
-[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=1008359575]
 layer = -1
 
-[node name="Background" type="ColorRect" parent="BackgroundLayer"]
-mouse_filter = 2
+[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=498354772]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("2_bgparticles")]
+[node name="BackgroundParticles" parent="BackgroundLayer" unique_id=852161711 instance=ExtResource("2_bgparticles")]
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=2030260177]
 
-[node name="TitleLabel" type="Label" parent="UI"]
+[node name="TitleLabel" type="Label" parent="UI" unique_id=1646275183]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.03
+anchor_top = 0.04
 anchor_right = 0.5
-anchor_bottom = 0.03
+anchor_bottom = 0.04
 offset_left = -190.0
 offset_top = -36.0
 offset_right = 190.0
@@ -48,7 +48,7 @@ theme_override_font_sizes/font_size = 50
 text = "STATS"
 horizontal_alignment = 1
 
-[node name="SummaryLabel" type="Label" parent="UI"]
+[node name="SummaryLabel" type="Label" parent="UI" unique_id=1857562898]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.12
@@ -64,7 +64,7 @@ text = "GAMES PLAYED 0     AVERAGE SCORE 0     BEST STREAK x0"
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="MetricButton" type="Button" parent="UI"]
+[node name="MetricButton" type="Button" parent="UI" unique_id=1615362723]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.21
@@ -77,9 +77,8 @@ offset_bottom = 26.0
 focus_mode = 0
 theme_override_font_sizes/font_size = 18
 text = "SCORE"
-alignment = 1
 
-[node name="PeriodButton" type="Button" parent="UI"]
+[node name="PeriodButton" type="Button" parent="UI" unique_id=840926020]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.21
@@ -92,18 +91,17 @@ offset_bottom = 26.0
 focus_mode = 0
 theme_override_font_sizes/font_size = 18
 text = "DAILY"
-alignment = 1
 
-[node name="LineGraph" type="Control" parent="UI"]
-mouse_filter = 2
-script = ExtResource("3_linegraph")
-anchors_preset = -1
+[node name="LineGraph" type="Control" parent="UI" unique_id=1324231200]
+layout_mode = 3
 anchor_left = 0.08
 anchor_top = 0.28
 anchor_right = 0.92
 anchor_bottom = 0.72
+mouse_filter = 2
+script = ExtResource("3_linegraph")
 
-[node name="MaxValueLabel" type="Label" parent="UI"]
+[node name="MaxValueLabel" type="Label" parent="UI" unique_id=931542249]
 anchors_preset = -1
 anchor_left = 0.08
 anchor_top = 0.29
@@ -114,9 +112,8 @@ offset_top = -12.0
 offset_bottom = 12.0
 theme_override_colors/font_color = Color(1.2, 1.2, 1.2, 1)
 theme_override_font_sizes/font_size = 13
-text = ""
 
-[node name="MidValueLabel" type="Label" parent="UI"]
+[node name="MidValueLabel" type="Label" parent="UI" unique_id=1911047506]
 anchors_preset = -1
 anchor_left = 0.08
 anchor_top = 0.5
@@ -127,9 +124,8 @@ offset_top = -12.0
 offset_bottom = 12.0
 theme_override_colors/font_color = Color(1.2, 1.2, 1.2, 1)
 theme_override_font_sizes/font_size = 13
-text = ""
 
-[node name="RangeLabel" type="Label" parent="UI"]
+[node name="RangeLabel" type="Label" parent="UI" unique_id=1327392280]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.75
@@ -141,10 +137,9 @@ offset_right = 200.0
 offset_bottom = 14.0
 theme_override_colors/font_color = Color(1.2, 1.2, 1.2, 1)
 theme_override_font_sizes/font_size = 15
-text = ""
 horizontal_alignment = 1
 
-[node name="EmptyLabel" type="Label" parent="UI"]
+[node name="EmptyLabel" type="Label" parent="UI" unique_id=684988247]
 visible = false
 anchors_preset = -1
 anchor_left = 0.5
@@ -160,7 +155,7 @@ theme_override_font_sizes/font_size = 18
 text = "NO RUNS YET"
 horizontal_alignment = 1
 
-[node name="BackButton" type="Button" parent="UI"]
+[node name="BackButton" type="Button" parent="UI" unique_id=1417877111]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.93
@@ -173,8 +168,8 @@ offset_bottom = 52.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 56
+icon = ExtResource("4_home")
 flat = true
-icon = ExtResource("22_home")
 icon_alignment = 1
 
 [connection signal="pressed" from="UI/MetricButton" to="." method="_on_metric_pressed"]

@@ -40,12 +40,19 @@ const SKIN_SHAPES := {
 
 @export var move_speed: float = 900.0
 @export var gravity: float = 1600.0
-@export var fast_fall_gravity: float = 3600.0
 @export var jump_velocity: float = -900.0
 @export var boost_jump_velocity: float = -1300.0
-@export var boost_move_multiplier: float = 1.4
 @export var streak_jump_step: float = 0.1
 @export var streak_jump_cap: int = 10
+## Every streak point (up to streak_fall_cap) multiplies the fall-time
+## multiplier by this -- compounding, so streak 10 lands at
+## streak_fall_step^10. Below 1.0 shortens the time to fall, i.e. speeds it up
+## (see _streak_fall_multiplier()).
+@export var streak_fall_step: float = 0.95
+@export var streak_fall_cap: int = 10
+## Applies per streak point beyond streak_fall_cap, at a gentler rate so the
+## fall doesn't keep compounding at the early pace forever.
+@export var streak_fall_step_late: float = 0.99
 @export var landing_window_ms: int = 100
 @export var drag_sensitivity: float = 1.3
 ## How fast the arrow keys ramp horizontal speed. They used to snap straight to
@@ -93,7 +100,6 @@ const SKIN_SHAPES := {
 @export var solar_wind_launch_mult: float = 2.0
 
 var is_holding: bool = false
-var is_fast_falling: bool = false
 var streak: int = 0
 var last_press_ms: int = -999999
 ## The press before `last_press_ms`. A timed landing has to come from one
@@ -196,7 +202,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_set_hold(event.pressed, get_viewport().get_mouse_position().x, false)
 
 func _set_hold(pressed: bool, pointer_x: float, from_pointer: bool = true) -> void:
-	var was_holding := is_holding
 	is_holding = pressed
 	if pressed:
 		_hold_is_pointer = from_pointer
@@ -204,16 +209,24 @@ func _set_hold(pressed: bool, pointer_x: float, from_pointer: bool = true) -> vo
 		last_press_ms = Time.get_ticks_msec()
 		_last_pointer_x = pointer_x
 		_attempted_since_last_landing = true
-	elif was_holding and velocity.y >= 0.0:
-		# Guarded on was_holding so a release we never saw the press for -- the
-		# lift after a tap that skipped the intro -- cannot trigger a fast fall.
-		is_fast_falling = true
+
+## Streak points below streak_fall_cap each shave streak_fall_step off the
+## fall-time multiplier; points beyond it each shave streak_fall_step_late
+## instead. E.g. at streak 10: streak_fall_step^10. At streak 20:
+## streak_fall_step^10 * streak_fall_step_late^10.
+func _streak_fall_multiplier() -> float:
+	var capped := mini(streak, streak_fall_cap)
+	var extra := maxi(streak - streak_fall_cap, 0)
+	return pow(streak_fall_step, capped) * pow(streak_fall_step_late, extra)
 
 func _physics_process(delta: float) -> void:
-	var g: float = fast_fall_gravity if is_fast_falling else gravity
+	# Only the descent gets sped up by streak -- applying it during the rise too
+	# would cut the jump's apex short and strand normal jumps short of the next
+	# platform.
+	var g: float = gravity / _streak_fall_multiplier() if velocity.y >= 0.0 else gravity
 	velocity.y += g * delta
 
-	var speed := move_speed * (boost_move_multiplier if is_fast_falling else 1.0)
+	var speed := move_speed
 	var key_axis := Input.get_axis("ui_left", "ui_right")
 	if key_axis != 0.0:
 		velocity.x = move_toward(velocity.x, key_axis * speed, key_accel * delta)
@@ -276,7 +289,6 @@ func _land_on(area: Node) -> void:
 	# The boost belongs to the platform, not to "wasn't the last one I touched":
 	# a mistimed landing spends nothing, so the next streak can start right here.
 	var boosted := is_timed and not _boost_spent(area)
-	is_fast_falling = false
 	if is_timed:
 		if boosted:
 			streak += 1

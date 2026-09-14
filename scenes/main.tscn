@@ -461,30 +461,16 @@ vertical_alignment = 1
 [node name="ContinueButton" type="Button" parent="UI/MilestonePanel" unique_id=505305333]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.6
+anchor_top = 0.63
 anchor_right = 0.5
-anchor_bottom = 0.6
+anchor_bottom = 0.63
 offset_left = -130.0
 offset_top = -28.0
 offset_right = 130.0
 offset_bottom = 28.0
 focus_mode = 0
 theme_override_font_sizes/font_size = 20
-text = "KEEP CLIMBING"
-
-[node name="EndButton" type="Button" parent="UI/MilestonePanel" unique_id=220308473]
-layout_mode = 0
-anchor_left = 0.5
-anchor_top = 0.66
-anchor_right = 0.5
-anchor_bottom = 0.66
-offset_left = -130.0
-offset_top = -28.0
-offset_right = 130.0
-offset_bottom = 28.0
-focus_mode = 0
-theme_override_font_sizes/font_size = 20
-text = "END RUN"
+text = "COOL."
 
 [connection signal="pressed" from="UI/PauseButton" to="." method="_on_pause_pressed"]
 [connection signal="gui_input" from="UI/PausePanel/Dim" to="." method="_on_pause_dim_input"]
@@ -496,4 +482,3 @@ text = "END RUN"
 [connection signal="pressed" from="UI/GameOverPanel/GameOverMenuButton" to="." method="_on_menu_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/WatchAdButton" to="." method="_on_revive_watch_ad_pressed"]
 [connection signal="pressed" from="UI/MilestonePanel/ContinueButton" to="." method="_on_milestone_continue_pressed"]
-[connection signal="pressed" from="UI/MilestonePanel/EndButton" to="." method="_on_milestone_end_pressed"]

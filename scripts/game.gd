@@ -272,7 +272,6 @@ func _on_intro_finished() -> void:
 	player.call_deferred("set_process_unhandled_input", true)
 	# The intro hands the character over mid-flight, already at cruise speed, so
 	# its velocity is left untouched -- that continuity is what removes the seam.
-	player.is_fast_falling = false
 	# Covers the edge case of dying before ever landing once -- a revive then
 	# has nowhere else safe to fall back to but this hand-off point.
 	_last_safe_position = player.global_position
@@ -692,12 +691,6 @@ func _on_milestone_continue_pressed() -> void:
 	_set_hud_visible(true)
 	get_tree().paused = false
 
-func _on_milestone_end_pressed() -> void:
-	Audio.play_ui_click()
-	_milestone_open = false
-	milestone_panel.hide()
-	_game_over()
-
 ## GAME OVER, the score, and Restart/Menu are all shown right away -- the
 ## revive prompt (text + Watch Ad button) is just added on top of that same
 ## panel when a revive is still on offer, not swapped in as a separate state.
@@ -707,6 +700,10 @@ func _game_over() -> void:
 	game_over_title.text = "GAME OVER"
 	result_label.text = "SCORE %d   BEST %d" % [score, max(score, high_score)]
 	result_label.show()
+	# Duck the beat out the moment death happens, not just once the revive
+	# offer (if any) is resolved -- otherwise it keeps blaring at full,
+	# pre-death volume under the whole game-over/revive screen.
+	Audio.fade_to_menu_music()
 	# No loaded ad means no offer at all -- better to end the run cleanly than
 	# to show a Watch Ad button that stalls or fails when it is pressed.
 	if not _revive_used and Ads.is_rewarded_ready():
@@ -778,13 +775,15 @@ func _revive_player() -> void:
 	get_tree().paused = false
 	player.global_position = _revive_position()
 	player.velocity = Vector2(0.0, REVIVE_LAUNCH_VELOCITY)
-	player.is_fast_falling = false
 	player.streak = 0
+	# Brings the gameplay layers back up from the death duck, then immediately
+	# overrides them down to the zero-streak volumes -- a revive starts the
+	# beat fresh, not wherever the pre-death streak tier left it.
+	Audio.fade_to_gameplay_music()
 	Audio.set_streak(0)
 
 func _finish_game_over() -> void:
 	is_game_over = true
-	Audio.fade_to_menu_music()
 	Audio.vibrate(60)
 	if score > high_score:
 		high_score = score
