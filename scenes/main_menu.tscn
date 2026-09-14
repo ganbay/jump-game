@@ -8,7 +8,6 @@
 [ext_resource type="Texture2D" path="res://assets/icons/line_graph.svg" id="6_stats"]
 [ext_resource type="Texture2D" path="res://assets/icons/help.svg" id="7_guide"]
 [ext_resource type="Texture2D" path="res://assets/icons/speaker.svg" id="8_sound"]
-[ext_resource type="Texture2D" path="res://assets/icons/list_checkboxes.svg" id="9_missions"]
 
 [sub_resource type="Environment" id="Environment_menu"]
 background_mode = 3
@@ -120,9 +119,9 @@ anchor_left = 0.5
 anchor_top = 0.88
 anchor_right = 0.5
 anchor_bottom = 0.88
-offset_left = -312.0
+offset_left = -246.0
 offset_top = 8.599976
-offset_right = -216.0
+offset_right = -150.0
 offset_bottom = 104.599976
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
@@ -137,31 +136,14 @@ anchor_left = 0.5
 anchor_top = 0.88
 anchor_right = 0.5
 anchor_bottom = 0.88
-offset_left = -180.0
+offset_left = -114.0
 offset_top = 8.599976
-offset_right = -84.0
+offset_right = -18.0
 offset_bottom = 104.599976
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 52
 icon = ExtResource("6_stats")
-flat = true
-icon_alignment = 1
-
-[node name="MissionsButton" type="Button" parent="UI" unique_id=1783973441]
-anchors_preset = -1
-anchor_left = 0.5
-anchor_top = 0.88
-anchor_right = 0.5
-anchor_bottom = 0.88
-offset_left = -48.0
-offset_top = 8.599976
-offset_right = 48.0
-offset_bottom = 104.599976
-focus_mode = 0
-theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
-theme_override_constants/icon_max_width = 52
-icon = ExtResource("9_missions")
 flat = true
 icon_alignment = 1
 
@@ -171,9 +153,9 @@ anchor_left = 0.5
 anchor_top = 0.88
 anchor_right = 0.5
 anchor_bottom = 0.88
-offset_left = 84.0
+offset_left = 18.0
 offset_top = 8.599976
-offset_right = 180.0
+offset_right = 114.0
 offset_bottom = 104.599976
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
@@ -188,9 +170,9 @@ anchor_left = 0.5
 anchor_top = 0.88
 anchor_right = 0.5
 anchor_bottom = 0.88
-offset_left = 216.0
+offset_left = 150.0
 offset_top = 8.599976
-offset_right = 312.0
+offset_right = 246.0
 offset_bottom = 104.599976
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
@@ -202,6 +184,5 @@ icon_alignment = 1
 [connection signal="pressed" from="UI/SoundButton" to="." method="_on_sound_pressed"]
 [connection signal="pressed" from="UI/CustomizeButton" to="." method="_on_customize_pressed"]
 [connection signal="pressed" from="UI/StatisticsButton" to="." method="_on_statistics_pressed"]
-[connection signal="pressed" from="UI/MissionsButton" to="." method="_on_missions_pressed"]
 [connection signal="pressed" from="UI/GuideButton" to="." method="_on_guide_pressed"]
 [connection signal="pressed" from="UI/SettingsButton" to="." method="_on_settings_pressed"]

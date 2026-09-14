@@ -1,5 +1,10 @@
 extends Node
 
+## Disabled for now -- not currently used. The autoload registration in
+## project.godot is commented out and every call site in game.gd is commented
+## out to match, so this script is currently dead code kept for a later
+## re-enable rather than something actively running.
+##
 ## Three missions a day.
 ##
 ## The set is a rotating window over TEMPLATES rather than a random draw: every

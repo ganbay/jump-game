@@ -18,7 +18,7 @@ config/name="Jetlet: Solar Escape"
 run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
-config/icon="res://icon.svg"
+config/icon="res://new_icon.png"
 
 [autoload]
 
@@ -39,6 +39,10 @@ window/size/viewport_height=1280
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
+
+[editor]
+
+movie_writer/movie_file="/home/ganbay/Godot/jump/screen_recording.avi"
 
 [editor_plugins]
 

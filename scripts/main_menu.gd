@@ -3,8 +3,8 @@ extends Node2D
 ## The whole screen is the play button -- the icon buttons are the only things
 ## that intercept a tap. Nothing here is labelled except the title and the tap
 ## prompt, so the icons have to carry their own meaning: cart = what you can put
-## on the character, bars = your runs, tick = today's missions, ? = the guide,
-## gear = settings, and the speaker in the corner mutes the whole game.
+## on the character, bars = your runs, ? = the guide, gear = settings, and the
+## speaker in the corner mutes the whole game.
 
 ## The mute toggle swaps its glyph rather than tinting one, so the state reads
 ## at a glance instead of asking the player to remember which shade means off.
@@ -16,7 +16,7 @@ const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
 @onready var tap_label: Label = $UI/TapLabel
 @onready var sound_button: Button = $UI/SoundButton
 @onready var _icon_buttons: Array[Node] = [$UI/SoundButton,
-	$UI/CustomizeButton, $UI/StatisticsButton, $UI/MissionsButton,
+	$UI/CustomizeButton, $UI/StatisticsButton,
 	$UI/GuideButton, $UI/SettingsButton]
 
 ## Every leave path goes through Transition, whose fade takes a moment. Without
@@ -69,9 +69,6 @@ func _on_settings_pressed() -> void:
 
 func _on_statistics_pressed() -> void:
 	_go("res://scenes/statistics.tscn")
-
-func _on_missions_pressed() -> void:
-	_go("res://scenes/missions.tscn")
 
 func _go(path: String) -> void:
 	if _leaving:

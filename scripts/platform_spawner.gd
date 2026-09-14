@@ -126,7 +126,10 @@ func _spawn_next() -> void:
 	_live.append(plat)
 
 func _pick_attributes() -> int:
-	var forced := zones.attrs_for_score(_frontier_score()) if zones != null else 0
+	var score := _frontier_score()
+	if score < 1000:
+		return 0
+	var forced := zones.attrs_for_score(score) if zones != null else 0
 	return forced | _roll_natural()
 
 func _roll_natural() -> int:
