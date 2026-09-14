@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="5_bgparticles"]
 [ext_resource type="Script" uid="uid://c7onfa4r2mywg" path="res://scripts/intro.gd" id="6_intro"]
 [ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="7_plasma"]
+[ext_resource type="Script" uid="uid://bpkikrttit55v" path="res://scripts/star_surface.gd" id="8_starsurf"]
 [ext_resource type="Script" uid="uid://qdpy3ddfr61i" path="res://scripts/zone_director.gd" id="9_zones"]
 [ext_resource type="Texture2D" uid="uid://cpkwa8yy2a8e7" path="res://assets/icons/pause.svg" id="10_pause"]
 [ext_resource type="Texture2D" uid="uid://cjby6fkrfupvb" path="res://assets/icons/play.svg" id="11_resume"]
@@ -51,6 +52,9 @@ script = ExtResource("6_intro")
 [node name="Sun" type="Node2D" parent="IntroSequence" unique_id=1894349073]
 z_index = -1
 script = ExtResource("7_plasma")
+
+[node name="StarSurface" type="Node2D" parent="IntroSequence/Sun" unique_id=102999895]
+script = ExtResource("8_starsurf")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1206693055]
 position = Vector2(360, 0)
@@ -178,7 +182,7 @@ grow_vertical = 2
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.5)
+color = Color(0, 0, 0, 0.7)
 
 [node name="PausedLabel" type="Label" parent="UI/PausePanel" unique_id=390669626]
 layout_mode = 0
@@ -302,7 +306,7 @@ grow_vertical = 2
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.5)
+color = Color(0, 0, 0, 0.7)
 
 [node name="GameOverLabel" type="Label" parent="UI/GameOverPanel" unique_id=893355060]
 layout_mode = 0
@@ -371,18 +375,17 @@ icon_alignment = 1
 visible = false
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.5
+anchor_top = 0.535
 anchor_right = 0.5
-anchor_bottom = 0.5
+anchor_bottom = 0.535
 offset_left = -280.0
-offset_top = -40.0
+offset_top = -28.0
 offset_right = 280.0
-offset_bottom = 40.0
+offset_bottom = 28.0
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
 theme_override_constants/line_spacing = 6
-theme_override_font_sizes/font_size = 18
-text = "Watch a short ad to jump right
-back into the run where you fell."
+theme_override_font_sizes/font_size = 40
+text = "Revive?"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -393,16 +396,20 @@ anchor_left = 0.5
 anchor_top = 0.6
 anchor_right = 0.5
 anchor_bottom = 0.6
-offset_left = -52.0
+offset_left = -110.0
 offset_top = -52.0
-offset_right = 52.0
+offset_right = 110.0
 offset_bottom = 52.0
 focus_mode = 0
+theme_override_colors/font_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/h_separation = 14
 theme_override_constants/icon_max_width = 56
+theme_override_font_sizes/font_size = 28
+text = "Watch"
 icon = ExtResource("20_video")
 flat = true
-icon_alignment = 1
+icon_alignment = 2
 
 [node name="MilestonePanel" type="Control" parent="UI" unique_id=1772725848]
 process_mode = 3
@@ -418,7 +425,7 @@ grow_vertical = 2
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.5)
+color = Color(0, 0, 0, 0.7)
 
 [node name="TitleLabel" type="Label" parent="UI/MilestonePanel" unique_id=1522443629]
 layout_mode = 0

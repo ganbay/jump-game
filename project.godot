@@ -8,6 +8,10 @@
 
 config_version=5
 
+[admob]
+
+general/android/app_id="ca-app-pub-9653736186258588~8711666822"
+
 [application]
 
 config/name="Jetlet: Solar Escape"

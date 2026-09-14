@@ -12,12 +12,27 @@ const UI_OPACITY_MIN := 0.6
 const UI_OPACITY_MAX := 1.0
 const UI_OPACITY_DEFAULT := 0.8
 
+## What a fresh install starts on, before the player has touched anything. The
+## palette is the authored look of the game rather than each node's own base
+## colour, so Player.COLOR and Platform.BASE_COLOR stay what they are for
+## anything else that reads them. Each colour carries the slider position that
+## produced it: a colour cannot be inverted back to a point on
+## ColorSpectrumSlider's gradient, so without it the handle would jump to 0 the
+## first time the settings screen opened.
+const GLOW_STRENGTH_DEFAULT := 0.8
+const PLAYER_COLOR_DEFAULT := Color(0.9039713, 0.74801433, 2.4, 1)
+const PLAYER_COLOR_SLIDER_DEFAULT := 0.23285202
+const PLATFORM_COLOR_DEFAULT := Color(0.7403599, 2.2, 0.6491324, 1)
+const PLATFORM_COLOR_SLIDER_DEFAULT := 0.86967499
+const PARTICLE_COLOR_DEFAULT := Color(1.0859209, 0.6570395, 2.4, 1)
+const PARTICLE_COLOR_SLIDER_DEFAULT := 0.26534302
+
 var control_scheme: ControlScheme = ControlScheme.TOUCH
-var glow_strength: float = 0.4
-var player_color: Color = Player.COLOR
-var platform_color: Color = Platform.BASE_COLOR
+var glow_strength: float = GLOW_STRENGTH_DEFAULT
+var player_color: Color = PLAYER_COLOR_DEFAULT
+var platform_color: Color = PLATFORM_COLOR_DEFAULT
 var background_particles: bool = true
-var background_particle_color: Color = Color(0.3, 1.8, 2.4)
+var background_particle_color: Color = PARTICLE_COLOR_DEFAULT
 var player_skin: Player.SkinType = Player.SkinType.PLASMA
 var trail_enabled: bool = true
 var sound_muted: bool = false
@@ -30,16 +45,16 @@ var ui_opacity: float = UI_OPACITY_DEFAULT
 ## (0..1) -- kept alongside the colour itself purely so the handle lands back
 ## in the same spot next visit, since a colour alone can't be inverted back to
 ## a position on the curve.
-var player_color_slider: float = 0.0
-var platform_color_slider: float = 0.0
-var particle_color_slider: float = 0.0
+var player_color_slider: float = PLAYER_COLOR_SLIDER_DEFAULT
+var platform_color_slider: float = PLATFORM_COLOR_SLIDER_DEFAULT
+var particle_color_slider: float = PARTICLE_COLOR_SLIDER_DEFAULT
 
 func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		control_scheme = cfg.get_value("controls", "scheme", ControlScheme.TOUCH) as ControlScheme
-		glow_strength = cfg.get_value("visual", "glow_strength", 0.4)
-		player_color = cfg.get_value("visual", "player_color", Player.COLOR)
+		glow_strength = cfg.get_value("visual", "glow_strength", GLOW_STRENGTH_DEFAULT)
+		player_color = cfg.get_value("visual", "player_color", PLAYER_COLOR_DEFAULT)
 		# Platforms used to be four colour-coded types; a save from that era
 		# keeps its tint by falling back to what the plain platform was.
 		var legacy := cfg.get_value("visual", "platform_color_0", platform_color) as Color
@@ -59,9 +74,9 @@ func _ready() -> void:
 		haptics_enabled = cfg.get_value("audio", "haptics_enabled", true)
 		ui_opacity = clampf(cfg.get_value("visual", "ui_opacity", UI_OPACITY_DEFAULT),
 			UI_OPACITY_MIN, UI_OPACITY_MAX)
-		player_color_slider = cfg.get_value("visual", "player_color_slider", 0.0)
-		platform_color_slider = cfg.get_value("visual", "platform_color_slider", 0.0)
-		particle_color_slider = cfg.get_value("visual", "particle_color_slider", 0.0)
+		player_color_slider = cfg.get_value("visual", "player_color_slider", PLAYER_COLOR_SLIDER_DEFAULT)
+		platform_color_slider = cfg.get_value("visual", "platform_color_slider", PLATFORM_COLOR_SLIDER_DEFAULT)
+		particle_color_slider = cfg.get_value("visual", "particle_color_slider", PARTICLE_COLOR_SLIDER_DEFAULT)
 
 func set_control_scheme(scheme: ControlScheme) -> void:
 	if scheme == control_scheme:

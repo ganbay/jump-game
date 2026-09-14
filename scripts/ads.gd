@@ -14,19 +14,21 @@ extends Node
 ## Google's public test units. A dev build must never request the real one --
 ## that is how AdMob accounts get flagged for invalid traffic.
 const TEST_REWARDED_UNIT_ID := "ca-app-pub-3940256099942544/5224354917"
-## Fill in from the AdMob console, then release builds use it automatically.
-## While it is empty, release builds keep serving test ads rather than silently
-## requesting nothing.
-const REWARDED_UNIT_ID := ""
+## The live unit, used by release builds only -- _unit_id() forces the test one
+## whenever OS.is_debug_build(), so development cannot serve real impressions.
+const REWARDED_UNIT_ID := "ca-app-pub-9653736186258588/7579740520"
 
 ## UMP can sit unanswered on a bad connection. Ads are optional to this game, so
 ## the run starts regardless once this elapses rather than waiting forever on a
 ## consent round trip that may never come back.
 const CONSENT_TIMEOUT := 8.0
+## Same reasoning for a load that never resolves -- see _watch_load().
+const LOAD_TIMEOUT := 30.0
 
 var _initialized: bool = false
 var _consent_done: bool = false
-var _loader := RewardedAdLoader.new()
+## Re-made for every request, never reused -- see load_rewarded().
+var _loader: RewardedAdLoader = null
 var _rewarded_ad: RewardedAd = null
 var _loading: bool = false
 ## Latched by the reward listener, read on dismissal. The two signals are
@@ -104,16 +106,37 @@ func load_rewarded() -> void:
 	if _rewarded_ad != null or _loading or not _initialized:
 		return
 	_loading = true
+	# A loader is single-use. It takes its uid from one create() in its _init,
+	# hands that same uid to the RewardedAd it produces, and unreferences itself
+	# once the request resolves -- so destroying the ad also tears down the uid
+	# the loader is still pointing at. Loading again through the same instance
+	# then matches nothing and returns without ever calling back, which is what
+	# left the revive offer permanently unavailable after the first ad.
+	_loader = RewardedAdLoader.new()
 	var callback := RewardedAdLoadCallback.new()
 	callback.on_ad_loaded = func(ad: RewardedAd) -> void:
 		_loading = false
+		_loader = null
 		_rewarded_ad = ad
 		_bind_content_callbacks(ad)
 	callback.on_ad_failed_to_load = func(error: LoadAdError) -> void:
 		_loading = false
+		_loader = null
 		_rewarded_ad = null
 		push_warning("[ads] rewarded failed to load: %s" % error.message)
 	_loader.load(_unit_id(), AdRequest.new(), callback)
+	_watch_load()
+
+## A request that never calls back either way would otherwise leave _loading
+## stuck true, which silently blocks every later attempt for the rest of the
+## session. Releasing the flag lets the next death retry instead.
+func _watch_load() -> void:
+	var pending := _loader
+	await get_tree().create_timer(LOAD_TIMEOUT).timeout
+	if _loading and _loader == pending:
+		_loading = false
+		_loader = null
+		push_warning("[ads] rewarded load timed out -- will retry on next request")
 
 ## Whether an ad is loaded and can be shown right now. Gates the Watch Ad
 ## button: no ad in hand means the run just ends, rather than offering a button

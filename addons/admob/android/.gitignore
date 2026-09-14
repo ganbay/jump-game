@@ -1,2 +1,4 @@
-# Remove /bin folder line if you want to commit
-/bin
+# /bin is committed deliberately: it is only ~730K and it holds the native
+# .aar files the Android export needs. Left ignored, a fresh clone or a CI
+# runner gets the GDScript but no native libs, and ads fail silently on
+# device with nothing in the logs to point at the cause.

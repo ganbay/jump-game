@@ -20,19 +20,38 @@ signal finished
 @export var flare_time: float = 1.5
 @export var zoom_time: float = 1.5
 
-## Five concentric bands, outermost first. The thicknesses asked for -- 5%, 10%,
-## 20%, 40%, 25% of the radius -- sum to the whole disc, so these are the fill
-## radii of each band: 100%, 95%, 85%, 65%, 25%.
+## Concentric bands, outermost first. Two of them sit outside the disc as the
+## corona; the rest are the body, whose fill radii are 100%, 93%, 82%, 62%, 34%
+## and 16% of the star.
 ##
 ## Tint climbs and white is added inward, which is limb darkening: a real star
 ## is dimmest at its edge, where you look through more of its atmosphere, and
 ## white-hot at the centre.
+##
+## `churn` and `drift` run the *other* way -- highest just under the limb,
+## falling to almost nothing at the centre. A star's outer layers are the
+## convective ones; the core is the most tightly bound thing in the system and
+## should sit dead still. Reversing that is what made the old star read as a
+## lava lamp: the brightest, most eye-catching part of it was also the part
+## thrashing around and wandering off-centre.
+##
+## The silhouette band (r = 1.0) is deliberately calmer than the two under it,
+## so the boiling shows as churn *inside* the disc rather than as a lumpy
+## outline.
+##
+## Tints and added white are held well below the point where glow blows them
+## out. The star has to read as a huge hot body, not as a light source pointed
+## at the camera -- and once the middle clips to white the limb darkening that
+## gives it its volume stops being visible at all.
 const STAR_BANDS := [
-	{"r": 1.00, "phase": 0.0, "tint": 0.40, "white": Color(0, 0, 0), "a": 1.0, "churn": 0.15, "drift": 0.0},
-	{"r": 0.95, "phase": 0.7, "tint": 0.70, "white": Color(0.04, 0.04, 0.03), "a": 1.0, "churn": 0.30, "drift": 0.004},
-	{"r": 0.85, "phase": 1.4, "tint": 1.10, "white": Color(0.14, 0.14, 0.10), "a": 1.0, "churn": 1.30, "drift": 0.008},
-	{"r": 0.65, "phase": 2.1, "tint": 1.70, "white": Color(0.45, 0.45, 0.34), "a": 1.0, "churn": 2.60, "drift": 0.014},
-	{"r": 0.25, "phase": 2.8, "tint": 2.20, "white": Color(1.50, 1.50, 1.20), "a": 1.0, "churn": 3.20, "drift": 0.022},
+	{"r": 1.22, "phase": 3.5, "tint": 0.20, "white": Color(0, 0, 0), "a": 0.07, "churn": 2.00, "drift": 0.008},
+	{"r": 1.09, "phase": 2.4, "tint": 0.30, "white": Color(0, 0, 0), "a": 0.11, "churn": 1.60, "drift": 0.005},
+	{"r": 1.00, "phase": 0.0, "tint": 0.40, "white": Color(0, 0, 0), "a": 1.0, "churn": 0.70, "drift": 0.000},
+	{"r": 0.93, "phase": 0.7, "tint": 0.58, "white": Color(0.02, 0.02, 0.01), "a": 1.0, "churn": 1.20, "drift": 0.004},
+	{"r": 0.82, "phase": 1.4, "tint": 0.82, "white": Color(0.06, 0.06, 0.04), "a": 1.0, "churn": 1.00, "drift": 0.002},
+	{"r": 0.62, "phase": 2.1, "tint": 1.12, "white": Color(0.18, 0.18, 0.13), "a": 1.0, "churn": 0.35, "drift": 0.000},
+	{"r": 0.34, "phase": 2.8, "tint": 1.42, "white": Color(0.42, 0.42, 0.32), "a": 1.0, "churn": 0.12, "drift": 0.000},
+	{"r": 0.16, "phase": 3.1, "tint": 1.65, "white": Color(0.72, 0.72, 0.56), "a": 1.0, "churn": 0.04, "drift": 0.000},
 ]
 
 @export_group("Star")
@@ -41,13 +60,23 @@ const STAR_BANDS := [
 @export var sun_surface_y: float = 2400.0
 ## The default 32 is tuned for an 18px character; at this radius it would facet.
 @export var sun_segments: int = 160
-## The star's limb should read as a hard circle, so it deforms far less than the
-## character does, and churns slowly -- something this large should not look busy.
+## Deformation amplitudes, scaled per band by that band's `churn`. Close to the
+## character's own tuning: the churn gradient already spends nearly all of its
+## range on the outer bands, so pushing these up as well just made the whole
+## surface noisy. The core's 0.04 multiplier keeps it still regardless.
 @export var sun_wobble: float = 0.030
-@export var sun_flare: float = 0.020
-@export var sun_turbulence: float = 0.022
-@export var sun_breathe: float = 0.006
+@export var sun_flare: float = 0.022
+## The high-frequency term, and the one that reads as a photosphere rather than
+## as a blob: 11 and 17 lobes at this radius are surface texture, not shape.
+@export var sun_turbulence: float = 0.028
+## Uniform pulse. Stays tiny -- the whole star inflating and deflating reads as
+## a bouncing ball, which is the one thing something this large must never do.
+@export var sun_breathe: float = 0.005
 @export var sun_speed: float = 0.9
+
+@export_group("Star surface")
+## Rate of everything StarSurface draws on the face and off the limb.
+@export var surface_speed: float = 1.0
 
 @export_group("Eruption")
 ## A solar flare tears the surface open and throws the character clear of it.
@@ -88,6 +117,7 @@ var _running: bool = false
 var _camera: Camera2D
 var _player: CharacterBody2D
 var _sun: PlasmaBlob
+var _surface: StarSurface
 var _play_pos: Vector2
 var _play_camera: Vector2
 var _launch: Vector2
@@ -99,6 +129,7 @@ var _open_offset_px: float = 0.0
 
 func _ready() -> void:
 	_sun = $Sun
+	_surface = $Sun/StarSurface
 	visible = false
 	set_process(false)
 
@@ -124,6 +155,12 @@ func begin(camera: Camera2D, player: CharacterBody2D) -> void:
 	_sun.color = Settings.player_color
 	# PlasmaBlob is bottom-anchored: its centre sits one radius above its origin.
 	_sun.global_position = Vector2(_play_pos.x, sun_surface_y + sun_radius * 2.0)
+
+	# The surface detail is a child of the blob, so it inherits the transform and
+	# only needs to agree on the radius and colour the blob was just given.
+	_surface.radius = sun_radius
+	_surface.color = _sun.color
+	_surface.speed = surface_speed
 
 	_player.global_position = _launch  # so the first frame reports zero velocity
 	_t = 0.0

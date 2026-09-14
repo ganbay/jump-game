@@ -202,10 +202,18 @@ var _revive_used: bool = false
 ## Where the player last landed, so a revive can drop them back somewhere
 ## solid instead of into the empty air where they fell.
 var _last_safe_position: Vector2 = Vector2.ZERO
-## Same shape as a fresh jump -- strong enough to clear a platform or two
-## while the player gets their bearings again after a revive.
-const REVIVE_LAUNCH_VELOCITY := -1100.0
+## Harder than a boosted jump (-1300), so the revive launch carries the player
+## clear of wherever they came back in and up into the platform field with a
+## little room to spare -- they restart with no streak, so nothing else is
+## lifting them. Deliberately not a Solar Wind: the burst is silent, with no
+## banner and no speed change, just a firmer jump.
+const REVIVE_LAUNCH_VELOCITY := -1500.0
 const REVIVE_SPAWN_LIFT := 40.0
+## How far below the camera centre a revive drops the player when the platform
+## they died past is no longer usable. Well inside _death_margin, so the run
+## cannot end again on the frame it resumes, and high enough on screen that the
+## live platform field is in reach of the launch.
+const REVIVE_SAFE_DROP := 240.0
 
 func _ready() -> void:
 	_base_glow_bloom = world_environment.environment.glow_bloom
@@ -666,12 +674,12 @@ func _on_zone_changed(stage: int, zone_name: String) -> void:
 func _on_milestone_reached(kind: int) -> void:
 	if kind == ZoneDirector.Milestone.ESCAPE:
 		Stats.mark_escaped()
-		milestone_title.text = "GRAVITY BROKEN"
-		milestone_body.text = "You escaped Solar gravity.\nThat was the whole point.\n\nStop here and take the score, or keep\nclimbing -- the zones start stacking."
+		milestone_title.text = "SOLAR GRAVITY ESCAPED"
+		milestone_body.text = "Continue on your journey!\n\nMore you explore, harder it gets!\n\nGood Luck!"
 	else:
 		Stats.mark_true_ending()
-		milestone_title.text = "TRUE ENDING"
-		milestone_body.text = "Every zone, in every combination, cleared.\nThere is nothing left to throw at you.\n\nAll four zones from here on. See how\nlong you last."
+		milestone_title.text = "CONGRATS!!!"
+		milestone_body.text = "You've mastered the space!\n\nContinue your journey for eternity to come!"
 	_milestone_open = true
 	_set_hud_visible(false)
 	milestone_panel.show()
@@ -747,24 +755,32 @@ func _close_revive_offer() -> void:
 	_revive_open = false
 	game_over_panel.hide()
 
-## Drops the player back at the last platform they safely landed on, with a
-## fresh launch, and lets the run continue as if it never ended.
+## The camera only ever climbs, and the spawner despawns everything that falls
+## below roughly the same line the player dies at -- so by the time a death
+## actually registers, the platform in _last_safe_position has usually been
+## freed already, and is always well past the death line. Reviving onto it put
+## the player straight back outside the margin and _process ended the run again
+## on the very next frame, which is why a fully watched ad could still land on
+## the death screen. So only reuse that platform while it is still comfortably
+## on screen; otherwise put them back under the camera, where the live
+## platforms actually are.
+func _revive_position() -> Vector2:
+	var from_platform := _last_safe_position + Vector2(0.0, -REVIVE_SPAWN_LIFT)
+	if from_platform.y < camera.global_position.y + REVIVE_SAFE_DROP:
+		return from_platform
+	return Vector2(camera.global_position.x, camera.global_position.y + REVIVE_SAFE_DROP)
+
+## Drops the player back into the run with a fresh launch, and lets it continue
+## as if it never ended.
 func _revive_player() -> void:
 	is_game_over = false
 	_set_hud_visible(true)
 	get_tree().paused = false
-	player.global_position = _last_safe_position + Vector2(0.0, -REVIVE_SPAWN_LIFT)
+	player.global_position = _revive_position()
 	player.velocity = Vector2(0.0, REVIVE_LAUNCH_VELOCITY)
 	player.is_fast_falling = false
 	player.streak = 0
 	Audio.set_streak(0)
-	_burst_climbing = true
-	# A revive drops the player back onto the platform they died past, with no
-	# streak left to carry them -- so it hands them a Solar Wind outright. It
-	# has to come after the velocity assignment above, since enter_solar_wind()
-	# multiplies whatever velocity.y currently holds rather than setting its own.
-	_show_streak_message("SOLAR WIND!", STREAK_TEXT_COLOR, SOLAR_WIND_FONT_SIZE, SOLAR_WIND_SHOW_TIME)
-	player.enter_solar_wind()
 
 func _finish_game_over() -> void:
 	is_game_over = true
