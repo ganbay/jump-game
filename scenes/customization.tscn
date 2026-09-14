@@ -5,12 +5,12 @@
 [ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
 [ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="4_plasma"]
 [ext_resource type="Script" path="res://scripts/color_spectrum_slider.gd" id="5_colorslider"]
-[ext_resource type="Texture2D" uid="uid://cidqof0fmj5xs" path="res://assets/icons/arrowLeft.png" id="20_prev"]
-[ext_resource type="Texture2D" uid="uid://cb84tkwktj4sr" path="res://assets/icons/arrowRight.png" id="21_next"]
-[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="22_home"]
-[ext_resource type="Texture2D" uid="uid://40geshknetsh" path="res://assets/icons/unlocked.png" id="23_unlock"]
-[ext_resource type="Texture2D" uid="uid://bx4ntwbjy3rai" path="res://assets/icons/star.png" id="24_star"]
-[ext_resource type="Texture2D" uid="uid://bvcoftlyawyq2" path="res://assets/icons/locked.png" id="25_locked"]
+[ext_resource type="Texture2D" path="res://assets/icons/arrow_left.svg" id="20_prev"]
+[ext_resource type="Texture2D" path="res://assets/icons/arrow_right.svg" id="21_next"]
+[ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="22_home"]
+[ext_resource type="Texture2D" path="res://assets/icons/unlock.svg" id="23_unlock"]
+[ext_resource type="Texture2D" path="res://assets/icons/coin.svg" id="24_coin"]
+[ext_resource type="Texture2D" path="res://assets/icons/lock.svg" id="25_locked"]
 
 [sub_resource type="Environment" id="Environment_custom"]
 background_mode = 3
@@ -74,7 +74,7 @@ theme_override_constants/separation = 8
 custom_minimum_size = Vector2(22, 22)
 size_flags_vertical = 4
 mouse_filter = 2
-texture = ExtResource("24_star")
+texture = ExtResource("24_coin")
 expand_mode = 1
 stretch_mode = 5
 

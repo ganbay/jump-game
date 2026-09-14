@@ -8,15 +8,15 @@
 [ext_resource type="Script" uid="uid://c7onfa4r2mywg" path="res://scripts/intro.gd" id="6_intro"]
 [ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="7_plasma"]
 [ext_resource type="Script" uid="uid://qdpy3ddfr61i" path="res://scripts/zone_director.gd" id="9_zones"]
-[ext_resource type="Texture2D" uid="uid://dlmladlytvnv0" path="res://assets/icons/pause.png" id="10_pause"]
-[ext_resource type="Texture2D" uid="uid://c7po2gpg0ndc7" path="res://assets/icons/right.png" id="11_resume"]
-[ext_resource type="Texture2D" uid="uid://bachcfbplrmx8" path="res://assets/icons/joystick.png" id="12_controls"]
-[ext_resource type="Texture2D" uid="uid://cew8oc8bp722c" path="res://assets/icons/audioOn.png" id="13_sound"]
-[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="14_home"]
-[ext_resource type="Texture2D" uid="uid://dnqgr4dbvhjup" path="res://assets/icons/return.png" id="15_restart"]
-[ext_resource type="Texture2D" uid="uid://cc81i4u1i8p55" path="res://assets/icons/menuList.png" id="16_hud"]
-[ext_resource type="Texture2D" uid="uid://bx4ntwbjy3rai" path="res://assets/icons/star.png" id="19_star"]
-[ext_resource type="Texture2D" uid="uid://6mvkdy35mhfo" path="res://assets/icons/video.png" id="20_video"]
+[ext_resource type="Texture2D" uid="uid://cpkwa8yy2a8e7" path="res://assets/icons/pause.svg" id="10_pause"]
+[ext_resource type="Texture2D" uid="uid://cjby6fkrfupvb" path="res://assets/icons/play.svg" id="11_resume"]
+[ext_resource type="Texture2D" uid="uid://n8ul85wp7bwj" path="res://assets/icons/hand.svg" id="12_controls"]
+[ext_resource type="Texture2D" uid="uid://gmfawy1ltmi" path="res://assets/icons/speaker.svg" id="13_sound"]
+[ext_resource type="Texture2D" uid="uid://cc3ikk231fgx7" path="res://assets/icons/house.svg" id="14_home"]
+[ext_resource type="Texture2D" uid="uid://cq2tbjln7bx4k" path="res://assets/icons/arrow_counterclockwise.svg" id="15_restart"]
+[ext_resource type="Texture2D" uid="uid://dgwe4d30hptm3" path="res://assets/icons/eye.svg" id="16_hud"]
+[ext_resource type="Texture2D" uid="uid://3xp75fkdrqds" path="res://assets/icons/coin.svg" id="19_coin"]
+[ext_resource type="Texture2D" uid="uid://dvissjhqfc2l4" path="res://assets/icons/video.svg" id="20_video"]
 
 [sub_resource type="Environment" id="Environment_neon"]
 background_mode = 3
@@ -109,7 +109,7 @@ custom_minimum_size = Vector2(20, 20)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
-texture = ExtResource("19_star")
+texture = ExtResource("19_coin")
 expand_mode = 1
 stretch_mode = 5
 

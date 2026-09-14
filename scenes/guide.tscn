@@ -3,10 +3,10 @@
 [ext_resource type="Script" uid="uid://cjp7l37hgc5jk" path="res://scripts/guide.gd" id="1_guide"]
 [ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
 [ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="3_platform"]
-[ext_resource type="Texture2D" uid="uid://cidqof0fmj5xs" path="res://assets/icons/arrowLeft.png" id="20_prev"]
-[ext_resource type="Texture2D" uid="uid://cb84tkwktj4sr" path="res://assets/icons/arrowRight.png" id="21_next"]
-[ext_resource type="Texture2D" uid="uid://c7po2gpg0ndc7" path="res://assets/icons/right.png" id="22_play"]
-[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="23_home"]
+[ext_resource type="Texture2D" path="res://assets/icons/arrow_left.svg" id="20_prev"]
+[ext_resource type="Texture2D" path="res://assets/icons/arrow_right.svg" id="21_next"]
+[ext_resource type="Texture2D" path="res://assets/icons/play.svg" id="22_play"]
+[ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="23_home"]
 
 [sub_resource type="Environment" id="Environment_guide"]
 background_mode = 3
@@ -28,42 +28,45 @@ corner_radius_top_right = 12
 corner_radius_bottom_right = 12
 corner_radius_bottom_left = 12
 
-[node name="GuideMenu" type="Node2D" unique_id=163849779]
+[node name="GuideMenu" type="Node2D"]
 script = ExtResource("1_guide")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=604223807]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_guide")
 
-[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=1069379642]
+[node name="BackgroundLayer" type="CanvasLayer" parent="."]
 layer = -1
 
-[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=505596223]
+[node name="Background" type="ColorRect" parent="BackgroundLayer"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="BackgroundLayer" unique_id=719583211 instance=ExtResource("2_bgparticles")]
+[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("2_bgparticles")]
 
-[node name="UI" type="CanvasLayer" parent="." unique_id=480032]
+[node name="UI" type="CanvasLayer" parent="."]
 
-[node name="TitleLabel" type="Label" parent="UI" unique_id=291753276]
+[node name="TitleLabel" type="Label" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.04
+anchor_top = 0.045
 anchor_right = 0.5
-anchor_bottom = 0.04
+anchor_bottom = 0.045
 offset_left = -320.0
-offset_top = -36.0
+offset_top = -40.0
 offset_right = 320.0
-offset_bottom = 36.0
+offset_bottom = 40.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
 theme_override_font_sizes/font_size = 44
 text = "HOW TO PLAY"
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="Page1" type="Control" parent="UI" unique_id=535881056]
+[node name="Page1" type="Control" parent="UI"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -72,189 +75,215 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="IntroLabel" type="Label" parent="UI/Page1" unique_id=1205751990]
-layout_mode = 0
-anchor_left = 0.5
+[node name="Body" type="CenterContainer" parent="UI/Page1"]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
 anchor_top = 0.115
-anchor_right = 0.5
-anchor_bottom = 0.115
-offset_left = -320.0
-offset_top = -14.0
-offset_right = 320.0
-offset_bottom = 60.0
+anchor_bottom = 0.825
+offset_left = 40.0
+offset_right = -40.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Column" type="VBoxContainer" parent="UI/Page1/Body"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="IntroLabel" type="Label" parent="UI/Page1/Body/Column"]
+custom_minimum_size = Vector2(600, 46)
+layout_mode = 2
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
 theme_override_constants/line_spacing = 4
 theme_override_font_sizes/font_size = 16
 text = "Drag or tilt to steer. Tap the moment you land to boost the jump."
 horizontal_alignment = 1
+vertical_alignment = 1
 autowrap_mode = 2
 
-[node name="NormalIcon" parent="UI/Page1" unique_id=984785464 instance=ExtResource("3_platform")]
-position = Vector2(100, 307)
+[node name="NormalRow" type="Control" parent="UI/Page1/Body/Column"]
+custom_minimum_size = Vector2(600, 84)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="NormalIcon" parent="UI/Page1/Body/Column/NormalRow" instance=ExtResource("3_platform")]
+position = Vector2(52, 42)
 width = 64.0
 
-[node name="NormalNameLabel" type="Label" parent="UI/Page1" unique_id=2062891484]
-layout_mode = 0
-anchor_top = 0.24
+[node name="NormalNameLabel" type="Label" parent="UI/Page1/Body/Column/NormalRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.24
-offset_left = 170.0
-offset_top = -34.0
-offset_right = -40.0
-offset_bottom = -8.0
+offset_left = 120.0
+offset_top = 10.0
+offset_bottom = 36.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "NORMAL"
 
-[node name="NormalDescLabel" type="Label" parent="UI/Page1" unique_id=864110401]
-layout_mode = 0
-anchor_top = 0.24
+[node name="NormalDescLabel" type="Label" parent="UI/Page1/Body/Column/NormalRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.24
-offset_left = 170.0
-offset_top = -6.0
-offset_right = -40.0
-offset_bottom = 44.0
+offset_left = 120.0
+offset_top = 38.0
+offset_bottom = 84.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
 theme_override_constants/line_spacing = 2
 theme_override_font_sizes/font_size = 14
 text = "Bounce off it and keep climbing."
 autowrap_mode = 2
 
-[node name="DriftIcon" parent="UI/Page1" unique_id=903212939 instance=ExtResource("3_platform")]
-position = Vector2(100, 474)
+[node name="DriftRow" type="Control" parent="UI/Page1/Body/Column"]
+custom_minimum_size = Vector2(600, 84)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="DriftIcon" parent="UI/Page1/Body/Column/DriftRow" instance=ExtResource("3_platform")]
+position = Vector2(52, 42)
 attributes = 2
 move_v_distance = 40.0
 width = 64.0
 
-[node name="DriftNameLabel" type="Label" parent="UI/Page1" unique_id=1100937907]
-layout_mode = 0
-anchor_top = 0.37
+[node name="DriftNameLabel" type="Label" parent="UI/Page1/Body/Column/DriftRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.37
-offset_left = 170.0
-offset_top = -34.0
-offset_right = -40.0
-offset_bottom = -8.0
+offset_left = 120.0
+offset_top = 10.0
+offset_bottom = 36.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "DRIFT"
 
-[node name="DriftDescLabel" type="Label" parent="UI/Page1" unique_id=623230164]
-layout_mode = 0
-anchor_top = 0.37
+[node name="DriftDescLabel" type="Label" parent="UI/Page1/Body/Column/DriftRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.37
-offset_left = 170.0
-offset_top = -6.0
-offset_right = -40.0
-offset_bottom = 44.0
+offset_left = 120.0
+offset_top = 38.0
+offset_bottom = 84.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
 theme_override_constants/line_spacing = 2
 theme_override_font_sizes/font_size = 14
 text = "Never holds still. Lead your jump."
 autowrap_mode = 2
 
-[node name="GlassIcon" parent="UI/Page1" unique_id=1947073646 instance=ExtResource("3_platform")]
-position = Vector2(100, 640)
+[node name="GlassRow" type="Control" parent="UI/Page1/Body/Column"]
+custom_minimum_size = Vector2(600, 84)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="GlassIcon" parent="UI/Page1/Body/Column/GlassRow" instance=ExtResource("3_platform")]
+position = Vector2(52, 42)
 attributes = 4
 width = 64.0
 
-[node name="GlassNameLabel" type="Label" parent="UI/Page1" unique_id=361253117]
-layout_mode = 0
-anchor_top = 0.5
+[node name="GlassNameLabel" type="Label" parent="UI/Page1/Body/Column/GlassRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = 170.0
-offset_top = -34.0
-offset_right = -40.0
-offset_bottom = -8.0
+offset_left = 120.0
+offset_top = 10.0
+offset_bottom = 36.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "GLASS"
 
-[node name="GlassDescLabel" type="Label" parent="UI/Page1" unique_id=1464189973]
-layout_mode = 0
-anchor_top = 0.5
+[node name="GlassDescLabel" type="Label" parent="UI/Page1/Body/Column/GlassRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = 170.0
-offset_top = -6.0
-offset_right = -40.0
-offset_bottom = 44.0
+offset_left = 120.0
+offset_top = 38.0
+offset_bottom = 84.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
 theme_override_constants/line_spacing = 2
 theme_override_font_sizes/font_size = 14
 text = "Shatters right after you land. One landing only."
 autowrap_mode = 2
 
-[node name="PhantomIcon" parent="UI/Page1" unique_id=1277256259 instance=ExtResource("3_platform")]
-position = Vector2(100, 806)
+[node name="PhantomRow" type="Control" parent="UI/Page1/Body/Column"]
+custom_minimum_size = Vector2(600, 84)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="PhantomIcon" parent="UI/Page1/Body/Column/PhantomRow" instance=ExtResource("3_platform")]
+position = Vector2(52, 42)
 attributes = 8
 width = 64.0
 
-[node name="PhantomNameLabel" type="Label" parent="UI/Page1" unique_id=1572017898]
-layout_mode = 0
-anchor_top = 0.63
+[node name="PhantomNameLabel" type="Label" parent="UI/Page1/Body/Column/PhantomRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.63
-offset_left = 170.0
-offset_top = -34.0
-offset_right = -40.0
-offset_bottom = -8.0
+offset_left = 120.0
+offset_top = 10.0
+offset_bottom = 36.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "PHANTOM"
 
-[node name="PhantomDescLabel" type="Label" parent="UI/Page1" unique_id=1790685904]
-layout_mode = 0
-anchor_top = 0.63
+[node name="PhantomDescLabel" type="Label" parent="UI/Page1/Body/Column/PhantomRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.63
-offset_left = 170.0
-offset_top = -6.0
-offset_right = -40.0
-offset_bottom = 44.0
+offset_left = 120.0
+offset_top = 38.0
+offset_bottom = 84.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
 theme_override_constants/line_spacing = 2
 theme_override_font_sizes/font_size = 14
 text = "Blinks out of view. Jump from memory."
 autowrap_mode = 2
 
-[node name="SquishIcon" parent="UI/Page1" unique_id=1958953097 instance=ExtResource("3_platform")]
-position = Vector2(100, 973)
+[node name="SquishRow" type="Control" parent="UI/Page1/Body/Column"]
+custom_minimum_size = Vector2(600, 84)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="SquishIcon" parent="UI/Page1/Body/Column/SquishRow" instance=ExtResource("3_platform")]
+position = Vector2(52, 42)
 attributes = 16
 width = 64.0
 
-[node name="SquishNameLabel" type="Label" parent="UI/Page1" unique_id=1955779303]
-layout_mode = 0
-anchor_top = 0.76
+[node name="SquishNameLabel" type="Label" parent="UI/Page1/Body/Column/SquishRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.76
-offset_left = 170.0
-offset_top = -34.0
-offset_right = -40.0
-offset_bottom = -8.0
+offset_left = 120.0
+offset_top = 10.0
+offset_bottom = 36.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 19
 text = "SQUISH"
 
-[node name="SquishDescLabel" type="Label" parent="UI/Page1" unique_id=521050277]
-layout_mode = 0
-anchor_top = 0.76
+[node name="SquishDescLabel" type="Label" parent="UI/Page1/Body/Column/SquishRow"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.76
-offset_left = 170.0
-offset_top = -6.0
-offset_right = -40.0
-offset_bottom = 44.0
+offset_left = 120.0
+offset_top = 38.0
+offset_bottom = 84.0
+grow_horizontal = 2
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
 theme_override_constants/line_spacing = 2
 theme_override_font_sizes/font_size = 14
 text = "Time it and you launch high. Miss and you barely bounce."
 autowrap_mode = 2
 
-[node name="Page2" type="Control" parent="UI" unique_id=159665459]
+[node name="Page2" type="Control" parent="UI"]
 visible = false
 layout_mode = 3
 anchors_preset = 15
@@ -264,147 +293,178 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ZonesHeadLabel" type="Label" parent="UI/Page2" unique_id=770454272]
-layout_mode = 0
-anchor_top = 0.13
+[node name="Body" type="CenterContainer" parent="UI/Page2"]
+layout_mode = 1
+anchors_preset = -1
 anchor_right = 1.0
-anchor_bottom = 0.13
-offset_left = 60.0
-offset_top = -16.0
-offset_right = -60.0
-offset_bottom = 12.0
+anchor_top = 0.115
+anchor_bottom = 0.825
+offset_left = 40.0
+offset_right = -40.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Column" type="VBoxContainer" parent="UI/Page2/Body"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="ZonesHeadLabel" type="Label" parent="UI/Page2/Body/Column"]
+custom_minimum_size = Vector2(600, 30)
+layout_mode = 2
 theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 22
 text = "ZONES"
+vertical_alignment = 1
 
-[node name="ZonesBodyLabel" type="Label" parent="UI/Page2" unique_id=1359839730]
-layout_mode = 0
-anchor_top = 0.13
-anchor_right = 1.0
-anchor_bottom = 0.13
-offset_left = 60.0
-offset_top = 16.0
-offset_right = -60.0
-offset_bottom = 72.0
+[node name="ZonesBodyLabel" type="Label" parent="UI/Page2/Body/Column"]
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
 theme_override_constants/line_spacing = 3
 theme_override_font_sizes/font_size = 15
 text = "A new zone every 2000 score. The HUD names the one you are in."
 autowrap_mode = 2
 
-[node name="ComboHeadLabel" type="Label" parent="UI/Page2" unique_id=767457416]
-layout_mode = 0
-anchor_top = 0.25
-anchor_right = 1.0
-anchor_bottom = 0.25
-offset_left = 60.0
-offset_top = -16.0
-offset_right = -60.0
-offset_bottom = 12.0
+[node name="HeadGap" type="Control" parent="UI/Page2/Body/Column"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ComboHeadLabel" type="Label" parent="UI/Page2/Body/Column"]
+custom_minimum_size = Vector2(600, 30)
+layout_mode = 2
 theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
 theme_override_font_sizes/font_size = 22
 text = "TWO AT A TIME"
+vertical_alignment = 1
 
-[node name="ComboBodyLabel" type="Label" parent="UI/Page2" unique_id=2005895387]
-layout_mode = 0
-anchor_top = 0.25
-anchor_right = 1.0
-anchor_bottom = 0.25
-offset_left = 60.0
-offset_top = 16.0
-offset_right = -60.0
-offset_bottom = 82.0
+[node name="ComboBodyLabel" type="Label" parent="UI/Page2/Body/Column"]
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
 theme_override_colors/font_color = Color(1.1, 1.1, 1.1, 1)
 theme_override_constants/line_spacing = 3
 theme_override_font_sizes/font_size = 15
 text = "A zone stamps its attribute on every platform, on top of the one it already rolled. Two at once, from the first zone on."
 autowrap_mode = 2
 
-[node name="ZoneFrame" type="Panel" parent="UI/Page2" unique_id=805255057]
-layout_mode = 0
-anchor_top = 0.335
-anchor_right = 1.0
-anchor_bottom = 0.635
-offset_left = 60.0
-offset_right = -60.0
+[node name="FrameGap" type="Control" parent="UI/Page2/Body/Column"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ZoneFrame" type="PanelContainer" parent="UI/Page2/Body/Column"]
+layout_mode = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_zone")
 
-[node name="ZoneTitleLabel" type="Label" parent="UI/Page2" unique_id=1664474789]
-layout_mode = 0
-anchor_top = 0.335
-anchor_right = 1.0
-anchor_bottom = 0.335
-offset_left = 60.0
-offset_top = 16.0
-offset_right = -60.0
-offset_bottom = 46.0
+[node name="Inset" type="MarginContainer" parent="UI/Page2/Body/Column/ZoneFrame"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="ZoneColumn" type="VBoxContainer" parent="UI/Page2/Body/Column/ZoneFrame/Inset"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="ZoneTitleLabel" type="Label" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn"]
+custom_minimum_size = Vector2(564, 30)
+layout_mode = 2
 theme_override_colors/font_color = Color(1.2, 2, 2.6, 1)
 theme_override_font_sizes/font_size = 20
 text = "GLASS ZONE"
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="ZoneRowAIcon" parent="UI/Page2" unique_id=1377018557 instance=ExtResource("3_platform")]
-position = Vector2(180, 520)
+[node name="ZoneRowA" type="Control" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn"]
+custom_minimum_size = Vector2(564, 62)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ZoneRowAIcon" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn/ZoneRowA" instance=ExtResource("3_platform")]
+position = Vector2(58, 31)
 attributes = 4
 
-[node name="ZoneRowALabel" type="Label" parent="UI/Page2" unique_id=1585894672]
-layout_mode = 0
-anchor_top = 0.406
+[node name="ZoneRowALabel" type="Label" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn/ZoneRowA"]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
 anchor_right = 1.0
-anchor_bottom = 0.406
-offset_left = 250.0
+anchor_bottom = 0.5
+offset_left = 130.0
 offset_top = -13.0
-offset_right = -90.0
 offset_bottom = 13.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_colors/font_color = Color(1.3, 1.3, 1.3, 1)
 theme_override_font_sizes/font_size = 16
 text = "PLAIN  +  GLASS"
+vertical_alignment = 1
 
-[node name="ZoneRowBIcon" parent="UI/Page2" unique_id=1259402309 instance=ExtResource("3_platform")]
-position = Vector2(180, 620)
+[node name="ZoneRowB" type="Control" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn"]
+custom_minimum_size = Vector2(564, 62)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ZoneRowBIcon" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn/ZoneRowB" instance=ExtResource("3_platform")]
+position = Vector2(58, 31)
 attributes = 6
 move_v_distance = 40.0
 
-[node name="ZoneRowBLabel" type="Label" parent="UI/Page2" unique_id=861869887]
-layout_mode = 0
-anchor_top = 0.484
+[node name="ZoneRowBLabel" type="Label" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn/ZoneRowB"]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
 anchor_right = 1.0
-anchor_bottom = 0.484
-offset_left = 250.0
+anchor_bottom = 0.5
+offset_left = 130.0
 offset_top = -13.0
-offset_right = -90.0
 offset_bottom = 13.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_colors/font_color = Color(1.3, 1.3, 1.3, 1)
 theme_override_font_sizes/font_size = 16
 text = "DRIFT  +  GLASS"
+vertical_alignment = 1
 
-[node name="ZoneRowCIcon" parent="UI/Page2" unique_id=1632757760 instance=ExtResource("3_platform")]
-position = Vector2(180, 720)
+[node name="ZoneRowC" type="Control" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn"]
+custom_minimum_size = Vector2(564, 62)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ZoneRowCIcon" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn/ZoneRowC" instance=ExtResource("3_platform")]
+position = Vector2(58, 31)
 attributes = 20
 
-[node name="ZoneRowCLabel" type="Label" parent="UI/Page2" unique_id=130761191]
-layout_mode = 0
-anchor_top = 0.5625
+[node name="ZoneRowCLabel" type="Label" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn/ZoneRowC"]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 0.5
 anchor_right = 1.0
-anchor_bottom = 0.5625
-offset_left = 250.0
+anchor_bottom = 0.5
+offset_left = 130.0
 offset_top = -13.0
-offset_right = -90.0
 offset_bottom = 13.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_colors/font_color = Color(1.3, 1.3, 1.3, 1)
 theme_override_font_sizes/font_size = 16
 text = "SQUISH  +  GLASS"
+vertical_alignment = 1
 
-[node name="ZoneCaptionLabel" type="Label" parent="UI/Page2" unique_id=899962151]
-layout_mode = 0
-anchor_top = 0.635
-anchor_right = 1.0
-anchor_bottom = 0.635
-offset_left = 60.0
-offset_top = 12.0
-offset_right = -60.0
-offset_bottom = 68.0
+[node name="CaptionGap" type="Control" parent="UI/Page2/Body/Column"]
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ZoneCaptionLabel" type="Label" parent="UI/Page2/Body/Column"]
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_constants/line_spacing = 3
 theme_override_font_sizes/font_size = 14
@@ -412,31 +472,33 @@ text = "Three platforms inside one zone. Each keeps what it rolled and picks up 
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="PageLabel" type="Label" parent="UI" unique_id=1059945821]
+[node name="PageLabel" type="Label" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.835
+anchor_top = 0.855
 anchor_right = 0.5
-anchor_bottom = 0.835
+anchor_bottom = 0.855
 offset_left = -60.0
 offset_top = -14.0
 offset_right = 60.0
 offset_bottom = 14.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 15
 text = "1 / 2"
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="PrevButton" type="Button" parent="UI" unique_id=676415841]
+[node name="PrevButton" type="Button" parent="UI"]
 anchors_preset = -1
-anchor_left = 0.0
-anchor_top = 0.9
-anchor_right = 0.0
-anchor_bottom = 0.9
+anchor_top = 0.91
+anchor_bottom = 0.91
 offset_left = 28.0
 offset_top = -44.0
 offset_right = 116.0
 offset_bottom = 44.0
+grow_vertical = 2
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 44
@@ -444,16 +506,18 @@ flat = true
 icon = ExtResource("20_prev")
 icon_alignment = 1
 
-[node name="PlayButton" type="Button" parent="UI" unique_id=33443293]
+[node name="PlayButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.9
+anchor_top = 0.91
 anchor_right = 0.5
-anchor_bottom = 0.9
+anchor_bottom = 0.91
 offset_left = 29.0
 offset_top = -52.0
 offset_right = 133.0
 offset_bottom = 52.0
+grow_horizontal = 2
+grow_vertical = 2
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 56
@@ -461,16 +525,18 @@ flat = true
 icon = ExtResource("22_play")
 icon_alignment = 1
 
-[node name="NextButton" type="Button" parent="UI" unique_id=727436136]
+[node name="NextButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 1.0
-anchor_top = 0.9
+anchor_top = 0.91
 anchor_right = 1.0
-anchor_bottom = 0.9
+anchor_bottom = 0.91
 offset_left = -116.0
 offset_top = -44.0
 offset_right = -28.0
 offset_bottom = 44.0
+grow_horizontal = 0
+grow_vertical = 2
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 44
@@ -478,16 +544,18 @@ flat = true
 icon = ExtResource("21_next")
 icon_alignment = 1
 
-[node name="BackButton" type="Button" parent="UI" unique_id=2009698780]
+[node name="BackButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.9
+anchor_top = 0.91
 anchor_right = 0.5
-anchor_bottom = 0.9
+anchor_bottom = 0.91
 offset_left = -133.0
 offset_top = -52.0
 offset_right = -29.0
 offset_bottom = 52.0
+grow_horizontal = 2
+grow_vertical = 2
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 56

@@ -2,10 +2,10 @@
 
 [ext_resource type="Script" uid="uid://03fu8jmrf3pj" path="res://scripts/settings_menu.gd" id="1_settings"]
 [ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
-[ext_resource type="Texture2D" uid="uid://bachcfbplrmx8" path="res://assets/icons/joystick.png" id="4_controls"]
-[ext_resource type="Texture2D" uid="uid://cew8oc8bp722c" path="res://assets/icons/audioOn.png" id="5_sound"]
-[ext_resource type="Texture2D" uid="uid://l6p5r4jyqrac" path="res://assets/icons/checkmark.png" id="6_haptics"]
-[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="7_home"]
+[ext_resource type="Texture2D" path="res://assets/icons/hand.svg" id="4_controls"]
+[ext_resource type="Texture2D" path="res://assets/icons/speaker.svg" id="5_sound"]
+[ext_resource type="Texture2D" path="res://assets/icons/signal_wave.svg" id="6_haptics"]
+[ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="7_home"]
 
 [sub_resource type="Environment" id="Environment_settings"]
 background_mode = 3

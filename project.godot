@@ -26,18 +26,19 @@ _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 Unlocks="*res://scripts/unlocks.gd"
 Notify="*res://scripts/notifications.gd"
 Missions="*res://scripts/missions.gd"
+Ads="*res://scripts/ads.gd"
 
 [display]
 
 window/size/viewport_width=720
 window/size/viewport_height=1280
-window/stretch/mode="viewport"
+window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/admob/plugin.cfg")
 
 [gui]
 
@@ -47,6 +48,10 @@ _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 [input_devices]
 
 sensors/enable_accelerometer=true
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://addons/admob/gdscript/sample/translations/admob_sample.en.translation", "res://addons/admob/gdscript/sample/translations/admob_sample.pt_BR.translation", "res://addons/admob/gdscript/sample/translations/admob_sample.es.translation", "res://addons/admob/gdscript/sample/translations/admob_sample.zh_CN.translation", "res://addons/admob/gdscript/sample/translations/admob_sample.ja.translation")
 
 [physics]
 
@@ -58,4 +63,5 @@ rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
 viewport/hdr_2d=true
+anti_aliasing/quality/msaa_2d=1
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)

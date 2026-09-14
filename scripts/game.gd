@@ -2,12 +2,12 @@ extends Node2D
 
 ## The pause and game over panels are unlabelled glyphs, so the two toggles in
 ## them swap their icon to show state -- there is no text left to rewrite.
-const CONTROLS_TOUCH_ICON := preload("res://assets/icons/joystick.png")
-const CONTROLS_TILT_ICON := preload("res://assets/icons/phone.png")
-const SOUND_ON_ICON := preload("res://assets/icons/audioOn.png")
-const SOUND_OFF_ICON := preload("res://assets/icons/audioOff.png")
-const HUD_SHOWN_ICON := preload("res://assets/icons/menuList.png")
-const HUD_HIDDEN_ICON := preload("res://assets/icons/cross.png")
+const CONTROLS_TOUCH_ICON := preload("res://assets/icons/hand.svg")
+const CONTROLS_TILT_ICON := preload("res://assets/icons/mobile_phone.svg")
+const SOUND_ON_ICON := preload("res://assets/icons/speaker.svg")
+const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
+const HUD_SHOWN_ICON := preload("res://assets/icons/eye.svg")
+const HUD_HIDDEN_ICON := preload("res://assets/icons/eye_closed.svg")
 ## The pause button is the one readout a hidden HUD keeps, so that the menu
 ## that turns the HUD back on stays reachable. It drops to a ghost rather than
 ## sitting at the player's chosen opacity -- the point of hiding is a clean
@@ -269,6 +269,9 @@ func _on_intro_finished() -> void:
 	# has nowhere else safe to fall back to but this hand-off point.
 	_last_safe_position = player.global_position
 	_burst_climbing = true
+	# Warm up the revive ad from the first frame of the run, so the offer at
+	# the end of it has something ready to show.
+	Ads.load_rewarded()
 	_score_origin_y = camera.global_position.y
 	spawner.score_origin_y = _score_origin_y
 	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
@@ -696,7 +699,9 @@ func _game_over() -> void:
 	game_over_title.text = "GAME OVER"
 	result_label.text = "SCORE %d   BEST %d" % [score, max(score, high_score)]
 	result_label.show()
-	if not _revive_used:
+	# No loaded ad means no offer at all -- better to end the run cleanly than
+	# to show a Watch Ad button that stalls or fails when it is pressed.
+	if not _revive_used and Ads.is_rewarded_ready():
 		_offer_revive()
 	else:
 		_finish_game_over()
@@ -711,25 +716,32 @@ func _offer_revive() -> void:
 	_set_hud_visible(false)
 	get_tree().paused = true
 	revive_body_label.show()
+	watch_ad_button.disabled = false
 	watch_ad_button.show()
 	_show_game_over_panel()
 
 func _on_revive_watch_ad_pressed() -> void:
 	Audio.play_ui_click()
-	_request_rewarded_ad(_on_revive_ad_rewarded)
-
-## Stub until the AdMob plugin (poingstudios/godot-admob-plugin) is wired in --
-## grants the reward immediately, as if every ad played to completion. Swap
-## this body for a real rewarded-ad request and call `on_reward` only from its
-## "user earned reward" signal; every caller above already only acts through
-## that callback, so this is the one place that needs to change.
-func _request_rewarded_ad(on_reward: Callable) -> void:
-	on_reward.call()
+	# The ad takes a moment to come up and the button stays on screen under it,
+	# so without this a second tap queues a second request behind the first.
+	watch_ad_button.disabled = true
+	Ads.show_rewarded(_on_revive_ad_rewarded, _on_revive_ad_dismissed)
 
 func _on_revive_ad_rewarded() -> void:
 	_revive_used = true
 	_close_revive_offer()
 	_revive_player()
+	# Fetch the next one now rather than at the next death -- this run can no
+	# longer use it, but the run after it can.
+	Ads.load_rewarded()
+
+## Ad closed early, failed to show, or was never there. Same outcome as
+## pressing Restart/Menu on a still-open offer: the second chance is declined
+## and the run finalizes on the panel already on screen. `_revive_used` stays
+## false deliberately -- no ad was watched, so nothing was spent.
+func _on_revive_ad_dismissed() -> void:
+	_end_open_revive_offer()
+	Ads.load_rewarded()
 
 func _close_revive_offer() -> void:
 	_revive_open = false
@@ -747,6 +759,12 @@ func _revive_player() -> void:
 	player.streak = 0
 	Audio.set_streak(0)
 	_burst_climbing = true
+	# A revive drops the player back onto the platform they died past, with no
+	# streak left to carry them -- so it hands them a Solar Wind outright. It
+	# has to come after the velocity assignment above, since enter_solar_wind()
+	# multiplies whatever velocity.y currently holds rather than setting its own.
+	_show_streak_message("SOLAR WIND!", STREAK_TEXT_COLOR, SOLAR_WIND_FONT_SIZE, SOLAR_WIND_SHOW_TIME)
+	player.enter_solar_wind()
 
 func _finish_game_over() -> void:
 	is_game_over = true

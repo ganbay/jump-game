@@ -7,12 +7,12 @@ extends Node2D
 ## for the state -- the same split the glow row already uses. Three bare icons
 ## in a column would say what each option is set to but not what it is.
 
-const CONTROLS_TOUCH_ICON := preload("res://assets/icons/joystick.png")
-const CONTROLS_TILT_ICON := preload("res://assets/icons/phone.png")
-const SOUND_ON_ICON := preload("res://assets/icons/audioOn.png")
-const SOUND_OFF_ICON := preload("res://assets/icons/audioOff.png")
-const HAPTICS_ON_ICON := preload("res://assets/icons/checkmark.png")
-const HAPTICS_OFF_ICON := preload("res://assets/icons/cross.png")
+const CONTROLS_TOUCH_ICON := preload("res://assets/icons/hand.svg")
+const CONTROLS_TILT_ICON := preload("res://assets/icons/mobile_phone.svg")
+const SOUND_ON_ICON := preload("res://assets/icons/speaker.svg")
+const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
+const HAPTICS_ON_ICON := preload("res://assets/icons/signal_wave.svg")
+const HAPTICS_OFF_ICON := preload("res://assets/icons/no_symbol.svg")
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var glow_slider: HSlider = $UI/GlowSlider

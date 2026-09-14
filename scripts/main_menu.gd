@@ -8,8 +8,8 @@ extends Node2D
 
 ## The mute toggle swaps its glyph rather than tinting one, so the state reads
 ## at a glance instead of asking the player to remember which shade means off.
-const SOUND_ON_ICON := preload("res://assets/icons/audioOn.png")
-const SOUND_OFF_ICON := preload("res://assets/icons/audioOff.png")
+const SOUND_ON_ICON := preload("res://assets/icons/speaker.svg")
+const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var tap_icon: TextureRect = $UI/TapIcon

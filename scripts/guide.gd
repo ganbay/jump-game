@@ -3,6 +3,14 @@ extends Node2D
 ## Two pages: the attribute list, then how zones combine those attributes.
 ## Both are built into the scene and simply toggled -- the whole guide is a
 ## screenful of static labels, so there is nothing to rebuild on a page turn.
+##
+## Each page is one CenterContainer over a fixed-width column, rather than rows
+## pinned to fractions of the viewport. The rows carry platform *instances*, and
+## a Node2D has no anchors -- pinning the labels by fraction while the icons sat
+## at authored pixel coordinates only lined up at exactly 720x1280, and the two
+## drifted apart by a row's height on a 20:9 phone. Parenting each icon to its
+## row Control makes its position row-local, so the container owns the whole
+## layout and the pairing survives any aspect ratio `expand` hands us.
 
 const PAGE_TITLES := ["HOW TO PLAY", "ZONES"]
 

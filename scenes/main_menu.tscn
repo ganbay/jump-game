@@ -2,13 +2,13 @@
 
 [ext_resource type="Script" uid="uid://b6tkijfu3oa4f" path="res://scripts/main_menu.gd" id="1_menu"]
 [ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
-[ext_resource type="Texture2D" uid="uid://c7po2gpg0ndc7" path="res://assets/icons/right.png" id="3_tap"]
-[ext_resource type="Texture2D" uid="uid://brwglf8emw44o" path="res://assets/icons/shoppingCart.png" id="4_customize"]
-[ext_resource type="Texture2D" uid="uid://b2vwh2lgl4sgg" path="res://assets/icons/gear.png" id="5_settings"]
-[ext_resource type="Texture2D" uid="uid://kqjl1eqrrl1s" path="res://assets/icons/signal3.png" id="6_stats"]
-[ext_resource type="Texture2D" uid="uid://ei8o75vpdm6t" path="res://assets/icons/question.png" id="7_guide"]
-[ext_resource type="Texture2D" uid="uid://cew8oc8bp722c" path="res://assets/icons/audioOn.png" id="8_sound"]
-[ext_resource type="Texture2D" uid="uid://l6p5r4jyqrac" path="res://assets/icons/checkmark.png" id="9_missions"]
+[ext_resource type="Texture2D" path="res://assets/icons/play.svg" id="3_tap"]
+[ext_resource type="Texture2D" path="res://assets/icons/palette.svg" id="4_customize"]
+[ext_resource type="Texture2D" path="res://assets/icons/cog.svg" id="5_settings"]
+[ext_resource type="Texture2D" path="res://assets/icons/line_graph.svg" id="6_stats"]
+[ext_resource type="Texture2D" path="res://assets/icons/help.svg" id="7_guide"]
+[ext_resource type="Texture2D" path="res://assets/icons/speaker.svg" id="8_sound"]
+[ext_resource type="Texture2D" path="res://assets/icons/list_checkboxes.svg" id="9_missions"]
 
 [sub_resource type="Environment" id="Environment_menu"]
 background_mode = 3

@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/statistics.gd" id="1_stats"]
 [ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
 [ext_resource type="Script" path="res://scripts/line_graph.gd" id="3_linegraph"]
-[ext_resource type="Texture2D" uid="uid://doj8eu4ejft8q" path="res://assets/icons/home.png" id="22_home"]
+[ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="22_home"]
 
 [sub_resource type="Environment" id="Environment_stats"]
 background_mode = 3
