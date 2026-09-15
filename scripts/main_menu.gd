@@ -34,6 +34,9 @@ func _ready() -> void:
 	Settings.sound_muted_changed.connect(_on_sound_muted_changed)
 	IconPop.pulse(tap_icon, tap_label)
 	IconPop.attach(_icon_buttons)
+	# _leaving is only ever cleared by actually leaving, so a scene that fails
+	# to load would otherwise strand the menu with every button dead.
+	Transition.scene_change_failed.connect(_on_scene_change_failed)
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
@@ -69,6 +72,9 @@ func _on_settings_pressed() -> void:
 
 func _on_statistics_pressed() -> void:
 	_go("res://scenes/statistics.tscn")
+
+func _on_scene_change_failed(_path: String) -> void:
+	_leaving = false
 
 func _go(path: String) -> void:
 	if _leaving:

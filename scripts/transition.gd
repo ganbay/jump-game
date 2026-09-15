@@ -4,6 +4,12 @@ extends CanvasLayer
 ## never reads as a hard cut. A plain full-screen rect is enough -- no need for
 ## a shader wipe when every screen already sits on black anyway.
 
+## Emitted when change_scene() could not load the target -- a scene that is
+## broken or, on an exported build, missing from the pack. Callers that latch a
+## "already leaving" flag listen for this so one bad scene doesn't leave their
+## screen permanently unable to navigate anywhere.
+signal scene_change_failed(path: String)
+
 const FADE_TIME := 0.28
 
 var _rect: ColorRect
@@ -22,9 +28,13 @@ func _ready() -> void:
 ## on its own.
 func change_scene(path: String) -> void:
 	await _fade(1.0)
-	get_tree().change_scene_to_file(path)
+	var err := get_tree().change_scene_to_file(path)
+	if err != OK:
+		push_error("[transition] could not change to %s (error %d)" % [path, err])
 	await get_tree().process_frame
 	await _fade(0.0)
+	if err != OK:
+		scene_change_failed.emit(path)
 
 ## Same shape as change_scene(), for the restart button's scene reload.
 func reload_scene() -> void:

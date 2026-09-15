@@ -46,7 +46,7 @@ const HIDDEN_PAUSE_OPACITY := 0.2
 @onready var coin_row: HBoxContainer = $UI/CoinRow
 @onready var coin_icon: TextureRect = $UI/CoinRow/Icon
 @onready var coin_label: Label = $UI/CoinRow/Value
-@onready var mission_toast: Label = $UI/MissionToast
+# @onready var mission_toast: Label = $UI/MissionToast  # missions disabled
 @onready var zone_banner: Label = $UI/ZoneBanner
 @onready var milestone_panel: Control = $UI/MilestonePanel
 @onready var milestone_title: Label = $UI/MilestonePanel/TitleLabel
@@ -77,9 +77,10 @@ const COIN_SETTLE_TIME := 0.16
 ## The mission toast holds for a second, with a quick fade at either end so it
 ## does not pop. Queued rather than stacked: two missions can clear on the same
 ## landing, and two labels fighting over one slot would just flicker.
-const TOAST_HOLD := 1.0
-const TOAST_IN := 0.12
-const TOAST_OUT := 0.25
+## Missions disabled -- unused alongside the toast functions below.
+# const TOAST_HOLD := 1.0
+# const TOAST_IN := 0.12
+# const TOAST_OUT := 0.25
 ## Each streak snaps the counter up to this scale, then it springs back to
 ## normal before the next one -- a punch per streak rather than a size that
 ## creeps up and stays there.
@@ -180,8 +181,9 @@ var _shake: Vector2 = Vector2.ZERO
 var _streak_shake: float = 0.0
 var _streak_tween: Tween
 var _coin_tween: Tween
-var _toast_tween: Tween
-var _toast_queue: Array[String] = []
+# Missions disabled -- unused alongside the toast functions below.
+# var _toast_tween: Tween
+# var _toast_queue: Array[String] = []
 var _streak_fade_tween: Tween
 var _hud_nodes: Array[Control] = []
 ## Set from the pause menu and deliberately not saved: it is a per-run choice,
@@ -223,7 +225,7 @@ func _ready() -> void:
 	zones.milestone_reached.connect(_on_milestone_reached)
 	spawner.zones = zones
 	# _update_coin_label()  # currency display disabled; uncomment to bring the coin count back
-	Missions.completed.connect(_on_mission_completed)
+	# Missions.completed.connect(_on_mission_completed)  # missions disabled; see missions.gd ENABLED
 	game_over_panel.hide()
 	milestone_panel.hide()
 	zone_banner.hide()
@@ -283,7 +285,7 @@ func _on_intro_finished() -> void:
 	spawner.score_origin_y = _score_origin_y
 	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
 	spawner.begin(player.global_position.y - reach * intro_platform_lead)
-	Missions.begin_run()
+	# Missions.begin_run()  # missions disabled; see missions.gd ENABLED
 	_drop_in_hud()
 
 ## Slides the HUD down into place instead of switching it on. Each element is
@@ -455,7 +457,7 @@ func _process(delta: float) -> void:
 		_shown_score = score
 		score_label.text = "%d" % score
 		zones.update(score)
-		Missions.update_run(_run_summary())
+		# Missions.update_run(_run_summary())  # missions disabled; see missions.gd ENABLED
 	if player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
 
@@ -513,7 +515,7 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 		run_flares += 1
 		# _update_coin_label()  # currency display disabled; run_coins itself still counts for Missions/Stats
 		# _punch_coin_label()
-		Missions.update_run(_run_summary())
+		# Missions.update_run(_run_summary())  # missions disabled; see missions.gd ENABLED
 		_spawn_burst(platform)
 		_camera_punch()
 		_glow_pulse(
@@ -615,27 +617,29 @@ func _run_summary() -> Dictionary:
 ## Left edge at a quarter height, deliberately clear of the character's lane and
 ## of anywhere a thumb rests. The label is MOUSE_FILTER_IGNORE, so even sitting
 ## over the play area it cannot swallow the tap that times a landing.
-func _on_mission_completed(_id: String, reward: int, text: String) -> void:
-	# Nothing is shown once the run is over -- the death screen is not the place
-	# for it -- and a hidden HUD stays hidden.
-	if is_game_over or _hud_hidden:
-		return
-	_toast_queue.append("MISSION COMPLETE  +%d\n%s" % [reward, text])
-	if _toast_tween == null or not _toast_tween.is_valid():
-		_show_next_toast()
-
-func _show_next_toast() -> void:
-	if _toast_queue.is_empty():
-		mission_toast.visible = false
-		return
-	mission_toast.text = _toast_queue.pop_front()
-	mission_toast.modulate.a = 0.0
-	mission_toast.visible = true
-	_toast_tween = create_tween()
-	_toast_tween.tween_property(mission_toast, "modulate:a", 1.0, TOAST_IN)
-	_toast_tween.tween_interval(TOAST_HOLD)
-	_toast_tween.tween_property(mission_toast, "modulate:a", 0.0, TOAST_OUT)
-	_toast_tween.tween_callback(_show_next_toast)
+## Missions disabled -- unreachable while the `completed` hookup above is
+## commented out. Uncomment together with it to bring the toast back.
+# func _on_mission_completed(_id: String, reward: int, text: String) -> void:
+# 	# Nothing is shown once the run is over -- the death screen is not the place
+# 	# for it -- and a hidden HUD stays hidden.
+# 	if is_game_over or _hud_hidden:
+# 		return
+# 	_toast_queue.append("MISSION COMPLETE  +%d\n%s" % [reward, text])
+# 	if _toast_tween == null or not _toast_tween.is_valid():
+# 		_show_next_toast()
+#
+# func _show_next_toast() -> void:
+# 	if _toast_queue.is_empty():
+# 		mission_toast.visible = false
+# 		return
+# 	mission_toast.text = _toast_queue.pop_front()
+# 	mission_toast.modulate.a = 0.0
+# 	mission_toast.visible = true
+# 	_toast_tween = create_tween()
+# 	_toast_tween.tween_property(mission_toast, "modulate:a", 1.0, TOAST_IN)
+# 	_toast_tween.tween_interval(TOAST_HOLD)
+# 	_toast_tween.tween_property(mission_toast, "modulate:a", 0.0, TOAST_OUT)
+# 	_toast_tween.tween_callback(_show_next_toast)
 
 ## Same shape as _punch_streak, minus the shake and the hold.
 ## Currency display disabled -- unused while CoinRow is hidden (see main.tscn
@@ -789,11 +793,12 @@ func _finish_game_over() -> void:
 		high_score = score
 		_save_high_score()
 	Stats.record_run(score, run_max_streak, run_coins)
-	# After record_run, so a mission payout lands on a balance that already
-	# includes the coins this run earned.
-	var summary := _run_summary()
-	summary["finished"] = true
-	Missions.end_run(summary)
+	# Missions disabled -- see missions.gd ENABLED. Uncomment together with the
+	# other call sites; it goes after record_run so a mission payout lands on a
+	# balance that already includes the coins this run earned.
+	# var summary := _run_summary()
+	# summary["finished"] = true
+	# Missions.end_run(summary)
 	revive_body_label.hide()
 	watch_ad_button.hide()
 	_set_hud_visible(false)

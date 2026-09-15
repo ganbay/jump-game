@@ -1,9 +1,16 @@
 extends Node
 
-## Disabled for now -- not currently used. The autoload registration in
-## project.godot is commented out and every call site in game.gd is commented
-## out to match, so this script is currently dead code kept for a later
-## re-enable rather than something actively running.
+## Disabled. `ENABLED` below is the one switch that turns the whole feature off:
+## while it is false this autoload loads no save, rolls no day, banks no
+## progress and never emits `completed` -- so no toast, no coin payout, no
+## reminder and no writes to user://missions.cfg. `active()` returns nothing, so
+## the (currently unreachable) missions screen draws empty rather than erroring.
+## The call sites in game.gd are commented out to match. To bring missions back:
+## flip ENABLED to true and uncomment those call sites.
+##
+## The autoload registration in project.godot deliberately stays in place --
+## missions_menu.gd names `Missions` at parse time, so removing it would break
+## that script rather than merely idle it.
 ##
 ## Three missions a day.
 ##
@@ -21,6 +28,9 @@ signal changed
 ## Carries the finished text so a listener can show it without re-deriving the
 ## target -- which by then has already climbed to next time's number.
 signal completed(id: String, reward: int, text: String)
+
+## The feature switch -- see the note at the top of the file.
+const ENABLED := false
 
 const SAVE_PATH := "user://missions.cfg"
 const REWARD := 200
@@ -64,11 +74,15 @@ var _day: String = ""
 var _day_index: int = 0
 
 func _ready() -> void:
+	if not ENABLED:
+		return
 	_load()
 	_roll_if_new_day()
 
 ## Today's three, as display-ready rows.
 func active() -> Array:
+	if not ENABLED:
+		return []
 	_roll_if_new_day()
 	var rows: Array = []
 	for template in _todays_templates():
@@ -97,6 +111,8 @@ func target_of(template: Dictionary) -> int:
 	return int(template["base"]) + int(template["step"]) * int(_levels.get(template["id"], 0))
 
 func begin_run() -> void:
+	if not ENABLED:
+		return
 	_roll_if_new_day()
 	_run = {}
 
@@ -104,12 +120,16 @@ func begin_run() -> void:
 ## it is cleared rather than at the death screen. Cheap enough to call on every
 ## score tick: it is a handful of dictionary reads over three missions.
 func update_run(summary: Dictionary) -> void:
+	if not ENABLED:
+		return
 	_run = summary
 	_check()
 
 ## Commits the run. Pass `finished` so PLAY X RUNS TODAY counts a run when it
 ## ends rather than the moment it starts.
 func end_run(summary: Dictionary) -> void:
+	if not ENABLED:
+		return
 	_run = summary
 	_check()
 	for template in _todays_templates():

@@ -7,7 +7,6 @@
 [ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="5_bgparticles"]
 [ext_resource type="Script" uid="uid://c7onfa4r2mywg" path="res://scripts/intro.gd" id="6_intro"]
 [ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="7_plasma"]
-[ext_resource type="Script" uid="uid://bpkikrttit55v" path="res://scripts/star_surface.gd" id="8_starsurf"]
 [ext_resource type="Script" uid="uid://qdpy3ddfr61i" path="res://scripts/zone_director.gd" id="9_zones"]
 [ext_resource type="Texture2D" uid="uid://cpkwa8yy2a8e7" path="res://assets/icons/pause.svg" id="10_pause"]
 [ext_resource type="Texture2D" uid="uid://cjby6fkrfupvb" path="res://assets/icons/play.svg" id="11_resume"]
@@ -52,9 +51,6 @@ script = ExtResource("6_intro")
 [node name="Sun" type="Node2D" parent="IntroSequence" unique_id=1894349073]
 z_index = -1
 script = ExtResource("7_plasma")
-
-[node name="StarSurface" type="Node2D" parent="IntroSequence/Sun" unique_id=102999895]
-script = ExtResource("8_starsurf")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1206693055]
 position = Vector2(360, 0)
