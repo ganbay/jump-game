@@ -178,7 +178,7 @@ grow_vertical = 2
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.7)
+color = Color(0, 0, 0, 0.98039216)
 
 [node name="PausedLabel" type="Label" parent="UI/PausePanel" unique_id=390669626]
 layout_mode = 0
@@ -302,7 +302,7 @@ grow_vertical = 2
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.7)
+color = Color(0, 0, 0, 0.98039216)
 
 [node name="GameOverLabel" type="Label" parent="UI/GameOverPanel" unique_id=893355060]
 layout_mode = 0
@@ -332,6 +332,21 @@ offset_bottom = 20.0
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
 theme_override_font_sizes/font_size = 22
 horizontal_alignment = 1
+
+[node name="PaceLabel" type="Label" parent="UI/GameOverPanel" unique_id=2001000007]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.468
+anchor_right = 0.5
+anchor_bottom = 0.468
+offset_left = -180.0
+offset_top = -15.0
+offset_right = 180.0
+offset_bottom = 15.0
+theme_override_colors/font_color = Color(1, 1, 1, 0.65)
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="RestartButton" type="Button" parent="UI/GameOverPanel" unique_id=421866550]
 layout_mode = 0
@@ -421,7 +436,7 @@ grow_vertical = 2
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 0.7)
+color = Color(0, 0, 0, 0.98039216)
 
 [node name="TitleLabel" type="Label" parent="UI/MilestonePanel" unique_id=1522443629]
 layout_mode = 0

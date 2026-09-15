@@ -1,12 +1,12 @@
 extends Node2D
 
-enum Metric { SCORE, STREAK }
+enum Metric { SCORE, STREAK, SPEED }
 enum Period { DAILY, WEEKLY, MONTHLY }
 
-## These two stay words rather than glyphs: they pick what the graph is showing,
+## These stay words rather than glyphs: they pick what the graph is showing,
 ## and no icon says "streak over the last week" the way the word does. Only the
 ## state is printed -- what it selects is obvious from the graph underneath.
-const METRIC_NAMES := ["SCORE", "FLARE"]
+const METRIC_NAMES := ["SCORE", "FLARE", "SPEED"]
 const PERIOD_NAMES := ["DAILY", "WEEKLY", "MONTHLY"]
 const DAY_SECONDS := 86400
 ## The period is a recency window, not a bucket size -- every match inside it
@@ -37,10 +37,13 @@ var _period: int = Period.MONTHLY
 func _ready() -> void:
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
-	summary_label.text = "GAMES PLAYED %d     AVERAGE SCORE %d     BEST FLARE x%d%s" % [
+	summary_label.text = "GAMES PLAYED %d     AVERAGE SCORE %d     BEST FLARE x%d\nTIME PLAYED %s     AVG SPEED %s/s     BEST SPEED %s/s%s" % [
 		Stats.games_played,
 		int(round(Stats.average_score())),
 		Stats.best_streak_ever,
+		Stats.format_duration(Stats.total_time),
+		Stats.format_speed(Stats.average_speed()),
+		Stats.format_speed(Stats.best_speed),
 		_badges(),
 	]
 	_update_metric_label()
@@ -66,7 +69,7 @@ func _apply_visual_settings() -> void:
 
 func _on_metric_pressed() -> void:
 	Audio.play_ui_click()
-	_metric = Metric.STREAK if _metric == Metric.SCORE else Metric.SCORE
+	_metric = (_metric + 1) % METRIC_NAMES.size()
 	_update_metric_label()
 	_refresh_graph()
 
@@ -89,8 +92,13 @@ func _refresh_graph() -> void:
 	var cutoff: float = Time.get_unix_time_from_system() - float(PERIOD_WINDOW_SECONDS[_period])
 	var recent: Array = []
 	for run in Stats.runs:
-		if int(run.get("timestamp", 0)) >= cutoff:
-			recent.append(run)
+		if int(run.get("timestamp", 0)) < cutoff:
+			continue
+		# Runs saved before the clock existed have no pace to plot, so SPEED
+		# skips them rather than drawing them as a dive to zero.
+		if _metric == Metric.SPEED and not Stats.has_speed(run):
+			continue
+		recent.append(run)
 	recent.sort_custom(func(a, b): return a["timestamp"] < b["timestamp"])
 	if recent.size() > MAX_POINTS:
 		recent = recent.slice(recent.size() - MAX_POINTS)
@@ -104,7 +112,7 @@ func _refresh_graph() -> void:
 		return
 	var values: Array = []
 	for run in recent:
-		values.append(float(run.get("score", 0) if _metric == Metric.SCORE else run.get("max_streak", 0)))
+		values.append(_metric_value(run))
 	graph.set_values(values)
 	var top: float = graph.max_value()
 	max_value_label.text = _format_metric_value(top)
@@ -115,8 +123,23 @@ func _refresh_graph() -> void:
 		PERIOD_NAMES[_period],
 	]
 
+func _metric_value(run: Dictionary) -> float:
+	match _metric:
+		Metric.STREAK:
+			return float(run.get("max_streak", 0))
+		Metric.SPEED:
+			return Stats.speed_of(run)
+		_:
+			return float(run.get("score", 0))
+
 func _format_metric_value(value: float) -> String:
-	return "x%d" % int(round(value)) if _metric == Metric.STREAK else "%d" % int(round(value))
+	match _metric:
+		Metric.STREAK:
+			return "x%d" % int(round(value))
+		Metric.SPEED:
+			return "%s/s" % Stats.format_speed(value)
+		_:
+			return "%d" % int(round(value))
 
 func _on_back_pressed() -> void:
 	Audio.play_ui_click()

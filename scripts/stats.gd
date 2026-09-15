@@ -4,11 +4,21 @@ const SAVE_PATH := "user://stats.cfg"
 ## Kept chronological (not a leaderboard) so the stats screen can bucket it by
 ## day/week/month -- capped so the save file doesn't grow forever.
 const RUN_HISTORY_MAX := 500
+## Below this a run is treated as untimed rather than absurdly fast: it is
+## either a pre-timer save (no "duration" at all) or a death during the first
+## instants of play, where score/seconds is noise divided by nearly nothing.
+const MIN_TIMED_SECONDS := 0.5
 
 var runs: Array = []
 var games_played: int = 0
 var total_score: int = 0
 var best_streak_ever: int = 0
+## Lifetime seconds of actual play (paused time excluded -- see game.gd's
+## run_time). Kept alongside total_score so average_speed is a true
+## time-weighted average over everything played, not the mean of per-run
+## averages, which would let one lucky two-second run dominate.
+var total_time: float = 0.0
+var best_speed: float = 0.0
 ## The spendable balance, banked one run at a time. Separate from a lifetime
 ## total on purpose -- once there is something to spend it on, this is the
 ## number that goes down.
@@ -30,23 +40,31 @@ func _ready() -> void:
 		games_played = cfg.get_value("stats", "games_played", 0)
 		total_score = cfg.get_value("stats", "total_score", 0)
 		best_streak_ever = cfg.get_value("stats", "best_streak_ever", 0)
+		total_time = cfg.get_value("stats", "total_time", 0.0)
+		best_speed = cfg.get_value("stats", "best_speed", 0.0)
 		coins = cfg.get_value("stats", "coins", 0)
 		escaped = cfg.get_value("stats", "escaped", false)
 		true_ending = cfg.get_value("stats", "true_ending", false)
 		tutorial_seen = cfg.get_value("stats", "tutorial_seen", false)
 		rated_game = cfg.get_value("stats", "rated_game", false)
 
-func record_run(score: int, max_streak: int, coins_earned: int = 0) -> void:
+## `duration` defaults to 0 so an older call site (or a run somehow finishing
+## before the clock started) still records -- it just contributes no speed.
+func record_run(score: int, max_streak: int, coins_earned: int = 0, duration: float = 0.0) -> void:
 	games_played += 1
 	total_score += score
 	best_streak_ever = maxi(best_streak_ever, max_streak)
 	coins += coins_earned
-	runs.append({
+	total_time += maxf(duration, 0.0)
+	var run := {
 		"score": score,
 		"max_streak": max_streak,
 		"coins": coins_earned,
+		"duration": duration,
 		"timestamp": Time.get_unix_time_from_system(),
-	})
+	}
+	best_speed = maxf(best_speed, speed_of(run))
+	runs.append(run)
 	if runs.size() > RUN_HISTORY_MAX:
 		runs = runs.slice(runs.size() - RUN_HISTORY_MAX)
 	_save()
@@ -96,12 +114,39 @@ func mark_rated() -> void:
 func average_score() -> float:
 	return float(total_score) / games_played if games_played > 0 else 0.0
 
+## Score per second of play -- the pace of a run rather than its length. Runs
+## saved before the timer existed carry no "duration" and report 0, which is
+## also what has_speed() below keys off, so they drop out of speed views
+## instead of dragging them to zero.
+func speed_of(run: Dictionary) -> float:
+	var duration := float(run.get("duration", 0.0))
+	return float(run.get("score", 0)) / duration if duration >= MIN_TIMED_SECONDS else 0.0
+
+func has_speed(run: Dictionary) -> bool:
+	return float(run.get("duration", 0.0)) >= MIN_TIMED_SECONDS
+
+func average_speed() -> float:
+	return float(total_score) / total_time if total_time >= MIN_TIMED_SECONDS else 0.0
+
+## M:SS, growing an hours field only when there is one to show -- a two-minute
+## run should not read "0:02:14".
+func format_duration(seconds: float) -> String:
+	var total := int(round(maxf(seconds, 0.0)))
+	if total >= 3600:
+		return "%d:%02d:%02d" % [total / 3600, (total % 3600) / 60, total % 60]
+	return "%d:%02d" % [total / 60, total % 60]
+
+func format_speed(speed: float) -> String:
+	return "%.1f" % speed
+
 func _save() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("stats", "runs", runs)
 	cfg.set_value("stats", "games_played", games_played)
 	cfg.set_value("stats", "total_score", total_score)
 	cfg.set_value("stats", "best_streak_ever", best_streak_ever)
+	cfg.set_value("stats", "total_time", total_time)
+	cfg.set_value("stats", "best_speed", best_speed)
 	cfg.set_value("stats", "coins", coins)
 	cfg.set_value("stats", "escaped", escaped)
 	cfg.set_value("stats", "true_ending", true_ending)

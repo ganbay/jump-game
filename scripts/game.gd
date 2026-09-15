@@ -22,6 +22,7 @@ const HIDDEN_PAUSE_OPACITY := 0.2
 @onready var game_over_panel: Control = $UI/GameOverPanel
 @onready var game_over_title: Label = $UI/GameOverPanel/GameOverLabel
 @onready var result_label: Label = $UI/GameOverPanel/ResultLabel
+@onready var pace_label: Label = $UI/GameOverPanel/PaceLabel
 @onready var revive_body_label: Label = $UI/GameOverPanel/ReviveBodyLabel
 @onready var restart_button: Button = $UI/GameOverPanel/RestartButton
 @onready var game_over_menu_button: Button = $UI/GameOverPanel/GameOverMenuButton
@@ -107,8 +108,16 @@ const STREAK_FONT_SIZE := 30
 const SOLAR_WIND_FONT_SIZE := 44
 const SOLAR_WIND_SHOW_TIME := 2.0
 ## Losing a streak takes the same slot as earning one, in a warning colour --
-## the counter vanishing on its own said nothing about why.
+## the counter vanishing on its own said nothing about why. That colour now
+## backs the message instead of drawing it: a miss reads as a bright red card
+## with black text punched out of it, which is a different *shape* of alert
+## from another flare in a different hue, not just a different colour of the
+## same thing. Left above the glow threshold on purpose -- on a failure the
+## plate is what blooms.
 const STREAK_FAIL_COLOR := Color(2.4, 0.5, 0.6)
+## Black glyphs, to read against that plate. The one message whose text sits
+## below the glow threshold and so does not bloom at all.
+const STREAK_FAIL_TEXT_COLOR := Color(0.0, 0.0, 0.0)
 ## A streak has to have been worth showing before losing it is worth
 ## announcing. Below this a mistimed landing is just a landing.
 const STREAK_FAIL_MIN := 2
@@ -116,6 +125,21 @@ const STREAK_FAIL_MIN := 2
 ## the environment's HDR glow threshold of 1.0, which is what makes it bloom
 ## like the rest of the scene rather than sitting flat on top of it.
 const STREAK_TEXT_COLOR := Color(2.3, 2.3, 2.3)
+## The plate behind the counter: the character's own colour, multiplied down
+## rather than blended toward black, so a teal character and a red one land at
+## the same relative depth instead of one of them washing out. The palette is
+## authored HDR (channels up to 2.4), and this lands every entry well under the
+## glow threshold of 1.0 -- the plate must not bloom, or it would haze the white
+## text sitting on it instead of backing it.
+const STREAK_PLATE_DARKEN := 0.3
+## Short of opaque, so the plate reads as part of the HUD rather than a hole
+## punched in the playfield -- the platforms still show faintly through it.
+const STREAK_PLATE_ALPHA := 0.95
+const STREAK_PLATE_CORNER := 14
+## How far the plate stands off the glyphs. Generous horizontally: "FLARE x7"
+## is wide and short, and even padding would leave it looking pinched.
+const STREAK_PLATE_PAD_X := 22.0
+const STREAK_PLATE_PAD_Y := 8.0
 
 ## How long a zone announcement stays up between its fade in and fade out.
 const ZONE_BANNER_HOLD := 1.1
@@ -152,12 +176,29 @@ var run_coins: int = 0
 ## Perfect landings this run -- currently one per coin, but tracked separately
 ## because a mission counts flares while coins can come from anywhere.
 var run_flares: int = 0
+## Seconds of actual play this run, accumulated in _process. Anything that
+## pauses the tree -- the pause menu, a milestone popup, the revive offer and
+## the ad behind it -- stops running this for free, so the clock only counts
+## time the player was really flying. It starts where scoring starts, once the
+## intro hands control over, so the cinematic launch is not charged to the
+## player's pace.
+var run_time: float = 0.0
 var is_game_over: bool = false
 var is_intro: bool = false
 var is_paused: bool = false
 var high_score: int = 0
 var _score_base_position: Vector2
 var _streak_base_position: Vector2
+## The point the counter stays centred on. Its own box is re-fitted around each
+## message so the plate hugs the text (see _refresh_streak_plate), which moves
+## the label's top-left every time -- this is the part that does not move, and
+## what _streak_base_position is derived from.
+var _streak_center: Vector2
+## Whether the message on the counter is a failure, and so which of the two
+## plates _streak_plate builds. Held rather than passed, because the plate is
+## also rebuilt when the character's colour changes under a message that is
+## already on screen.
+var _streak_failed: bool = false
 var _shown_score: int = -1
 ## The streak the last landing reported. The player only sends the new value,
 ## so this is what makes a drop to zero distinguishable from never having had
@@ -230,7 +271,8 @@ func _ready() -> void:
 	milestone_panel.hide()
 	zone_banner.hide()
 	_score_base_position = score_label.position
-	_streak_base_position = streak_label.position
+	_streak_center = streak_label.position + streak_label.size / 2.0
+	_refresh_streak_plate()
 	var view := get_viewport_rect().size
 	_death_margin = view.y / 2.0 + 80.0
 	# The scene parks both at x=360, half of the base 720. Under `expand` a
@@ -315,6 +357,7 @@ func _apply_visual_settings() -> void:
 	# from the glow_bloom pulse in _glow_pulse, not from stroke width.
 	streak_label.add_theme_constant_override("outline_size", 3)
 	streak_label.add_theme_color_override("font_outline_color", STREAK_TEXT_COLOR)
+	_refresh_streak_plate()
 	# Currency display disabled -- CoinRow is hidden (see main.tscn). Uncomment
 	# alongside it to bring the coin count back.
 	# coin_label.add_theme_color_override("font_color", Settings.background_particle_color)
@@ -442,6 +485,7 @@ func _process(delta: float) -> void:
 	_apply_camera_shake()
 	if is_game_over or is_intro:
 		return
+	run_time += delta
 	camera.global_position.y = min(camera.global_position.y, player.global_position.y)
 	if _burst_climbing:
 		if player.velocity.y < 0.0:
@@ -490,7 +534,7 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 	_last_streak = streak
 	_grow_to(score_label, 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP))
 	if broke:
-		_show_streak_message("FAILED", STREAK_FAIL_COLOR)
+		_show_streak_message("FAILED", STREAK_FAIL_TEXT_COLOR, true)
 		Audio.vibrate(30)
 	# Only a landing that actually extends the streak punches the counter --
 	# ordinary jumps leave it sitting still.
@@ -505,7 +549,8 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 		# Overwrites the FLARE message _show_streak_message() just set above --
 		# same label, same frame, so the player only ever sees SOLAR WIND! on a
 		# milestone landing, never a flash of FLARE first.
-		_show_streak_message("SOLAR WIND!", STREAK_TEXT_COLOR, SOLAR_WIND_FONT_SIZE, SOLAR_WIND_SHOW_TIME)
+		_show_streak_message("SOLAR WIND!", STREAK_TEXT_COLOR, false,
+			SOLAR_WIND_FONT_SIZE, SOLAR_WIND_SHOW_TIME)
 		player.enter_solar_wind()
 	if boosted:
 		# `boosted` is already once per platform -- player.gd spends the
@@ -544,17 +589,58 @@ func _punch_streak(streak: int) -> void:
 ## springing back from the streak that just ended is cancelled first, so a
 ## FAILED does not inherit the swagger of the streak it is reporting the loss
 ## of; a streak message re-punches straight after this anyway.
-func _show_streak_message(text: String, color: Color,
+func _show_streak_message(text: String, color: Color, failed: bool = false,
 		font_size: int = STREAK_FONT_SIZE, hold_time: float = STREAK_SHOW_TIME) -> void:
+	_streak_failed = failed
 	if streak_label.text != text:
 		streak_label.text = text
 	streak_label.add_theme_color_override("font_color", color)
 	streak_label.add_theme_color_override("font_outline_color", color)
 	streak_label.add_theme_font_size_override("font_size", font_size)
+	_refresh_streak_plate()
 	if _streak_tween != null and _streak_tween.is_valid():
 		_streak_tween.kill()
 	streak_label.scale = Vector2.ONE
 	_flash_streak(hold_time)
+
+## Rebuilds the plate for whatever is currently written on the counter and
+## snaps the label's box back around it.
+##
+## The plate is the Label's own `normal` stylebox rather than a node behind it,
+## which is what makes it free: a stylebox is drawn inside the Control, so it
+## inherits the shake (position), the punch (scale) and the fade (modulate)
+## already driven on the label without a second thing to keep in sync.
+##
+## The cost is that a stylebox fills the label's *rect*, and the rect is
+## authored 400px wide so the longest message fits -- left alone that draws a
+## plate most of the screen wide behind two words. Assigning zero size snaps a
+## Control to its combined minimum, which for a Label is the shaped text plus
+## the stylebox's content margins, so the box ends up hugging the message.
+func _refresh_streak_plate() -> void:
+	# An empty counter is the run's starting state and must not show a bare
+	# pill floating at a quarter height: with no text there is nothing to back.
+	streak_label.add_theme_stylebox_override("normal",
+		StyleBoxEmpty.new() if streak_label.text.is_empty() else _streak_plate())
+	streak_label.size = Vector2.ZERO
+	_streak_base_position = _streak_center - streak_label.size / 2.0
+	streak_label.position = _streak_base_position
+	streak_label.pivot_offset = streak_label.size / 2.0
+
+func _streak_plate() -> StyleBoxFlat:
+	var plate := StyleBoxFlat.new()
+	# A failure keeps its colour at full strength: it is meant to bloom and be
+	# alarming, and the black text on it does not need the plate held down to
+	# stay readable. A flare's plate is taken right down instead, because white
+	# text does.
+	var tint := STREAK_FAIL_COLOR if _streak_failed \
+		else Settings.player_color * STREAK_PLATE_DARKEN
+	plate.bg_color = Color(tint.r, tint.g, tint.b, STREAK_PLATE_ALPHA)
+	plate.set_corner_radius_all(STREAK_PLATE_CORNER)
+	plate.content_margin_left = STREAK_PLATE_PAD_X
+	plate.content_margin_right = STREAK_PLATE_PAD_X
+	plate.content_margin_top = STREAK_PLATE_PAD_Y
+	plate.content_margin_bottom = STREAK_PLATE_PAD_Y
+	return plate
 
 ## Brings the counter up and then takes it away. Restarted by every streak, so
 ## back-to-back streaks hold it on screen continuously instead of blinking it
@@ -611,8 +697,16 @@ func _run_summary() -> Dictionary:
 		"max_streak": run_max_streak,
 		"flares": run_flares,
 		"coins": run_coins,
+		"time": run_time,
+		"speed": run_speed(),
 		"stage": zones.stage_for_score(score),
 	}
+
+## Score per second of play. Read by the game over panel and handed to Stats,
+## where the same division is repeated over the saved history -- see
+## Stats.speed_of.
+func run_speed() -> float:
+	return score / run_time if run_time >= Stats.MIN_TIMED_SECONDS else 0.0
 
 ## Left edge at a quarter height, deliberately clear of the character's lane and
 ## of anywhere a thumb rests. The label is MOUSE_FILTER_IGNORE, so even sitting
@@ -704,6 +798,13 @@ func _game_over() -> void:
 	game_over_title.text = "GAME OVER"
 	result_label.text = "SCORE %d   BEST %d" % [score, max(score, high_score)]
 	result_label.show()
+	# The pace line sits under the score rather than beside it: the score is
+	# what the player came for, and how fast they got it is the footnote.
+	pace_label.text = "TIME %s   SPEED %s/s" % [
+		Stats.format_duration(run_time),
+		Stats.format_speed(run_speed()),
+	]
+	pace_label.show()
 	# Duck the beat out the moment death happens, not just once the revive
 	# offer (if any) is resolved -- otherwise it keeps blaring at full,
 	# pre-death volume under the whole game-over/revive screen.
@@ -792,7 +893,7 @@ func _finish_game_over() -> void:
 	if score > high_score:
 		high_score = score
 		_save_high_score()
-	Stats.record_run(score, run_max_streak, run_coins)
+	Stats.record_run(score, run_max_streak, run_coins, run_time)
 	# Missions disabled -- see missions.gd ENABLED. Uncomment together with the
 	# other call sites; it goes after record_run so a mission payout lands on a
 	# balance that already includes the coins this run earned.

@@ -1,16 +1,17 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://cva7uyk0vs1kp"]
 
-[ext_resource type="Script" path="res://scripts/customization.gd" id="1_custom"]
-[ext_resource type="Script" path="res://scripts/rounded_rect.gd" id="2_rounded"]
-[ext_resource type="PackedScene" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
-[ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="4_plasma"]
-[ext_resource type="Script" path="res://scripts/color_spectrum_slider.gd" id="5_colorslider"]
-[ext_resource type="Texture2D" path="res://assets/icons/arrow_left.svg" id="20_prev"]
-[ext_resource type="Texture2D" path="res://assets/icons/arrow_right.svg" id="21_next"]
-[ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="22_home"]
-[ext_resource type="Texture2D" path="res://assets/icons/unlock.svg" id="23_unlock"]
-[ext_resource type="Texture2D" path="res://assets/icons/coin.svg" id="24_coin"]
-[ext_resource type="Texture2D" path="res://assets/icons/lock.svg" id="25_locked"]
+[ext_resource type="Script" uid="uid://bqa7yodwghrat" path="res://scripts/customization.gd" id="1_custom"]
+[ext_resource type="Script" uid="uid://ct2nui0gw0yg2" path="res://scripts/rounded_rect.gd" id="2_rounded"]
+[ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="3_bgparticles"]
+[ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="4_plasma"]
+[ext_resource type="Script" uid="uid://b80kqcf51qnlm" path="res://scripts/color_spectrum_slider.gd" id="5_colorslider"]
+[ext_resource type="Texture2D" uid="uid://c1j610wdqt58o" path="res://assets/icons/arrow_left.svg" id="20_prev"]
+[ext_resource type="Texture2D" uid="uid://cu2e7kr682i1e" path="res://assets/icons/arrow_right.svg" id="21_next"]
+[ext_resource type="Texture2D" uid="uid://cc3ikk231fgx7" path="res://assets/icons/house.svg" id="22_home"]
+[ext_resource type="Texture2D" uid="uid://dxdl35f4jkq3r" path="res://assets/icons/unlock.svg" id="23_unlock"]
+[ext_resource type="Texture2D" uid="uid://3xp75fkdrqds" path="res://assets/icons/coin.svg" id="24_coin"]
+[ext_resource type="Texture2D" uid="uid://cn4gueql8awnf" path="res://assets/icons/lock.svg" id="25_locked"]
+[ext_resource type="Texture2D" uid="uid://dvissjhqfc2l4" path="res://assets/icons/video.svg" id="26_video"]
 
 [sub_resource type="Environment" id="Environment_custom"]
 background_mode = 3
@@ -20,27 +21,27 @@ glow_strength = 0.7
 glow_bloom = 0.05
 glow_blend_mode = 0
 
-[node name="Customization" type="Node2D"]
+[node name="Customization" type="Node2D" unique_id=1411792316]
 script = ExtResource("1_custom")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=803794409]
 environment = SubResource("Environment_custom")
 
-[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=328801118]
 layer = -1
 
-[node name="Background" type="ColorRect" parent="BackgroundLayer"]
-mouse_filter = 2
+[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=1358518972]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 color = Color(0, 0, 0, 1)
 
-[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("3_bgparticles")]
+[node name="BackgroundParticles" parent="BackgroundLayer" unique_id=1515784628 instance=ExtResource("3_bgparticles")]
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=388563830]
 
-[node name="TitleLabel" type="Label" parent="UI"]
+[node name="TitleLabel" type="Label" parent="UI" unique_id=403046224]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.04
@@ -55,7 +56,7 @@ theme_override_font_sizes/font_size = 46
 text = "CUSTOMIZE"
 horizontal_alignment = 1
 
-[node name="CoinsRow" type="HBoxContainer" parent="UI"]
+[node name="CoinsRow" type="HBoxContainer" parent="UI" unique_id=1470352574]
 visible = false
 anchors_preset = -1
 anchor_left = 0.5
@@ -67,41 +68,41 @@ offset_top = -15.0
 offset_right = 160.0
 offset_bottom = 15.0
 mouse_filter = 2
-alignment = 1
 theme_override_constants/separation = 8
+alignment = 1
 
-[node name="Icon" type="TextureRect" parent="UI/CoinsRow"]
+[node name="Icon" type="TextureRect" parent="UI/CoinsRow" unique_id=1880724957]
 custom_minimum_size = Vector2(22, 22)
+layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 texture = ExtResource("24_coin")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Value" type="Label" parent="UI/CoinsRow"]
-size_flags_vertical = 4
-mouse_filter = 2
+[node name="Value" type="Label" parent="UI/CoinsRow" unique_id=1445807556]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 1.5, 1.9, 1)
 theme_override_font_sizes/font_size = 20
 text = "0"
 
-[node name="PreviewAnchor" type="Control" parent="UI"]
-mouse_filter = 2
-anchors_preset = -1
+[node name="PreviewAnchor" type="Control" parent="UI" unique_id=1993254715]
+layout_mode = 3
 anchor_left = 0.5
 anchor_top = 0.319
 anchor_right = 0.5
 anchor_bottom = 0.319
+mouse_filter = 2
 
-[node name="CharacterPreview" type="Node2D" parent="UI/PreviewAnchor"]
+[node name="CharacterPreview" type="Node2D" parent="UI/PreviewAnchor" unique_id=367299527]
 script = ExtResource("4_plasma")
 radius = 68.0
 color = Color(0.66295815, 2.299754, 0, 1)
 
-[node name="LockIcon" type="TextureRect" parent="UI/PreviewAnchor"]
+[node name="LockIcon" type="TextureRect" parent="UI/PreviewAnchor" unique_id=171566644]
 visible = false
-mouse_filter = 2
-anchors_preset = -1
+modulate = Color(1.5, 1.5, 1.5, 1)
+layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
@@ -110,27 +111,27 @@ offset_left = -28.0
 offset_top = -96.0
 offset_right = 28.0
 offset_bottom = -40.0
-modulate = Color(1.5, 1.5, 1.5, 1)
+mouse_filter = 2
 texture = ExtResource("25_locked")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="PlatformSwatchAnchor" type="Control" parent="UI"]
-mouse_filter = 2
-anchors_preset = -1
+[node name="PlatformSwatchAnchor" type="Control" parent="UI" unique_id=726663445]
+layout_mode = 3
 anchor_left = 0.5
 anchor_top = 0.58
 anchor_right = 0.5
 anchor_bottom = 0.58
+mouse_filter = 2
 
-[node name="PlatformSwatch" type="Node2D" parent="UI/PlatformSwatchAnchor"]
+[node name="PlatformSwatch" type="Node2D" parent="UI/PlatformSwatchAnchor" unique_id=291929912]
 script = ExtResource("2_rounded")
 rect_size = Vector2(70, 10)
-color = Color(0.3, 1.0, 2.2, 1)
+color = Color(0.3, 1, 2.2, 1)
 corner_radius = 4.0
 
-[node name="SwipeArea" type="Control" parent="UI"]
-anchors_preset = -1
+[node name="SwipeArea" type="Control" parent="UI" unique_id=896127343]
+layout_mode = 3
 anchor_left = 0.5
 anchor_top = 0.11
 anchor_right = 0.5
@@ -138,7 +139,7 @@ anchor_bottom = 0.34
 offset_left = -360.0
 offset_right = 360.0
 
-[node name="PrevButton" type="Button" parent="UI"]
+[node name="PrevButton" type="Button" parent="UI" unique_id=1798020689]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.35
@@ -151,11 +152,11 @@ offset_bottom = 40.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 44
-flat = true
 icon = ExtResource("20_prev")
+flat = true
 icon_alignment = 1
 
-[node name="CharacterName" type="Label" parent="UI"]
+[node name="CharacterName" type="Label" parent="UI" unique_id=2030782841]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.35
@@ -165,13 +166,13 @@ offset_left = -200.0
 offset_top = -26.0
 offset_right = 200.0
 offset_bottom = 26.0
-theme_override_colors/font_color = Color(2.0, 2.2, 2.3, 1)
+theme_override_colors/font_color = Color(2, 2.2, 2.3, 1)
 theme_override_font_sizes/font_size = 32
 text = "PLASMA"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="NextButton" type="Button" parent="UI"]
+[node name="NextButton" type="Button" parent="UI" unique_id=1155931992]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.35
@@ -184,11 +185,11 @@ offset_bottom = 40.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 44
-flat = true
 icon = ExtResource("21_next")
+flat = true
 icon_alignment = 1
 
-[node name="UnlockButton" type="Button" parent="UI"]
+[node name="UnlockButton" type="Button" parent="UI" unique_id=1348007528]
 visible = false
 anchors_preset = -1
 anchor_left = 0.5
@@ -202,11 +203,11 @@ offset_bottom = 38.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 40
-flat = true
 icon = ExtResource("23_unlock")
+flat = true
 icon_alignment = 1
 
-[node name="SwipeHint" type="Label" parent="UI"]
+[node name="SwipeHint" type="Label" parent="UI" unique_id=1492493280]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.415
@@ -221,7 +222,7 @@ theme_override_font_sizes/font_size = 14
 text = "SWIPE THE CHARACTER TO CHANGE"
 horizontal_alignment = 1
 
-[node name="PlayerColorLabel" type="Label" parent="UI"]
+[node name="PlayerColorLabel" type="Label" parent="UI" unique_id=308948076]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.44
@@ -236,9 +237,8 @@ theme_override_font_sizes/font_size = 16
 text = "CHARACTER"
 horizontal_alignment = 2
 
-[node name="PlayerSlider" type="Control" parent="UI"]
-script = ExtResource("5_colorslider")
-anchors_preset = -1
+[node name="PlayerSlider" type="Control" parent="UI" unique_id=729757651]
+layout_mode = 3
 anchor_left = 0.5
 anchor_top = 0.44
 anchor_right = 0.5
@@ -247,8 +247,9 @@ offset_left = 60.0
 offset_top = -18.0
 offset_right = 260.0
 offset_bottom = 18.0
+script = ExtResource("5_colorslider")
 
-[node name="TrailCheck" type="CheckButton" parent="UI"]
+[node name="TrailCheck" type="CheckButton" parent="UI" unique_id=1406238040]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.51
@@ -261,7 +262,7 @@ offset_bottom = 26.0
 theme_override_font_sizes/font_size = 20
 text = "CHARACTER TRAIL"
 
-[node name="PlatformColorLabel" type="Label" parent="UI"]
+[node name="PlatformColorLabel" type="Label" parent="UI" unique_id=1805726426]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.58
@@ -276,9 +277,8 @@ theme_override_font_sizes/font_size = 16
 text = "PLATFORM"
 horizontal_alignment = 2
 
-[node name="PlatformSlider" type="Control" parent="UI"]
-script = ExtResource("5_colorslider")
-anchors_preset = -1
+[node name="PlatformSlider" type="Control" parent="UI" unique_id=2146219552]
+layout_mode = 3
 anchor_left = 0.5
 anchor_top = 0.58
 anchor_right = 0.5
@@ -287,8 +287,9 @@ offset_left = 60.0
 offset_top = -18.0
 offset_right = 260.0
 offset_bottom = 18.0
+script = ExtResource("5_colorslider")
 
-[node name="ParticlesCheck" type="CheckButton" parent="UI"]
+[node name="ParticlesCheck" type="CheckButton" parent="UI" unique_id=1190868346]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.65
@@ -301,7 +302,7 @@ offset_bottom = 26.0
 theme_override_font_sizes/font_size = 20
 text = "BACKGROUND DRIFT"
 
-[node name="ParticleColorLabel" type="Label" parent="UI"]
+[node name="ParticleColorLabel" type="Label" parent="UI" unique_id=717826135]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.72
@@ -316,9 +317,8 @@ theme_override_font_sizes/font_size = 16
 text = "DRIFT"
 horizontal_alignment = 2
 
-[node name="ParticleSlider" type="Control" parent="UI"]
-script = ExtResource("5_colorslider")
-anchors_preset = -1
+[node name="ParticleSlider" type="Control" parent="UI" unique_id=1575536318]
+layout_mode = 3
 anchor_left = 0.5
 anchor_top = 0.72
 anchor_right = 0.5
@@ -327,8 +327,9 @@ offset_left = 60.0
 offset_top = -18.0
 offset_right = 260.0
 offset_bottom = 18.0
+script = ExtResource("5_colorslider")
 
-[node name="BackButton" type="Button" parent="UI"]
+[node name="BackButton" type="Button" parent="UI" unique_id=2121920165]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.88
@@ -341,17 +342,105 @@ offset_bottom = 52.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 56
-flat = true
 icon = ExtResource("22_home")
+flat = true
 icon_alignment = 1
 
+[node name="ConfirmPanel" type="Control" parent="UI" unique_id=116235691]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="UI/ConfirmPanel" unique_id=1959555215]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.98039216)
+
+[node name="TitleLabel" type="Label" parent="UI/ConfirmPanel" unique_id=1745128014]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.36
+anchor_right = 0.5
+anchor_bottom = 0.36
+offset_left = -300.0
+offset_top = -34.0
+offset_right = 300.0
+offset_bottom = 34.0
+theme_override_colors/font_color = Color(1.1, 2.2, 2.6, 1)
+theme_override_font_sizes/font_size = 40
+text = "UNLOCK HEART"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BodyLabel" type="Label" parent="UI/ConfirmPanel" unique_id=747551121]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.47
+anchor_right = 0.5
+anchor_bottom = 0.47
+offset_left = -290.0
+offset_top = -60.0
+offset_right = 290.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_constants/line_spacing = 6
+theme_override_font_sizes/font_size = 19
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="WatchButton" type="Button" parent="UI/ConfirmPanel" unique_id=136176011]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.6
+anchor_right = 0.5
+anchor_bottom = 0.6
+offset_left = -110.0
+offset_top = -52.0
+offset_right = 110.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_colors/font_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/h_separation = 14
+theme_override_constants/icon_max_width = 56
+theme_override_font_sizes/font_size = 28
+text = "Watch"
+icon = ExtResource("26_video")
+flat = true
+icon_alignment = 2
+
+[node name="CancelButton" type="Button" parent="UI/ConfirmPanel" unique_id=1889130297]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.69
+anchor_right = 0.5
+anchor_bottom = 0.69
+offset_left = -110.0
+offset_top = -26.0
+offset_right = 110.0
+offset_bottom = 26.0
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.65)
+theme_override_font_sizes/font_size = 20
+text = "NOT NOW"
+flat = true
+
 [connection signal="gui_input" from="UI/SwipeArea" to="." method="_on_swipe_gui_input"]
-[connection signal="pressed" from="UI/UnlockButton" to="." method="_on_unlock_pressed"]
 [connection signal="pressed" from="UI/PrevButton" to="." method="_on_prev_pressed"]
 [connection signal="pressed" from="UI/NextButton" to="." method="_on_next_pressed"]
+[connection signal="pressed" from="UI/UnlockButton" to="." method="_on_unlock_pressed"]
 [connection signal="color_changed" from="UI/PlayerSlider" to="." method="_on_player_slider_color_changed"]
 [connection signal="toggled" from="UI/TrailCheck" to="." method="_on_trail_check_toggled"]
 [connection signal="color_changed" from="UI/PlatformSlider" to="." method="_on_platform_slider_color_changed"]
 [connection signal="toggled" from="UI/ParticlesCheck" to="." method="_on_particles_check_toggled"]
 [connection signal="color_changed" from="UI/ParticleSlider" to="." method="_on_particle_slider_color_changed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]
+[connection signal="gui_input" from="UI/ConfirmPanel/Dim" to="." method="_on_confirm_dim_input"]
+[connection signal="pressed" from="UI/ConfirmPanel/WatchButton" to="." method="_on_confirm_watch_pressed"]
+[connection signal="pressed" from="UI/ConfirmPanel/CancelButton" to="." method="_on_confirm_cancel_pressed"]

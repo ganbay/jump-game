@@ -20,8 +20,12 @@ static func tint(opacity: float) -> Color:
 ## separate channel that multiplies with those, so a dimmed HUD still animates.
 ##
 ## ColorRects are skipped: the only ones under a UI layer are the full-screen
-## dims behind the pause and game over panels, and thinning those would show the
-## run through the menu sitting on top of it.
+## dims behind a panel -- pause, game over, and the customization screen's
+## unlock prompt -- and thinning those would show the run, or the character
+## picker, through the panel sitting on top of it. That exemption is why those
+## dims are authored at a fixed alpha and do not track this setting: the dim is
+## what makes the panel readable, so it is deliberately not something the
+## slider can take away.
 static func apply(root: Node) -> void:
 	var shade := tint(Settings.ui_opacity)
 	_paint(root, shade)

@@ -1,0 +1,186 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/science.gd" id="1_science"]
+[ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="2_bgparticles"]
+[ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="3_home"]
+
+[sub_resource type="Environment" id="Environment_science"]
+background_mode = 3
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 0.7
+glow_bloom = 0.05
+glow_blend_mode = 0
+
+[node name="ScienceMenu" type="Node2D"]
+script = ExtResource("1_science")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_science")
+
+[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="Background" type="ColorRect" parent="BackgroundLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="BackgroundParticles" parent="BackgroundLayer" instance=ExtResource("2_bgparticles")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="TitleLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.04
+anchor_right = 0.5
+anchor_bottom = 0.04
+offset_left = -320.0
+offset_top = -40.0
+offset_right = 320.0
+offset_bottom = 40.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
+theme_override_font_sizes/font_size = 44
+text = "SOLAR SCIENCE"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="UI"]
+anchors_preset = -1
+anchor_right = 1.0
+anchor_top = 0.105
+anchor_bottom = 0.86
+offset_left = 40.0
+offset_right = -40.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="Column" type="VBoxContainer" parent="UI/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="Head0" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
+theme_override_constants/line_spacing = 2
+theme_override_font_sizes/font_size = 25
+text = "A STAR WITH NO SURFACE"
+autowrap_mode = 3
+
+[node name="Body0" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.15, 1.15, 1.2, 1)
+theme_override_constants/line_spacing = 7
+theme_override_font_sizes/font_size = 19
+text = "The Sun is gas all the way down. What looks like its edge is the photosphere, a glowing layer at about 5,500°C. Above it sits the corona, the Sun's outer atmosphere — and the corona is more than a million degrees. Why a star gets hotter as you move away from it is still one of the open questions in solar physics."
+autowrap_mode = 3
+
+[node name="Gap1" type="Control" parent="UI/Scroll/Column"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+
+[node name="Head1" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
+theme_override_constants/line_spacing = 2
+theme_override_font_sizes/font_size = 25
+text = "JETLETS"
+autowrap_mode = 3
+
+[node name="Body1" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.15, 1.15, 1.2, 1)
+theme_override_constants/line_spacing = 7
+theme_override_font_sizes/font_size = 19
+text = "The Sun's surface is stitched with magnetic field lines. Where lines pointing opposite ways get pushed together, they snap and reconnect into a new shape, flinging plasma outward.\n\nThe smallest of those outbursts are jetlets: threads of hot gas a few hundred kilometres across, lasting under a minute, moving at tens of kilometres a second.\n\nThat is small, for the Sun. But they happen everywhere, constantly. Measurements from Parker Solar Probe and Solar Orbiter suggest that together they may supply a real share of the solar wind — an idea still being tested."
+autowrap_mode = 3
+
+[node name="Gap2" type="Control" parent="UI/Scroll/Column"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+
+[node name="Head2" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
+theme_override_constants/line_spacing = 2
+theme_override_font_sizes/font_size = 25
+text = "THE SOLAR WIND"
+autowrap_mode = 3
+
+[node name="Body2" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.15, 1.15, 1.2, 1)
+theme_override_constants/line_spacing = 7
+theme_override_font_sizes/font_size = 19
+text = "A million-degree corona is too hot for even the Sun's gravity to hold onto. Its outer gas escapes continuously: a stream of protons and electrons blowing out past every planet in the system.\n\nIt arrives at two speeds. Slow wind, near 400 km/s, seeps from regions where the magnetic field loops back down to the surface. Fast wind, up to 800 km/s, pours out of coronal holes — places where the field opens straight into space and the plasma has a clear path out.\n\nEither way, the crossing from the Sun to Earth takes roughly two to four days."
+autowrap_mode = 3
+
+[node name="Gap3" type="Control" parent="UI/Scroll/Column"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+
+[node name="Head3" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
+theme_override_constants/line_spacing = 2
+theme_override_font_sizes/font_size = 25
+text = "WHEN IT REACHES US"
+autowrap_mode = 3
+
+[node name="Body3" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.15, 1.15, 1.2, 1)
+theme_override_constants/line_spacing = 7
+theme_override_font_sizes/font_size = 19
+text = "Earth's magnetic field turns most of the stream aside. Some particles are funnelled down toward the poles, strike the upper atmosphere and make it glow — that is the aurora. A heavier burst from the Sun can also upset satellites, radio links and power grids."
+autowrap_mode = 3
+
+[node name="Gap4" type="Control" parent="UI/Scroll/Column"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+
+[node name="Head4" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
+theme_override_constants/line_spacing = 2
+theme_override_font_sizes/font_size = 25
+text = "IN THIS GAME"
+autowrap_mode = 3
+
+[node name="Body4" type="Label" parent="UI/Scroll/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.15, 1.15, 1.2, 1)
+theme_override_constants/line_spacing = 7
+theme_override_font_sizes/font_size = 19
+text = "You are a jetlet: a scrap of plasma flung off the Sun, riding the wind outward and trying not to fall back in."
+autowrap_mode = 3
+
+[node name="Tail" type="Control" parent="UI/Scroll/Column"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+
+[node name="BackButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.93
+anchor_right = 0.5
+anchor_bottom = 0.93
+offset_left = -52.0
+offset_top = -52.0
+offset_right = 52.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+icon = ExtResource("3_home")
+flat = true
+icon_alignment = 1
+
+[connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]

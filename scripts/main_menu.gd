@@ -15,7 +15,7 @@ const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
 @onready var tap_icon: TextureRect = $UI/TapIcon
 @onready var tap_label: Label = $UI/TapLabel
 @onready var sound_button: Button = $UI/SoundButton
-@onready var _icon_buttons: Array[Node] = [$UI/SoundButton,
+@onready var _icon_buttons: Array[Node] = [$UI/SoundButton, $UI/ScienceButton,
 	$UI/CustomizeButton, $UI/StatisticsButton,
 	$UI/GuideButton, $UI/SettingsButton]
 
@@ -23,6 +23,12 @@ const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
 ## this the tap that lands during a fade -- or the emulated mouse click that
 ## follows every real touch -- queues a second scene change on top of the first.
 var _leaving: bool = false
+
+## True between a press and its release. The run starts on the release, not the
+## initial touch, so a finger put down on the menu can still be lifted without
+## committing to a run -- and a release arriving on its own (a finger already
+## down as this screen loads) starts nothing.
+var _pressed: bool = false
 
 func _ready() -> void:
 	_apply_visual_settings()
@@ -54,8 +60,20 @@ func _update_sound_icon() -> void:
 
 ## Only reaches here when nothing in the UI took the press first, so a tap on
 ## one of the bottom icons never also starts a run.
+##
+## The event types are named rather than leaning on is_pressed()/is_released(),
+## because InputEvent.is_released() is defined as "not is_pressed()" on the base
+## class -- so every mouse motion would read as a release and start a run.
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_pressed() and not event.is_echo():
+	if not (event is InputEventScreenTouch or event is InputEventMouseButton
+			or event is InputEventKey):
+		return
+	if event.is_echo():
+		return
+	if event.is_pressed():
+		_pressed = true
+	elif _pressed:
+		_pressed = false
 		_play()
 
 func _play() -> void:
@@ -66,6 +84,9 @@ func _on_guide_pressed() -> void:
 
 func _on_customize_pressed() -> void:
 	_go("res://scenes/customization.tscn")
+
+func _on_science_pressed() -> void:
+	_go("res://scenes/science.tscn")
 
 func _on_settings_pressed() -> void:
 	_go("res://scenes/settings.tscn")

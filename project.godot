@@ -15,9 +15,11 @@ general/android/app_id="ca-app-pub-9653736186258588~8711666822"
 [application]
 
 config/name="Jetlet: Solar Escape"
-run/main_scene="res://scenes/main_menu.tscn"
+run/main_scene="res://scenes/splash.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
+boot_splash/bg_color=Color(0.043, 0.063, 0.133, 1)
+boot_splash/show_image=false
 config/icon="res://new_icon.png"
 
 [autoload]

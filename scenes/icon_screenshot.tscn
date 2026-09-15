@@ -1,60 +1,62 @@
-[gd_scene format=3 uid="uid://qxrkscchfalc"]
+[gd_scene load_steps=5 format=3 uid="uid://qxrkscchfalc"]
 
-[ext_resource type="Script" uid="uid://bcl6t58lvnsa6" path="res://scripts/icon_screenshot.gd" id="1_icon"]
-[ext_resource type="PackedScene" uid="uid://bjlj7sie3pqmh" path="res://scenes/player.tscn" id="2_player"]
-[ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="3_plasma"]
-[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="4_platform"]
-[ext_resource type="PackedScene" uid="uid://746debglcun" path="res://scenes/background_particles.tscn" id="5_bgparticles"]
+[ext_resource type="Script" path="res://scripts/promo_shot.gd" id="1_shot"]
+[ext_resource type="Script" path="res://scripts/icon_screenshot.gd" id="2_composition"]
+[ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="3_plasma"]
+[ext_resource type="PackedScene" uid="uid://bjlj7sie3pqmh" path="res://scenes/player.tscn" id="4_player"]
 
 [sub_resource type="Environment" id="Environment_icon"]
 background_mode = 3
 glow_enabled = true
-glow_intensity = 0.4
-glow_strength = 0.7
-glow_bloom = 0.05
+glow_intensity = 0.44
+glow_strength = 0.85
+glow_bloom = 0.08
 glow_blend_mode = 0
 
-[node name="IconScreenshot" type="Node2D" unique_id=682556054]
-script = ExtResource("1_icon")
-eruption_size = 1450.0
-tail_width = 105.0
+[node name="IconShot" type="Node"]
+process_mode = 3
+script = ExtResource("1_shot")
+output_path = "res://promo/icon.png"
+include_alpha = true
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=287384853]
+[node name="SubViewport" type="SubViewport" parent="."]
+process_mode = 1
+disable_3d = true
+own_world_3d = true
+transparent_bg = false
+handle_input_locally = false
+size = Vector2i(512, 512)
+render_target_update_mode = 4
+use_hdr_2d = true
+msaa_2d = 1
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="SubViewport"]
 environment = SubResource("Environment_icon")
 
-[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=1534421190]
-layer = -1
+[node name="Composition" type="Node2D" parent="SubViewport"]
+script = ExtResource("2_composition")
 
-[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=1916159051]
+[node name="Sun" type="Node2D" parent="SubViewport/Composition"]
+script = ExtResource("3_plasma")
+
+[node name="Player" parent="SubViewport/Composition" instance=ExtResource("4_player")]
+position = Vector2(256, 380)
+
+[node name="PreviewLayer" type="CanvasLayer" parent="."]
+
+[node name="Backdrop" type="ColorRect" parent="PreviewLayer"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
-color = Color(0, 0, 0, 1)
+color = Color(0.08, 0.08, 0.09, 1)
 
-[node name="BackgroundParticles" parent="BackgroundLayer" unique_id=1347584125 instance=ExtResource("5_bgparticles")]
+[node name="Preview" type="TextureRect" parent="PreviewLayer"]
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
 
-[node name="Sun" type="Node2D" parent="." unique_id=11645063]
-script = ExtResource("3_plasma")
-
-[node name="Camera2D" type="Camera2D" parent="." unique_id=1360740710]
-position = Vector2(360, 2160)
-zoom = Vector2(0.3, 0.3)
-
-[node name="PlatformA" parent="." unique_id=841344410 instance=ExtResource("4_platform")]
-position = Vector2(-400, 1500)
-scale = Vector2(3.6, 3.6)
-attributes = 4
-
-[node name="PlatformB" parent="." unique_id=365732511 instance=ExtResource("4_platform")]
-position = Vector2(1050, 1050)
-scale = Vector2(4, 4)
-
-[node name="PlatformC" parent="." unique_id=1088596554 instance=ExtResource("4_platform")]
-position = Vector2(250, 350)
-scale = Vector2(3, 3)
-attributes = 16
-
-[node name="Player" parent="." unique_id=105298175 instance=ExtResource("2_player")]
-position = Vector2(360, 2400)
-scale = Vector2(4.3, 4.3)
+[node name="Hint" type="Label" parent="PreviewLayer"]
+theme_override_colors/font_color = Color(0.75, 0.78, 0.85, 1)
+theme_override_font_sizes/font_size = 15
+vertical_alignment = 1

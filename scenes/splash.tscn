@@ -1,0 +1,104 @@
+[gd_scene format=3 uid="uid://bh4oijokyu2gc"]
+
+[ext_resource type="Script" uid="uid://b37da1of0m6er" path="res://scripts/splash.gd" id="1_splash"]
+[ext_resource type="Texture2D" uid="uid://bq3xn7yl2kvdw" path="res://assets/godot_logo.svg" id="2_godot"]
+[ext_resource type="Script" uid="uid://gm2h7doqpxoo" path="res://scripts/splash_stars.gd" id="3_stars"]
+
+[sub_resource type="Environment" id="Environment_splash"]
+background_mode = 3
+glow_enabled = true
+glow_intensity = 0.4
+glow_strength = 0.7
+glow_bloom = 0.05
+glow_blend_mode = 0
+
+[node name="Splash" type="Node2D" unique_id=2017903570]
+script = ExtResource("1_splash")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=932387625]
+environment = SubResource("Environment_splash")
+
+[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=2124272808]
+layer = -1
+
+[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=1065686845]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.043, 0.063, 0.133, 1)
+
+[node name="Stars" type="Node2D" parent="BackgroundLayer" unique_id=765227930]
+script = ExtResource("3_stars")
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=1013002920]
+
+[node name="Content" type="Control" parent="UI" unique_id=2138696951]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="BrandLabel" type="Label" parent="UI/Content" unique_id=2032391687]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.44
+anchor_right = 0.5
+anchor_bottom = 0.44
+offset_left = -340.0
+offset_top = -66.0
+offset_right = 340.0
+offset_bottom = 66.0
+theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
+theme_override_font_sizes/font_size = 84
+text = "eternalSKY"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BrandSubLabel" type="Label" parent="UI/Content" unique_id=395909655]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.515
+anchor_right = 0.5
+anchor_bottom = 0.515
+offset_left = -300.0
+offset_top = -28.0
+offset_right = 300.0
+offset_bottom = 28.0
+theme_override_colors/font_color = Color(1.7, 1.7, 1.7, 1)
+theme_override_constants/line_spacing = 0
+theme_override_font_sizes/font_size = 40
+text = "GAMES"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MadeWith" type="HBoxContainer" parent="UI/Content" unique_id=1636356624]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.885
+anchor_right = 0.5
+anchor_bottom = 0.885
+offset_left = -170.0
+offset_top = -26.0
+offset_right = 170.0
+offset_bottom = 26.0
+mouse_filter = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="MadeWithLabel" type="Label" parent="UI/Content/MadeWith" unique_id=1210556304]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.25, 1.25, 1.25, 1)
+theme_override_font_sizes/font_size = 19
+text = "made with GODOT"
+vertical_alignment = 1
+
+[node name="GodotLogo" type="TextureRect" parent="UI/Content/MadeWith" unique_id=1401962909]
+custom_minimum_size = Vector2(46, 46)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+texture = ExtResource("2_godot")
+expand_mode = 1
+stretch_mode = 5

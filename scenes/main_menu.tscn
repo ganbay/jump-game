@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" path="res://assets/icons/line_graph.svg" id="6_stats"]
 [ext_resource type="Texture2D" path="res://assets/icons/help.svg" id="7_guide"]
 [ext_resource type="Texture2D" path="res://assets/icons/speaker.svg" id="8_sound"]
+[ext_resource type="Texture2D" path="res://assets/icons/signal_wave.svg" id="9_science"]
 
 [sub_resource type="Environment" id="Environment_menu"]
 background_mode = 3
@@ -113,6 +114,22 @@ icon = ExtResource("8_sound")
 flat = true
 icon_alignment = 1
 
+[node name="ScienceButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -116.0
+offset_top = 28.0
+offset_right = -28.0
+offset_bottom = 116.0
+grow_horizontal = 0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 48
+icon = ExtResource("9_science")
+flat = true
+icon_alignment = 1
+
 [node name="CustomizeButton" type="Button" parent="UI" unique_id=453665329]
 anchors_preset = -1
 anchor_left = 0.5
@@ -182,6 +199,7 @@ flat = true
 icon_alignment = 1
 
 [connection signal="pressed" from="UI/SoundButton" to="." method="_on_sound_pressed"]
+[connection signal="pressed" from="UI/ScienceButton" to="." method="_on_science_pressed"]
 [connection signal="pressed" from="UI/CustomizeButton" to="." method="_on_customize_pressed"]
 [connection signal="pressed" from="UI/StatisticsButton" to="." method="_on_statistics_pressed"]
 [connection signal="pressed" from="UI/GuideButton" to="." method="_on_guide_pressed"]

@@ -33,6 +33,16 @@ const DOT_RADIUS := 4.5
 @onready var coins_icon: TextureRect = $UI/CoinsRow/Icon
 @onready var hint_label: Label = $UI/SwipeHint
 @onready var unlock_button: Button = $UI/UnlockButton
+@onready var confirm_panel: Control = $UI/ConfirmPanel
+@onready var confirm_title: Label = $UI/ConfirmPanel/TitleLabel
+@onready var confirm_body: Label = $UI/ConfirmPanel/BodyLabel
+@onready var confirm_watch_button: Button = $UI/ConfirmPanel/WatchButton
+
+## The unlock button does two different jobs depending on what gates the skin
+## being browsed, and it is an unlabelled glyph -- so the icon is what says
+## which one it is about to do.
+const UNLOCK_RATE_ICON := preload("res://assets/icons/unlock.svg")
+const UNLOCK_AD_ICON := preload("res://assets/icons/video.svg")
 
 const HINT_SWIPE := "SWIPE THE CHARACTER TO CHANGE"
 ## How dark the preview goes while its character is still locked -- a colour
@@ -56,6 +66,28 @@ const REQUIREMENT_HINTS := {
 	Unlocks.Requirement.PURCHASE: "LOCKED  -  COMING SOON",
 }
 
+## The ADS hint is built rather than looked up: it carries the running count,
+## so the player sees the gate move after each ad instead of watching three
+## against an unchanging line.
+const ADS_HINT := "LOCKED  -  WATCH %d MORE AD%s TO UNLOCK  (%d/%d)"
+## Closing a rewarded ad early earns nothing -- said plainly, so a counter that
+## did not move does not read as the game losing progress.
+const ADS_HINT_SKIPPED := "AD CLOSED EARLY  -  NOTHING COUNTED"
+
+## The confirmation shown before the first ad of the set ever starts. Asking
+## costs a tap, and playing a full-screen ad on someone who only meant to look
+## at the character costs a great deal more -- so the price is stated up front
+## and the player opts in. The count is the remaining one, not always three, so
+## coming back at 2/3 is asked honestly.
+const CONFIRM_TITLE := "UNLOCK %s"
+const CONFIRM_BODY := "Watch %d rewarded ad%s to unlock this character.\n\nYou can stop between ads -- every one you finish is saved."
+## Same prompt once the set is part-finished, so it never re-asks for three
+## ads that are no longer owed.
+const CONFIRM_BODY_RESUMED := "%d of %d ads done.\n\nWatch %d more to unlock this character."
+## Nothing is loaded yet. The prompt stays open rather than closing on a press
+## that did nothing -- the player still wants the skin, the ad is just late.
+const CONFIRM_BODY_NOT_READY := "No ad is ready just yet.\n\nGive it a moment and try again."
+
 ## How long a "just unlocked" announcement holds before the hint label reverts
 ## to its normal per-skin text.
 const UNLOCK_ANNOUNCE_TIME := 2.2
@@ -71,7 +103,9 @@ var _preview_home: Vector2
 var _slide_tween: Tween
 
 func _ready() -> void:
-	IconPop.attach([$UI/PrevButton, $UI/NextButton, $UI/BackButton, unlock_button])
+	IconPop.attach([$UI/PrevButton, $UI/NextButton, $UI/BackButton, unlock_button,
+		confirm_watch_button])
+	confirm_panel.hide()
 	_browse = Settings.player_skin
 	_preview_home = preview.position
 	player_slider.value = Settings.player_color_slider
@@ -85,6 +119,11 @@ func _ready() -> void:
 	particles_check.set_pressed_no_signal(Settings.background_particles)
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
+	# Warm one up on arrival, the same way a run does at its first frame: the
+	# ADS gate's button is only useful with an ad already in hand, and fetching
+	# one takes seconds the player would otherwise spend looking at a dead
+	# button.
+	Ads.load_rewarded()
 	_announce_new_unlocks()
 
 ## Surfaces anything unlocked away from this screen -- an ESCAPE or
@@ -142,11 +181,17 @@ func _refresh_lock_state() -> void:
 		unlock_button.visible = false
 		hint_label.text = HINT_SWIPE
 		return
-	# Only RATE has a button to press -- ESCAPE/TRUE_ENDING unlock themselves
-	# the moment the milestone is hit in a run, and PURCHASE has nothing to
-	# wire the button to yet.
+	# Only RATE and ADS have a button to press -- ESCAPE/TRUE_ENDING unlock
+	# themselves the moment the milestone is hit in a run, and PURCHASE has
+	# nothing to wire the button to yet.
 	var requirement := Unlocks.requirement_of(id)
-	unlock_button.visible = requirement == Unlocks.Requirement.RATE
+	unlock_button.visible = requirement == Unlocks.Requirement.RATE \
+		or requirement == Unlocks.Requirement.ADS
+	unlock_button.icon = UNLOCK_AD_ICON if requirement == Unlocks.Requirement.ADS else UNLOCK_RATE_ICON
+	if requirement == Unlocks.Requirement.ADS:
+		var left := Unlocks.ads_remaining()
+		hint_label.text = ADS_HINT % [left, "" if left == 1 else "S", Unlocks.ads_watched, Unlocks.ADS_REQUIRED]
+		return
 	hint_label.text = REQUIREMENT_HINTS.get(requirement, "LOCKED")
 
 ## Which character is selected, as a row of dots under the name. Drawn here
@@ -209,16 +254,93 @@ func _equip_if_owned() -> void:
 	if Unlocks.is_unlocked(Unlocks.skin_id(_browse)):
 		Settings.set_player_skin(_browse as Player.SkinType)
 
-## Only ever wired to a RATE-gated skin (see _refresh_lock_state) -- opens the
-## store listing and trusts the tap, since nothing inside the app can confirm
-## a review was actually left.
+## Wired to a RATE- or ADS-gated skin (see _refresh_lock_state), so it splits
+## on which one is being browsed rather than on which button was pressed --
+## there is only the one button.
 func _on_unlock_pressed() -> void:
-	OS.shell_open(RATE_URL)
 	Audio.play_ui_click()
+	if Unlocks.requirement_of(Unlocks.skin_id(_browse)) == Unlocks.Requirement.ADS:
+		_open_confirm()
+		return
+	OS.shell_open(RATE_URL)
 	Stats.mark_rated()
 	# Unlocked is worn: nobody rates the game just to leave the skin unworn.
 	_equip_if_owned()
 	_apply_visual_settings()
+
+## The unlock button no longer starts an ad on its own -- it asks first. What
+## it is asking for is several full-screen ads, which is not something to spend
+## a stray tap on.
+func _open_confirm() -> void:
+	var left := Unlocks.ads_remaining()
+	confirm_title.text = CONFIRM_TITLE % Player.SKIN_NAMES[_browse]
+	if Unlocks.ads_watched > 0:
+		confirm_body.text = CONFIRM_BODY_RESUMED % [Unlocks.ads_watched, Unlocks.ADS_REQUIRED, left]
+	else:
+		confirm_body.text = CONFIRM_BODY % [left, "" if left == 1 else "s"]
+	confirm_watch_button.disabled = false
+	confirm_panel.show()
+
+func _close_confirm() -> void:
+	confirm_panel.hide()
+	_refresh_lock_state()
+
+## Answering yes. Same rewarded ad the revive offer shows, requested the same
+## way -- the only difference is what the reward buys. Nothing is credited
+## until the ad reports it was actually watched through.
+func _on_confirm_watch_pressed() -> void:
+	Audio.play_ui_click()
+	if not Ads.is_rewarded_ready():
+		# Left open on purpose: the answer was yes, so closing it would make
+		# them say yes again once the ad lands.
+		confirm_body.text = CONFIRM_BODY_NOT_READY
+		Ads.load_rewarded()
+		return
+	# The ad takes a moment to come up with the button still on screen under
+	# it, so without this a second tap queues a second request behind the first.
+	confirm_watch_button.disabled = true
+	Ads.show_rewarded(_on_unlock_ad_rewarded, _on_unlock_ad_dismissed)
+
+func _on_confirm_cancel_pressed() -> void:
+	Audio.play_ui_click()
+	_close_confirm()
+
+## Tapping the dark area outside the prompt declines it too -- the same way the
+## pause panel's dim is wired -- so there is always a way out that is not the
+## Watch button.
+func _on_confirm_dim_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch and event.pressed:
+		_on_confirm_cancel_pressed()
+	elif event is InputEventMouseButton and event.pressed:
+		_on_confirm_cancel_pressed()
+
+func _on_unlock_ad_rewarded() -> void:
+	confirm_watch_button.disabled = false
+	Unlocks.record_ad_watched()
+	# Fetch the next one now rather than at the next press -- the gate usually
+	# wants more than one, and the wait between them is the whole cost.
+	Ads.load_rewarded()
+	if not Unlocks.is_unlocked(Unlocks.skin_id(_browse)):
+		# Still owed some. The prompt stays up with the count moved on, so the
+		# next one is one tap away -- but it is still a tap, never automatic.
+		_open_confirm()
+		_refresh_lock_state()
+		return
+	confirm_panel.hide()
+	# The last ad of the set. Wear it and hand the announcement to the same
+	# path a mid-run milestone unlock takes, so it reads identically: the
+	# character lights up and the hint line calls it out before reverting.
+	_equip_if_owned()
+	_apply_visual_settings()
+	_announce_new_unlocks()
+
+## Closed early, failed to show, or was never there -- Ads only routes here
+## when no reward was earned, so the counter is deliberately left alone.
+func _on_unlock_ad_dismissed() -> void:
+	confirm_watch_button.disabled = false
+	confirm_panel.hide()
+	hint_label.text = ADS_HINT_SKIPPED
+	Ads.load_rewarded()
 
 ## The new character enters from whichever side it was pulled in from, so the
 ## roster reads as a strip being scrolled rather than a shape being swapped.
