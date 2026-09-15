@@ -14,7 +14,6 @@
 [ext_resource type="Texture2D" uid="uid://gmfawy1ltmi" path="res://assets/icons/speaker.svg" id="13_sound"]
 [ext_resource type="Texture2D" uid="uid://cc3ikk231fgx7" path="res://assets/icons/house.svg" id="14_home"]
 [ext_resource type="Texture2D" uid="uid://cq2tbjln7bx4k" path="res://assets/icons/arrow_counterclockwise.svg" id="15_restart"]
-[ext_resource type="Texture2D" uid="uid://dgwe4d30hptm3" path="res://assets/icons/eye.svg" id="16_hud"]
 [ext_resource type="Texture2D" uid="uid://3xp75fkdrqds" path="res://assets/icons/coin.svg" id="19_coin"]
 [ext_resource type="Texture2D" uid="uid://dvissjhqfc2l4" path="res://assets/icons/video.svg" id="20_video"]
 
@@ -225,21 +224,6 @@ theme_override_font_sizes/font_size = 18
 text = "TAP TO RESUME"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="HudButton" type="Button" parent="UI/PausePanel" unique_id=2096846672]
-layout_mode = 0
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -116.0
-offset_top = 28.0
-offset_right = -28.0
-offset_bottom = 116.0
-focus_mode = 0
-theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
-theme_override_constants/icon_max_width = 48
-icon = ExtResource("16_hud")
-flat = true
-icon_alignment = 1
 
 [node name="ControlsButton" type="Button" parent="UI/PausePanel" unique_id=1109345401]
 layout_mode = 0
@@ -485,7 +469,6 @@ text = "COOL."
 
 [connection signal="pressed" from="UI/PauseButton" to="." method="_on_pause_pressed"]
 [connection signal="gui_input" from="UI/PausePanel/Dim" to="." method="_on_pause_dim_input"]
-[connection signal="pressed" from="UI/PausePanel/HudButton" to="." method="_on_hud_pressed"]
 [connection signal="pressed" from="UI/PausePanel/ControlsButton" to="." method="_on_controls_pressed"]
 [connection signal="pressed" from="UI/PausePanel/SoundButton" to="." method="_on_sound_pressed"]
 [connection signal="pressed" from="UI/PausePanel/MenuButton" to="." method="_on_menu_pressed"]

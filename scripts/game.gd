@@ -6,13 +6,6 @@ const CONTROLS_TOUCH_ICON := preload("res://assets/icons/hand.svg")
 const CONTROLS_TILT_ICON := preload("res://assets/icons/mobile_phone.svg")
 const SOUND_ON_ICON := preload("res://assets/icons/speaker.svg")
 const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
-const HUD_SHOWN_ICON := preload("res://assets/icons/eye.svg")
-const HUD_HIDDEN_ICON := preload("res://assets/icons/eye_closed.svg")
-## The pause button is the one readout a hidden HUD keeps, so that the menu
-## that turns the HUD back on stays reachable. It drops to a ghost rather than
-## sitting at the player's chosen opacity -- the point of hiding is a clean
-## screen, and this is the compromise that keeps the run recoverable.
-const HIDDEN_PAUSE_OPACITY := 0.2
 
 @onready var player: CharacterBody2D = $Player
 @onready var camera: Camera2D = $Camera2D
@@ -31,13 +24,11 @@ const HIDDEN_PAUSE_OPACITY := 0.2
 @onready var pause_button: Button = $UI/PauseButton
 @onready var controls_button: Button = $UI/PausePanel/ControlsButton
 @onready var sound_button: Button = $UI/PausePanel/SoundButton
-@onready var hud_button: Button = $UI/PausePanel/HudButton
 @onready var resume_icon: TextureRect = $UI/PausePanel/ResumeIcon
 @onready var resume_label: Label = $UI/PausePanel/ResumeLabel
 @onready var _icon_buttons: Array[Node] = [
 	$UI/PauseButton,
 	$UI/PausePanel/ControlsButton, $UI/PausePanel/SoundButton,
-	$UI/PausePanel/HudButton,
 	$UI/PausePanel/MenuButton,
 	$UI/GameOverPanel/RestartButton, $UI/GameOverPanel/GameOverMenuButton,
 	$UI/GameOverPanel/WatchAdButton]
@@ -227,10 +218,6 @@ var _coin_tween: Tween
 # var _toast_queue: Array[String] = []
 var _streak_fade_tween: Tween
 var _hud_nodes: Array[Control] = []
-## Set from the pause menu and deliberately not saved: it is a per-run choice,
-## so the next run starts with the readouts back. The pause button is exempt --
-## see _set_hud_visible.
-var _hud_hidden: bool = false
 var _hud_home: Array[Vector2] = []
 var _death_margin: float = 720.0
 ## A milestone popup pauses the run the same way the pause menu does, so the
@@ -281,14 +268,13 @@ func _ready() -> void:
 	# captures both positions as the origin for its whole flight.
 	camera.global_position.x = view.x / 2.0
 	player.global_position.x = view.x / 2.0
-	# coin_row left out: the HUD-hide toggle below sets .visible on everything
-	# in this list, which would undo CoinRow's hidden-currency-display state.
+	# coin_row left out: it has its own hidden-currency-display state, which
+	# blanket-setting .visible on everything in this list would undo.
 	_hud_nodes = [score_label, streak_label, pause_button]
 	for node in _hud_nodes:
 		_hud_home.append(node.position)
 	_update_controls_icon()
 	_update_sound_icon()
-	_update_hud_icon()
 	IconPop.attach(_icon_buttons)
 	IconPop.pulse(resume_icon, resume_label)
 	_apply_visual_settings()
@@ -335,8 +321,6 @@ func _on_intro_finished() -> void:
 func _drop_in_hud() -> void:
 	for i in range(_hud_nodes.size()):
 		var node: Control = _hud_nodes[i]
-		if _hud_hidden and node != pause_button:
-			continue
 		var home: Vector2 = _hud_home[i]
 		node.position = home - Vector2(0.0, HUD_DROP_HEIGHT)
 		node.modulate.a = 0.0
@@ -426,22 +410,10 @@ func _hide_pause_panel() -> void:
 
 func _set_hud_visible(shown: bool) -> void:
 	for node in _hud_nodes:
-		node.visible = shown and (node == pause_button or not _hud_hidden)
-
-func _on_hud_pressed() -> void:
-	Audio.play_ui_click()
-	_hud_hidden = not _hud_hidden
-	_update_hud_icon()
-	_update_pause_button_opacity()
-	if _hud_hidden:
-		zone_banner.hide()
+		node.visible = shown
 
 func _update_pause_button_opacity() -> void:
-	pause_button.self_modulate = UiOpacity.tint(
-		HIDDEN_PAUSE_OPACITY if _hud_hidden else Settings.ui_opacity)
-
-func _update_hud_icon() -> void:
-	hud_button.icon = HUD_HIDDEN_ICON if _hud_hidden else HUD_SHOWN_ICON
+	pause_button.self_modulate = UiOpacity.tint(Settings.ui_opacity)
 
 func _on_controls_pressed() -> void:
 	Audio.play_ui_click()
@@ -752,8 +724,6 @@ func run_speed() -> float:
 
 func _on_zone_changed(stage: int, zone_name: String) -> void:
 	if stage == 0:
-		return
-	if _hud_hidden:
 		return
 	zone_banner.text = zone_name
 	zone_banner.modulate.a = 0.0

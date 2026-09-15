@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" path="res://assets/icons/speaker.svg" id="5_sound"]
 [ext_resource type="Texture2D" path="res://assets/icons/signal_wave.svg" id="6_haptics"]
 [ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="7_home"]
+[ext_resource type="Texture2D" path="res://assets/icons/lock.svg" id="8_privacy"]
 
 [sub_resource type="Environment" id="Environment_settings"]
 background_mode = 3
@@ -205,12 +206,44 @@ icon = ExtResource("6_haptics")
 flat = true
 icon_alignment = 1
 
+[node name="PrivacyLabel" type="Label" parent="UI" unique_id=826691772]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.82
+anchor_right = 0.5
+anchor_bottom = 0.82
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 20.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "PRIVACY POLICY"
+vertical_alignment = 1
+
+[node name="PrivacyButton" type="Button" parent="UI" unique_id=252595317]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.82
+anchor_right = 0.5
+anchor_bottom = 0.82
+offset_left = 52.0
+offset_top = -44.0
+offset_right = 140.0
+offset_bottom = 44.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 48
+icon = ExtResource("8_privacy")
+flat = true
+icon_alignment = 1
+
 [node name="BackButton" type="Button" parent="UI" unique_id=408759512]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.86
+anchor_top = 0.92
 anchor_right = 0.5
-anchor_bottom = 0.86
+anchor_bottom = 0.92
 offset_left = -52.0
 offset_top = -52.0
 offset_right = 52.0
@@ -222,9 +255,79 @@ icon = ExtResource("7_home")
 flat = true
 icon_alignment = 1
 
+[node name="PrivacyPanel" type="ColorRect" parent="UI" unique_id=826691773]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+color = Color(0, 0, 0, 0.85)
+
+[node name="TitleLabel" type="Label" parent="UI/PrivacyPanel"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.08
+anchor_right = 0.5
+anchor_bottom = 0.08
+offset_left = -260.0
+offset_top = -28.0
+offset_right = 260.0
+offset_bottom = 28.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 32
+text = "PRIVACY POLICY"
+horizontal_alignment = 1
+
+[node name="BodyLabel" type="RichTextLabel" parent="UI/PrivacyPanel"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.16
+anchor_right = 0.5
+anchor_bottom = 0.88
+offset_left = -320.0
+offset_right = 320.0
+theme_override_colors/default_color = Color(1.2, 1.2, 1.2, 1)
+theme_override_font_sizes/normal_font_size = 18
+theme_override_font_sizes/bold_font_size = 18
+bbcode_enabled = true
+text = "Last updated: September 14, 2026
+
+[b]What we collect[/b]
+We don't require an account. Jetlet: Solar Escape shows ads through Google AdMob, which can collect your device's advertising ID, device info, IP-derived approximate location, and ad interaction data to serve and measure ads. Gameplay data (high score, stats, settings) stays on your device and is not sent to us.
+
+[b]Third parties[/b]
+Google AdMob serves and measures ads in the app. See Google's privacy policy at policies.google.com/privacy for details on how Google handles that data.
+
+[b]Your choices[/b]
+Where required, a consent form lets you decline ad personalization. You can also reset or limit your device's advertising ID in your system settings, or opt out of interest-based Google ads at adssettings.google.com.
+
+[b]Children[/b]
+Jetlet: Solar Escape is intended for a general audience and is not directed at children under 13.
+
+[b]Contact[/b]
+support.eternalsky@gmail.com"
+fit_content = true
+scroll_active = true
+
+[node name="CloseButton" type="Button" parent="UI/PrivacyPanel"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.92
+anchor_right = 0.5
+anchor_bottom = 0.92
+offset_left = -100.0
+offset_top = -28.0
+offset_right = 100.0
+offset_bottom = 28.0
+focus_mode = 0
+theme_override_font_sizes/font_size = 20
+text = "CLOSE"
+
 [connection signal="value_changed" from="UI/GlowSlider" to="." method="_on_glow_slider_value_changed"]
 [connection signal="value_changed" from="UI/OpacitySlider" to="." method="_on_opacity_slider_value_changed"]
 [connection signal="pressed" from="UI/ControlsButton" to="." method="_on_controls_pressed"]
 [connection signal="pressed" from="UI/SoundButton" to="." method="_on_sound_pressed"]
 [connection signal="pressed" from="UI/HapticsButton" to="." method="_on_haptics_pressed"]
+[connection signal="pressed" from="UI/PrivacyButton" to="." method="_on_privacy_pressed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]
+[connection signal="pressed" from="UI/PrivacyPanel/CloseButton" to="." method="_on_privacy_close_pressed"]

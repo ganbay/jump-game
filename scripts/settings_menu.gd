@@ -20,6 +20,8 @@ const HAPTICS_OFF_ICON := preload("res://assets/icons/no_symbol.svg")
 @onready var controls_button: Button = $UI/ControlsButton
 @onready var sound_button: Button = $UI/SoundButton
 @onready var haptics_button: Button = $UI/HapticsButton
+@onready var privacy_button: Button = $UI/PrivacyButton
+@onready var privacy_panel: ColorRect = $UI/PrivacyPanel
 
 func _ready() -> void:
 	glow_slider.value = Settings.glow_strength
@@ -29,7 +31,7 @@ func _ready() -> void:
 	_update_haptics_icon()
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
-	IconPop.attach([controls_button, sound_button, haptics_button, $UI/BackButton])
+	IconPop.attach([controls_button, sound_button, haptics_button, privacy_button, $UI/BackButton])
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
@@ -67,6 +69,14 @@ func _on_haptics_pressed() -> void:
 
 func _update_haptics_icon() -> void:
 	haptics_button.icon = HAPTICS_ON_ICON if Settings.haptics_enabled else HAPTICS_OFF_ICON
+
+func _on_privacy_pressed() -> void:
+	Audio.play_ui_click()
+	privacy_panel.visible = true
+
+func _on_privacy_close_pressed() -> void:
+	Audio.play_ui_click()
+	privacy_panel.visible = false
 
 func _on_back_pressed() -> void:
 	Audio.play_ui_click()
