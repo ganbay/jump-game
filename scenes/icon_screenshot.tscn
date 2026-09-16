@@ -1,8 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://qxrkscchfalc"]
+[gd_scene format=3 uid="uid://qxrkscchfalc"]
 
-[ext_resource type="Script" path="res://scripts/promo_shot.gd" id="1_shot"]
-[ext_resource type="Script" path="res://scripts/icon_screenshot.gd" id="2_composition"]
-[ext_resource type="Script" path="res://scripts/plasma_blob.gd" id="3_plasma"]
+[ext_resource type="Script" uid="uid://ckfe5rxqhpvwr" path="res://scripts/promo_shot.gd" id="1_shot"]
+[ext_resource type="Script" uid="uid://bcl6t58lvnsa6" path="res://scripts/icon_screenshot.gd" id="2_composition"]
+[ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="3_plasma"]
 [ext_resource type="PackedScene" uid="uid://bjlj7sie3pqmh" path="res://scenes/player.tscn" id="4_player"]
 
 [sub_resource type="Environment" id="Environment_icon"]
@@ -11,53 +11,51 @@ glow_enabled = true
 glow_intensity = 0.7
 glow_strength = 0.85
 glow_bloom = 0.25
-glow_hdr_threshold = 0.3
 glow_blend_mode = 0
+glow_hdr_threshold = 0.3
 
-[node name="IconShot" type="Node"]
+[node name="IconShot" type="Node" unique_id=1924213871]
 process_mode = 3
 script = ExtResource("1_shot")
 output_path = "res://promo/icon.png"
 include_alpha = true
 
-[node name="SubViewport" type="SubViewport" parent="."]
+[node name="SubViewport" type="SubViewport" parent="." unique_id=1215310738]
 process_mode = 1
 disable_3d = true
 own_world_3d = true
-transparent_bg = false
 handle_input_locally = false
-size = Vector2i(512, 512)
-render_target_update_mode = 4
-use_hdr_2d = true
 msaa_2d = 1
+use_hdr_2d = true
+render_target_update_mode = 4
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="SubViewport"]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="SubViewport" unique_id=1727407477]
 environment = SubResource("Environment_icon")
 
-[node name="Composition" type="Node2D" parent="SubViewport"]
+[node name="Composition" type="Node2D" parent="SubViewport" unique_id=57613561]
 script = ExtResource("2_composition")
 
-[node name="Sun" type="Node2D" parent="SubViewport/Composition"]
+[node name="Sun" type="Node2D" parent="SubViewport/Composition" unique_id=917683901]
 script = ExtResource("3_plasma")
 
-[node name="Player" parent="SubViewport/Composition" instance=ExtResource("4_player")]
+[node name="Player" parent="SubViewport/Composition" unique_id=2035959510 instance=ExtResource("4_player")]
 position = Vector2(256, 380)
 
-[node name="PreviewLayer" type="CanvasLayer" parent="."]
+[node name="PreviewLayer" type="CanvasLayer" parent="." unique_id=345093750]
 
-[node name="Backdrop" type="ColorRect" parent="PreviewLayer"]
+[node name="Backdrop" type="ColorRect" parent="PreviewLayer" unique_id=1248164075]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 color = Color(0.08, 0.08, 0.09, 1)
 
-[node name="Preview" type="TextureRect" parent="PreviewLayer"]
+[node name="Preview" type="TextureRect" parent="PreviewLayer" unique_id=1406030877]
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Hint" type="Label" parent="PreviewLayer"]
+[node name="Hint" type="Label" parent="PreviewLayer" unique_id=309955364]
 theme_override_colors/font_color = Color(0.75, 0.78, 0.85, 1)
 theme_override_font_sizes/font_size = 15
 vertical_alignment = 1
