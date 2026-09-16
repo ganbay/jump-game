@@ -18,6 +18,20 @@ const TEST_REWARDED_UNIT_ID := "ca-app-pub-3940256099942544/5224354917"
 ## whenever OS.is_debug_build(), so development cannot serve real impressions.
 const REWARDED_UNIT_ID := "ca-app-pub-9653736186258588/7579740520"
 
+## Export feature tag that forces the test unit in a *release* build.
+##
+## Play only accepts release builds, and the live unit serves nothing until
+## AdMob has reviewed the app -- which cannot happen until the app is on the
+## store. So on a test track the revive offer would never appear and the
+## ad-gated skin would be unreachable, leaving a tester unable to tell a broken
+## feature from an unapproved one.
+##
+## REMOVE THIS TAG FROM THE EXPORT PRESET BEFORE THE PRODUCTION BUILD. Leaving
+## it in ships a game that only ever serves test ads and earns nothing --
+## _ready() pushes a warning on every launch that it is active, which is the
+## only signal there is.
+const TEST_ADS_FEATURE := "testads"
+
 ## UMP can sit unanswered on a bad connection. Ads are optional to this game, so
 ## the run starts regardless once this elapses rather than waiting forever on a
 ## consent round trip that may never come back.
@@ -40,6 +54,8 @@ var _on_dismissed: Callable = Callable()
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	if not OS.is_debug_build() and OS.has_feature(TEST_ADS_FEATURE):
+		push_warning("[ads] test ad unit forced in a release build by the '%s' export feature -- remove it from the export preset before publishing." % TEST_ADS_FEATURE)
 	# UMP has no editor mock in this plugin, so its callbacks would never fire
 	# off-device and initialization would stall behind them forever. The form is
 	# only meaningful on a real handset anyway.
@@ -93,7 +109,7 @@ func _initialize() -> void:
 	MobileAds.initialize(listener)
 
 func _unit_id() -> String:
-	if OS.is_debug_build() or REWARDED_UNIT_ID.is_empty():
+	if OS.is_debug_build() or OS.has_feature(TEST_ADS_FEATURE) or REWARDED_UNIT_ID.is_empty():
 		return TEST_REWARDED_UNIT_ID
 	return REWARDED_UNIT_ID
 
