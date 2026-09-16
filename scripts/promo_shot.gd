@@ -40,12 +40,43 @@ const HINT_TEXT := "SPACE play/pause    → step one frame    S save PNG    ESC 
 ## preview is to look before something gets written.
 @export var auto_save: bool = false
 
+## Passed as `-- --shoot` on the command line: take the shot as soon as the
+## composition reaches its pose, then quit. Turns the harness into a one-liner
+## for re-exporting the art after a tweak, without giving up the look-first
+## default for the interactive case.
+##
+## Shoot with --fixed-fps 60, always:
+##
+##     godot --path . --fixed-fps 60 res://scenes/icon_screenshot.tscn -- --shoot
+##
+## A composition poses on the first frame where its accumulated time passes
+## `pose_time`, and that time accumulates real frame deltas. Free-running, a
+## slow startup frame steps clean over the mark and the shot is taken somewhere
+## past it -- which is not a rounding error, because the eruption is most of the
+## way through its fade by then and its strength falls off a cliff. Two
+## successive free-run exports of the same unchanged scene have come out with
+## visibly different bursts, one of them nearly gone. --fixed-fps pins the delta
+## so the pose lands on the same frame every time.
+const SHOOT_ARG := "--shoot"
+## `-- --out <path>` overrides where the PNG lands, so variants of one
+## composition can be shot to different files without editing the scene.
+const OUT_ARG := "--out"
+
+var _quit_after_save: bool = false
+
 @onready var _viewport: SubViewport = $SubViewport
 @onready var _composition: Node2D = $SubViewport/Composition
 @onready var _preview: TextureRect = $PreviewLayer/Preview
 @onready var _hint: Label = $PreviewLayer/Hint
 
 func _ready() -> void:
+	var args := OS.get_cmdline_user_args()
+	if SHOOT_ARG in args:
+		auto_save = true
+		_quit_after_save = true
+	var out_at := args.find(OUT_ARG)
+	if out_at != -1 and out_at + 1 < args.size():
+		output_path = args[out_at + 1]
 	_preview.texture = _viewport.get_texture()
 	_hint.text = HINT_TEXT
 	_size_window()
@@ -123,3 +154,5 @@ func save_png() -> void:
 	print("Saved %dx%d -> %s" % [
 		image.get_width(), image.get_height(),
 		ProjectSettings.globalize_path(output_path)])
+	if _quit_after_save:
+		get_tree().quit()

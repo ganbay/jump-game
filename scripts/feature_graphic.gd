@@ -23,12 +23,50 @@ class_name FeatureGraphic
 signal pose_reached
 
 @export_group("Palette")
-## Forces the game's authored default palette for the shot, so the graphic does
-## not come out tinted by whatever colours this machine happens to have saved.
-## In-memory only -- Settings' own setters are what write user://settings.cfg,
-## and none of them are called here.
+## Forces a fixed palette for the shot, so the graphic does not come out tinted
+## by whatever colours this machine happens to have saved. In-memory only --
+## Settings' own setters are what write user://settings.cfg, and none of them
+## are called here.
 @export var force_default_palette: bool = true
 @export var character_skin: Player.SkinType = Player.SkinType.PLASMA
+
+## The three body colours, and the reason none of them are the Settings
+## defaults they used to be. Same problem and same fix as icon_screenshot.gd,
+## which carries the long version of this argument.
+##
+## The game authors its palette in HDR, with one channel past 1.0 and the rest
+## under it -- the player at Color(0.904, 0.748, 2.4), the platforms at
+## Color(0.740, 2.2, 0.649). That is fine in play. In a still it splits every
+## object in the picture into two disagreeing halves, because the clamp to 8 bits
+## and the glow threshold take opposite ends of the same colour:
+##
+##   * the star's body clamps to (0.904, 0.748, 1.0) and comes out PALE PINK --
+##     the blue that made it violet is exactly the channel thrown away;
+##   * its halo is whatever cleared the threshold, (0, 0, 1.4), which is PURE
+##     BLUE.
+##
+## Which is why the old graphic is a pink dome sitting inside a blue glow. So
+## each colour is carried at the brightness that survives the trip: the game's
+## own hue, normalised so its largest channel lands at 1.0 and nothing clips.
+## The white-hot cores are unaffected -- they come from the band `white` terms
+## below, which are added on top.
+@export var body_color: Color = Color(0.52, 0.42, 1.0)
+@export var character_color: Color = Color(0.52, 0.42, 1.0)
+## Toned down and desaturated from the normalised game green, which at
+## Color(0.45, 1.0, 0.40) is a vivid lime: pinned at full green with the other
+## two channels low, it was the most saturated thing in a frame that is
+## otherwise violet, and pulled the eye off the character. Lifting red and blue
+## and dropping green off the ceiling keeps it unmistakably the game's green
+## while letting the star and the character carry the picture. Still under 1.0
+## on every channel, for the reason the block above gives.
+@export var platform_color: Color = Color(0.55, 0.88, 0.56)
+
+## Added to the star's colour to make the eruption hotter than the body it tears
+## out of; the core takes it at ERUPTION_CORE_HEAT times the strength. Kept
+## near-neutral so the graphic stays one hue, matching the icon -- see
+## icon_screenshot.gd for the warm alternative that was tried and rejected.
+@export var eruption_heat: Color = Color(0.75, 0.70, 0.30)
+const ERUPTION_CORE_HEAT := 2.1
 
 @export_group("Background")
 @export var sky_top: Color = Color(0.012, 0.018, 0.062)
@@ -51,15 +89,23 @@ signal pose_reached
 @export var sun_drift_scale: float = 0.06
 ## Extra atmosphere painted under the blob, on top of whatever the glow pass
 ## spreads. 0 turns it off.
-@export var halo_strength: float = 1.0
+## Carries most of the star's atmosphere, rather than the glow pass doing it.
+## Deliberate: this is drawn geometry in the star's own colour, so it is
+## hue-matched by construction and it only touches the star. Turning the glow
+## pass up far enough to do this job instead also blooms the wordmark on the far
+## side of the frame, which at 112px bold starts filling in its own counters.
+@export var halo_strength: float = 3.8
 ## How far out the atmosphere reaches, as a multiple of sun_radius. Kept short
 ## enough that it does not wash out the wordmark on the far side of the frame.
-@export var halo_reach: float = 1.45
+@export var halo_reach: float = 1.6
 
 ## Concentric circles the halo is built from. Has to be this many: a handful of
 ## wide steps reads as hard-edged rings around the star rather than as falloff,
 ## which is exactly what it looked like at three.
-const HALO_STEPS := 24
+## Raised from 24 once the halo got brighter: the same number of steps that
+## read as smooth falloff at the old alpha read as visible concentric rings at
+## this one, which is the banding in the blue glow of the previous shot.
+const HALO_STEPS := 40
 ## Per-ring alpha before the falloff weighting. They stack, so the visible
 ## opacity at the star's edge is roughly HALO_STEPS times this.
 const HALO_STEP_ALPHA := 0.024
@@ -73,10 +119,70 @@ const HALO_STEP_ALPHA := 0.024
 ## Copied rather than shared for the same reason icon_screenshot.gd copies it: a
 ## promo shot should be able to retune the star without touching the table every
 ## character in the game draws from.
-const SUN_BANDS := [
-	{"r": 1.00, "phase": 0.0, "tint": 1.0, "white": Color(0, 0, 0), "a": 1.00, "churn": 1.0, "drift": 0.0},
-	{"r": 0.50, "phase": 2.1, "tint": 1.0, "white": Color(1.3, 1.3, 1.0), "a": 0.95, "churn": 2.6, "drift": 0.12},
-]
+## The star is built rather than listed, because of how little of it is on
+## screen and how finely that sliver has to be graded.
+##
+## It is centred at (760, 860) with a radius of 470, in a frame 500 tall. Only
+## its top cap shows -- from the limb at radius 470 down to radius 360 at the
+## bottom edge -- so a band appears at all only if
+##
+##     860 - 470 * r < 500,   i.e.   r > 0.766
+##
+## Anything deeper is drawn underneath the picture. That is why a single mid
+## band at r = 0.76, which is the right place for one on the icon, left this
+## star a flat single-colour dome: its top edge landed at y = 503, three pixels
+## past the bottom of the frame.
+##
+## So the whole limb-to-core gradient has to fit in r = 1.00 .. 0.785, and a
+## handful of shells across it does not read as a gradient -- at five, each one
+## is a hard-edged polygon about 23px from the next and the star comes out
+## visibly ringed. Hence many faint shells instead: enough of them that the
+## steps land ~7px apart and blend, with each churning a little harder and
+## wandering a little further off-centre than the one outside it, so the
+## boundaries stay organic rather than concentric.
+const SUN_SHELLS := 30
+const SUN_SHELL_INNER_R := 0.762
+const SUN_SHELL_ALPHA := 0.13
+## Added to the body colour at the innermost visible shell, ramped in from zero
+## at the limb. Gentle on purpose: this lands around (0.80, 0.65, 1.0), lighter
+## and less saturated but still plainly the same violet. Pushing it further
+## turns the bottom of the frame pale pink, which is the exact look the palette
+## change was made to get rid of.
+const SUN_SHELL_WHITE := Color(0.36, 0.30, 0.14)
+## Just under 1.0, so the brightening is spread across the whole visible cap
+## rather than banked into the innermost shells. Above 1.0 it is technically a
+## better falloff for a sphere, but almost the entire ramp then lands in the
+## last 30px before the frame edge and the rest of the star reads flat -- which
+## is the complaint this grading exists to answer.
+const SUN_SHELL_EASE := 0.85
+## Kept for completeness and never seen -- its top edge is 125px below frame.
+const SUN_CORE := {
+	"r": 0.50, "phase": 2.1, "tint": 1.0, "white": Color(1.3, 1.3, 1.0),
+	"a": 0.95, "churn": 2.6, "drift": 0.12,
+}
+
+func _build_sun_bands() -> Array:
+	var shells: Array = [
+		{"r": 1.00, "phase": 0.0, "tint": 1.0, "white": Color(0, 0, 0),
+			"a": 1.00, "churn": 1.0, "drift": 0.0},
+	]
+	for i in range(1, SUN_SHELLS):
+		var t := float(i) / float(SUN_SHELLS - 1)
+		var lift := pow(t, SUN_SHELL_EASE)
+		shells.append({
+			"r": lerpf(1.0, SUN_SHELL_INNER_R, t),
+			# Stepped per shell so no two churn in sync, which is what stops the
+			# stack reading as one shape drawn at several sizes.
+			"phase": 0.6 * float(i),
+			"tint": 1.0,
+			"white": Color(SUN_SHELL_WHITE.r * lift, SUN_SHELL_WHITE.g * lift,
+				SUN_SHELL_WHITE.b * lift),
+			"a": SUN_SHELL_ALPHA,
+			"churn": lerpf(1.0, 1.9, t),
+			"drift": lerpf(0.0, 0.03, t),
+		})
+	shells.append(SUN_CORE)
+	return shells
 
 ## PlasmaBlob.CHARACTER_BANDS with its single flat corona ramped across three
 ## fainter rings instead. Same problem the star had and the same fix: one
@@ -88,6 +194,7 @@ const CHARACTER_BANDS := [
 	{"r": 1.40, "phase": 0.9, "tint": 0.7, "white": Color(0, 0, 0), "a": 0.09, "churn": 1.0, "drift": 0.0},
 	{"r": 1.20, "phase": 0.9, "tint": 0.8, "white": Color(0, 0, 0), "a": 0.12, "churn": 1.0, "drift": 0.0},
 	{"r": 1.00, "phase": 0.0, "tint": 1.0, "white": Color(0, 0, 0), "a": 1.00, "churn": 1.0, "drift": 0.0},
+	{"r": 0.76, "phase": 1.3, "tint": 1.0, "white": Color(0.30, 0.25, 0.10), "a": 0.90, "churn": 1.7, "drift": 0.05},
 	{"r": 0.50, "phase": 2.1, "tint": 1.0, "white": Color(1.3, 1.3, 1.0), "a": 0.95, "churn": 2.6, "drift": 0.12},
 ]
 
@@ -156,8 +263,8 @@ func _ready() -> void:
 ## each call _save() and overwrite the real settings file.
 func _apply_default_palette() -> void:
 	Settings.glow_strength = Settings.GLOW_STRENGTH_DEFAULT
-	Settings.player_color = Settings.PLAYER_COLOR_DEFAULT
-	Settings.platform_color = Settings.PLATFORM_COLOR_DEFAULT
+	Settings.player_color = character_color
+	Settings.platform_color = platform_color
 	Settings.background_particle_color = Settings.PARTICLE_COLOR_DEFAULT
 	Settings.player_skin = character_skin
 	Settings.trail_enabled = true
@@ -171,9 +278,9 @@ func _setup_sun() -> void:
 	_sun.speed = sun_speed
 	_sun.churn_scale = sun_churn_scale
 	_sun.drift_scale = sun_drift_scale
-	_sun.color = Settings.player_color
+	_sun.color = body_color
 	_sun.shape = PlasmaBlob.Shape.CIRCLE
-	_sun.bands = SUN_BANDS
+	_sun.bands = _build_sun_bands()
 	# PlasmaBlob is bottom-anchored: its centre sits one radius above its
 	# origin, so the origin goes a radius below the centre we want.
 	_sun.global_position = sun_center + Vector2(0.0, sun_radius)
@@ -316,7 +423,11 @@ func _draw_eruption() -> void:
 	halo.a = 0.22 * strength
 	draw_circle(_launch, size * 0.62, halo)
 
-	var tongue := Color(base.r * 1.1 + 1.1, base.g * 1.1 + 1.1, base.b * 1.1 + 0.85, 0.80 * strength)
+	# Lifted just past white rather than far past it: the old constants were
+	# sized against an HDR body colour, and against a body that no longer clips
+	# they turn the spikes into flat white shards with no hue left in them.
+	var tongue := Color(base.r + eruption_heat.r, base.g + eruption_heat.g,
+		base.b + eruption_heat.b, 0.80 * strength)
 	for i in range(eruption_spikes):
 		var f := float(i) / float(maxi(eruption_spikes - 1, 1))
 		var a := -PI * 0.5 + (f - 0.5) * eruption_spread
@@ -329,7 +440,10 @@ func _draw_eruption() -> void:
 			_launch - wide, _launch + wide, _launch + dir * length,
 		]), PackedColorArray([tongue]))
 
-	var core := Color(base.r + 1.6, base.g + 1.6, base.b + 1.3, 0.9 * strength)
+	var core := Color(
+		base.r + eruption_heat.r * ERUPTION_CORE_HEAT,
+		base.g + eruption_heat.g * ERUPTION_CORE_HEAT,
+		base.b + eruption_heat.b * ERUPTION_CORE_HEAT, 0.9 * strength)
 	draw_circle(_launch, size * 0.26, core)
 
 ## Runs back down the flight path to the launch point rather than straight down

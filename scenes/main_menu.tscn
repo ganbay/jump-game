@@ -8,7 +8,7 @@
 [ext_resource type="Texture2D" path="res://assets/icons/line_graph.svg" id="6_stats"]
 [ext_resource type="Texture2D" path="res://assets/icons/help.svg" id="7_guide"]
 [ext_resource type="Texture2D" path="res://assets/icons/speaker.svg" id="8_sound"]
-[ext_resource type="Texture2D" path="res://assets/icons/signal_wave.svg" id="9_science"]
+[ext_resource type="Texture2D" path="res://assets/icons/atom.svg" id="9_science"]
 
 [sub_resource type="Environment" id="Environment_menu"]
 background_mode = 3

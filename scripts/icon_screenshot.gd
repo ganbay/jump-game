@@ -21,12 +21,66 @@ extends Node2D
 signal pose_reached
 
 @export_group("Palette")
-## Forces the game's authored default palette, so the icon does not come out
-## tinted by whatever colours this machine happens to have saved, and matches
-## the feature graphic. In-memory only -- Settings' own setters are what write
-## user://settings.cfg, and none of them are called here.
+## Forces a fixed palette, so the icon does not come out tinted by whatever
+## colours this machine happens to have saved. In-memory only -- Settings' own
+## setters are what write user://settings.cfg, and none of them are called here.
 @export var force_default_palette: bool = true
 @export var character_skin: Player.SkinType = Player.SkinType.PLASMA
+
+## The body colour of both the star and the character, and the reason this is
+## not Settings.PLAYER_COLOR_DEFAULT.
+##
+## The game authors that default as Color(0.904, 0.748, 2.4) -- HDR, with only
+## the blue channel above 1.0. In play that is fine: the character is a small
+## bright thing moving fast. In a still it tears the image in two, because the
+## two halves of the render disagree about what colour it is:
+##
+##   * the body is clamped on the way to an 8-bit PNG, to (0.904, 0.748, 1.0).
+##     The blue that made it violet is precisely the channel thrown away, so
+##     the body comes out PALE PINK;
+##   * the glow pass keeps what is *above* the threshold, (0, 0, 1.4), which is
+##     PURE BLUE.
+##
+## One authored colour, two different hues on screen, and neither of them the
+## violet that was written down. No choice of HDR colour fixes that -- clipping
+## destroys the hue from one end and the threshold destroys it from the other,
+## and the only colours that survive both are the ones that clip to white.
+##
+## So the icon carries the same hue at a brightness that survives the trip to 8
+## bits: the game's own colour, normalised so its largest channel lands at 1.0.
+## The body is then the violet that was authored, and -- with the Environment's
+## glow_bloom raised to glow pixels under the threshold -- the halo is a blurred
+## copy of that same violet rather than a different colour entirely.
+##
+## Nothing is given up by dropping out of HDR here. The white-hot core does not
+## come from the body colour at all: it comes from the core band's `white` term
+## (see PROMO_BANDS), which is added on top and still blows out exactly as
+## before.
+@export var body_color: Color = Color(0.52, 0.42, 1.0)
+
+## The character's own colour, kept separate from the star's so the icon can
+## decide what the character is: a chip off the same body, which is what the
+## game's fiction says and what an identical colour reads as, or something
+## escaping it, which a contrasting one reads as. The first is truer; the second
+## separates subject from background at 48px, where the two currently merge into
+## one bright mass. Same ceiling as body_color and for the same reason -- no
+## channel above 1.0, or the body and its halo part company again.
+@export var character_color: Color = Color(0.52, 0.42, 1.0)
+
+## Added to the star's colour to make the eruption hotter than the body it tears
+## out of. The tongues take this; the core takes it at ERUPTION_CORE_HEAT times
+## the strength.
+##
+## Near-neutral on purpose: lifted enough that the burst reads as hotter than
+## the body, but not far enough to introduce a second hue. The icon is one
+## violet throughout -- star, character, both halos, the limb, this -- and that
+## is a deliberate choice rather than an oversight. A warm burst here (around
+## Color(1.45, 0.80, 0.12)) does separate the character from the eruption at
+## 48px, where the two otherwise merge into a single bright mass; it was tried
+## and rejected, because holding the whole icon to one colour is worth more than
+## that separation.
+@export var eruption_heat: Color = Color(0.75, 0.70, 0.30)
+const ERUPTION_CORE_HEAT := 2.1
 
 @export_group("Background")
 @export var sky_top: Color = Color(0.012, 0.018, 0.062)
@@ -48,11 +102,16 @@ signal pose_reached
 @export var sun_drift_scale: float = 0.06
 ## Atmosphere under the blob, on top of whatever the glow pass spreads. This is
 ## what keeps the upper half from reading as dead black at grid size.
-@export var halo_strength: float = 0.9
-@export var halo_reach: float = 1.55
+@export var halo_strength: float = 1.7
+@export var halo_reach: float = 1.9
 
 ## Concentric circles the halo is built from. Has to be this many: a handful of
 ## wide steps reads as hard rings around the star rather than as falloff.
+##
+## Both halos are drawn geometry in the body's own colour, not glow-pass output,
+## which is what makes them hue-matched to the body by construction rather than
+## by tuning. That is why they carry most of the atmosphere here: the glow pass
+## shifts hue towards whichever channel clears its threshold, and these cannot.
 const HALO_STEPS := 28
 ## Per-ring alpha before the falloff weighting. They stack, so the visible
 ## opacity at the star's edge is roughly HALO_STEPS times this.
@@ -65,15 +124,21 @@ const HALO_STEP_ALPHA := 0.020
 ## entirely and get a drawn halo instead, which can afford as many steps as the
 ## falloff needs. Copied rather than shared so the icon can retune this without
 ## touching the table every character in the game draws from.
+## The middle band is the icon's own addition. With only a body and a core, a
+## body that no longer clips reads as a flat disc with a white hole punched in
+## it -- the step from violet straight to blown white happens over one edge.
+## This lifts the middle of that range part of the way, so the falloff from
+## core to limb is a gradient rather than a boundary.
 const PROMO_BANDS := [
 	{"r": 1.00, "phase": 0.0, "tint": 1.0, "white": Color(0, 0, 0), "a": 1.00, "churn": 1.0, "drift": 0.0},
+	{"r": 0.76, "phase": 1.3, "tint": 1.0, "white": Color(0.30, 0.25, 0.10), "a": 0.90, "churn": 1.7, "drift": 0.05},
 	{"r": 0.50, "phase": 2.1, "tint": 1.0, "white": Color(1.3, 1.3, 1.0), "a": 0.95, "churn": 2.6, "drift": 0.12},
 ]
 
 ## The character's own atmosphere, same construction as the star's.
 @export_group("Character Glow")
-@export var char_halo_strength: float = 1.0
-@export var char_halo_reach: float = 2.5
+@export var char_halo_strength: float = 1.9
+@export var char_halo_reach: float = 3.0
 const CHAR_HALO_STEPS := 28
 const CHAR_HALO_STEP_ALPHA := 0.020
 
@@ -88,7 +153,7 @@ const CHAR_HALO_STEP_ALPHA := 0.020
 ## Straight up: the icon is symmetrical about its centre line, which is what
 ## holds it together once it is 48px in a grid of other icons.
 @export var char_peak_height: float = 170.0
-@export var character_scale: float = 3.4
+@export var character_scale: float = 2.6
 ## The character draws 32 perimeter points in game, plenty at ~36px across and
 ## visibly faceted at this size -- the churn lands on a polygon, not a curve.
 @export var character_segments: int = 120
@@ -142,7 +207,7 @@ func _ready() -> void:
 ## each call _save() and overwrite the real settings file.
 func _apply_default_palette() -> void:
 	Settings.glow_strength = Settings.GLOW_STRENGTH_DEFAULT
-	Settings.player_color = Settings.PLAYER_COLOR_DEFAULT
+	Settings.player_color = character_color
 	Settings.platform_color = Settings.PLATFORM_COLOR_DEFAULT
 	Settings.background_particle_color = Settings.PARTICLE_COLOR_DEFAULT
 	Settings.player_skin = character_skin
@@ -157,7 +222,7 @@ func _setup_sun() -> void:
 	_sun.speed = sun_speed
 	_sun.churn_scale = sun_churn_scale
 	_sun.drift_scale = sun_drift_scale
-	_sun.color = Settings.player_color
+	_sun.color = body_color
 	_sun.shape = PlasmaBlob.Shape.CIRCLE
 	_sun.bands = PROMO_BANDS
 	# PlasmaBlob is bottom-anchored: its centre sits one radius above its
@@ -326,7 +391,11 @@ func _draw_eruption() -> void:
 	halo.a = 0.22 * strength
 	draw_circle(_launch, size * 0.62, halo)
 
-	var tongue := Color(base.r * 1.1 + 1.1, base.g * 1.1 + 1.1, base.b * 1.1 + 0.85, 0.80 * strength)
+	# Lifted just past white rather than far past it. The old constants were
+	# sized against an HDR body colour; against a body that no longer clips they
+	# turned the spikes into flat white shards with no hue left in them at all.
+	var tongue := Color(base.r + eruption_heat.r, base.g + eruption_heat.g,
+		base.b + eruption_heat.b, 0.80 * strength)
 	for i in range(eruption_spikes):
 		var f := float(i) / float(maxi(eruption_spikes - 1, 1))
 		var a := -PI * 0.5 + (f - 0.5) * eruption_spread
@@ -339,7 +408,10 @@ func _draw_eruption() -> void:
 			_launch - wide, _launch + wide, _launch + dir * length,
 		]), PackedColorArray([tongue]))
 
-	var core := Color(base.r + 1.6, base.g + 1.6, base.b + 1.3, 0.9 * strength)
+	var core := Color(
+		base.r + eruption_heat.r * ERUPTION_CORE_HEAT,
+		base.g + eruption_heat.g * ERUPTION_CORE_HEAT,
+		base.b + eruption_heat.b * ERUPTION_CORE_HEAT, 0.9 * strength)
 	draw_circle(_launch, size * 0.26, core)
 
 func _draw_tail() -> void:
