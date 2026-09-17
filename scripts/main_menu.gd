@@ -75,6 +75,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_echo():
 		return
+	# Android delivers the hardware volume and back buttons as key events too,
+	# so only the accept keys (Space/Enter) may start a run.
+	if event is InputEventKey and not event.is_action("ui_accept"):
+		return
 	# Keys carry no position and still play from anywhere.
 	var in_zone := event is InputEventKey \
 		or play_zone.get_global_rect().has_point(event.position)

@@ -6,6 +6,11 @@ const CONTROLS_TOUCH_ICON := preload("res://assets/icons/hand.svg")
 const CONTROLS_TILT_ICON := preload("res://assets/icons/mobile_phone.svg")
 const SOUND_ON_ICON := preload("res://assets/icons/speaker.svg")
 const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
+const SKIP_ICON := preload("res://assets/icons/arrow_right.svg")
+## The first tap during the intro only reveals the skip button; it hides again
+## after this long without another tap, so a stray touch doesn't leave it up.
+const SKIP_BUTTON_HIDE_DELAY := 3.0
+const SKIP_BUTTON_FADE_TIME := 0.2
 
 @onready var player: CharacterBody2D = $Player
 @onready var camera: Camera2D = $Camera2D
@@ -229,6 +234,10 @@ var _coin_tween: Tween
 # var _toast_tween: Tween
 # var _toast_queue: Array[String] = []
 var _streak_fade_tween: Tween
+var _skip_button: Button
+var _skip_hide_timer: Timer
+var _skip_fade: Tween
+var _skip_shown := false
 var _hud_nodes: Array[Control] = []
 var _hud_home: Array[Vector2] = []
 var _death_margin: float = 720.0
@@ -317,9 +326,89 @@ func _start_intro() -> void:
 	player.set_process_unhandled_input(false)
 	intro.finished.connect(_on_intro_finished)
 	intro.begin(camera, player)
+	_make_skip_button()
+
+## Built here rather than in main.tscn since it only lives for the intro. It
+## takes the pause button's corner, which stays hidden until the HUD drops in.
+func _make_skip_button() -> void:
+	_skip_button = Button.new()
+	_skip_button.text = "SKIP"
+	_skip_button.icon = SKIP_ICON
+	_skip_button.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_skip_button.flat = true
+	_skip_button.focus_mode = Control.FOCUS_NONE
+	_skip_button.add_theme_font_size_override("font_size", 26)
+	_skip_button.add_theme_constant_override("icon_max_width", 28)
+	_skip_button.add_theme_color_override("font_color", Color(1.5, 1.5, 1.5, 1))
+	_skip_button.add_theme_color_override("icon_normal_color", Color(1.5, 1.5, 1.5, 1))
+	_skip_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_skip_button.offset_left = -150.0
+	_skip_button.offset_top = 14.0
+	_skip_button.offset_right = -12.0
+	_skip_button.offset_bottom = 70.0
+	_skip_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_skip_button.self_modulate = UiOpacity.tint(Settings.ui_opacity)
+	_skip_button.visible = false
+	_skip_button.pressed.connect(_on_skip_pressed)
+	$UI.add_child(_skip_button)
+	_skip_hide_timer = Timer.new()
+	_skip_hide_timer.one_shot = true
+	_skip_hide_timer.wait_time = SKIP_BUTTON_HIDE_DELAY
+	_skip_hide_timer.timeout.connect(_hide_skip_button)
+	add_child(_skip_hide_timer)
+
+func _show_skip_button() -> void:
+	_skip_hide_timer.start()
+	if _skip_shown:
+		return
+	_skip_shown = true
+	var button := _skip_button
+	var was_visible := button.visible
+	button.visible = true
+	if not was_visible:
+		button.modulate.a = 0.0
+		# Disabled while it fades in: the touch that revealed it is followed by
+		# an emulated mouse click at the same spot, which must not land on it.
+		button.disabled = true
+	_fade_skip_button(1.0, func(): button.disabled = false)
+
+func _hide_skip_button() -> void:
+	if _skip_button == null or not _skip_shown:
+		return
+	_skip_shown = false
+	var button := _skip_button
+	button.disabled = true
+	_fade_skip_button(0.0, func(): button.visible = false)
+
+## Bound to the button, so the tween dies with it if a skip frees it mid-fade,
+## and a new fade replaces one still running in the other direction.
+func _fade_skip_button(alpha: float, done: Callable) -> void:
+	if _skip_fade != null:
+		_skip_fade.kill()
+	_skip_fade = _skip_button.create_tween()
+	_skip_fade.tween_property(_skip_button, "modulate:a", alpha, SKIP_BUTTON_FADE_TIME)
+	_skip_fade.tween_callback(done)
+
+func _on_skip_pressed() -> void:
+	if not is_intro or _skip_button == null:
+		return
+	Audio.play_ui_click()
+	_remove_skip_button()
+	intro.skip()
+
+## Nulled as well as freed: the intro's fast-forward keeps is_intro true for a
+## moment after a skip, and taps in that window must find no button to show.
+func _remove_skip_button() -> void:
+	if _skip_button != null:
+		_skip_button.queue_free()
+		_skip_button = null
+	if _skip_hide_timer != null:
+		_skip_hide_timer.queue_free()
+		_skip_hide_timer = null
 
 func _on_intro_finished() -> void:
 	is_intro = false
+	_remove_skip_button()
 	player.set_physics_process(true)
 	# Deferred so the tap that skipped cannot reach the player this same frame.
 	# call_deferred on the setter, not set_deferred: process_unhandled_input is
@@ -376,8 +465,18 @@ func _apply_visual_settings() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if is_intro:
-		if event.is_pressed() and not event.is_echo():
-			intro.skip()
+		# Hardware volume/back buttons arrive as key events on Android; they
+		# shouldn't touch the intro, so keys only count if they're Space/Enter.
+		# A tap never skips on its own -- it only reveals the skip button, and a
+		# second Space/Enter while that's up stands in for pressing it.
+		if event.is_pressed() and not event.is_echo() \
+				and (event is not InputEventKey or event.is_action("ui_accept")):
+			if _skip_button == null:
+				pass  # already skipping
+			elif event is InputEventKey and _skip_shown and not _skip_button.disabled:
+				_on_skip_pressed()
+			else:
+				_show_skip_button()
 			get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("ui_cancel") and not is_game_over and not _milestone_open and not _revive_open:
