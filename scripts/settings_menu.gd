@@ -39,7 +39,7 @@ func _ready() -> void:
 	IconPop.attach([controls_button, sound_button, haptics_button, score_align_button, privacy_button, $UI/BackButton])
 
 func _apply_visual_settings() -> void:
-	world_environment.environment.glow_intensity = Settings.glow_strength
+	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
 
 func _on_glow_slider_value_changed(value: float) -> void:

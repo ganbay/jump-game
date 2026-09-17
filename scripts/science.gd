@@ -20,7 +20,7 @@ func _ready() -> void:
 	IconPop.attach([$UI/BackButton])
 
 func _apply_visual_settings() -> void:
-	world_environment.environment.glow_intensity = Settings.glow_strength
+	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
 
 func _on_back_pressed() -> void:

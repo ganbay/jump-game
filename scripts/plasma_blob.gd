@@ -22,7 +22,10 @@ class_name PlasmaBlob
 
 ## Perimeter points. The outer silhouette is nearly circular now, so faceting
 ## would show at a low count where the old churn used to hide it.
-@export var segments: int = 32
+@export var segments: int = 32:
+	set(value):
+		segments = value
+		_profile_dirty = true
 
 ## How far the perimeter deforms, as a fraction of radius. Kept small so the
 ## cell reads as a round body; the motion lives in the core instead.
@@ -57,6 +60,7 @@ enum Shape { CIRCLE, TRIANGLE, SQUARE, PRISM, STAR, DOME, HEART, FLAME, SPARKLE,
 @export var shape: Shape = Shape.CIRCLE:
 	set(value):
 		shape = value
+		_profile_dirty = true
 		queue_redraw()
 
 ## Rotation (radians) applied before the shape profile, so each one lands in
@@ -228,6 +232,19 @@ var bands: Array = CHARACTER_BANDS
 
 var _t: float = 0.0
 
+## Unit perimeter of the current shape, one point per segment. The silhouette
+## only changes with `shape` / `segments`, so it is built once rather than
+## re-evaluating shape_radius (plus a cos/sin pair) per point per band per frame.
+var _profile: PackedVector2Array = PackedVector2Array()
+var _profile_dirty: bool = true
+
+func _rebuild_profile() -> void:
+	_profile.resize(segments)
+	for i in range(segments):
+		var a := TAU * float(i) / float(segments)
+		_profile[i] = Vector2(cos(a), sin(a)) * shape_radius(a, shape)
+	_profile_dirty = false
+
 func _process(delta: float) -> void:
 	_t += delta * speed
 	queue_redraw()
@@ -236,20 +253,23 @@ func _process(delta: float) -> void:
 ## with each other; `deform_mul` scales how much this particular ring is
 ## allowed to distort, which is how the core stays lively inside a calm body.
 func _ring(scale_mul: float, phase: float, deform_mul: float, centre: Vector2) -> PackedVector2Array:
+	if _profile_dirty:
+		_rebuild_profile()
 	var pts := PackedVector2Array()
 	pts.resize(segments)
 	var breath := 1.0 + sin(_t * 1.3 + phase) * breathe
+	var base := radius * scale_mul * breath
 	for i in range(segments):
 		var a := TAU * float(i) / float(segments)
 		var wob := (
 			sin(a * 3.0 + _t * 1.7 + phase) * wobble
 			+ sin(a * 5.0 - _t * 2.3 + phase) * wobble * 0.55
-			+ sin(a * 7.0 + _t * 1.1 + phase) * flare
-			+ sin(a * 11.0 - _t * 3.1 + phase * 1.7) * turbulence
-			+ sin(a * 17.0 + _t * 4.3 + phase * 2.3) * turbulence * 0.6
-		) * deform_mul
-		var shape_mul := shape_radius(a, shape)
-		pts[i] = centre + Vector2(cos(a), sin(a)) * (radius * scale_mul * shape_mul * breath * (1.0 + wob))
+			+ sin(a * 7.0 + _t * 1.1 + phase) * flare)
+		# Zero for the character, so its two extra sines are skipped outright.
+		if turbulence != 0.0:
+			wob += (sin(a * 11.0 - _t * 3.1 + phase * 1.7) * turbulence
+				+ sin(a * 17.0 + _t * 4.3 + phase * 2.3) * turbulence * 0.6)
+		pts[i] = centre + _profile[i] * (base * (1.0 + wob * deform_mul))
 	return pts
 
 func _draw() -> void:

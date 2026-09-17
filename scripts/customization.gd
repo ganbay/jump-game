@@ -154,7 +154,7 @@ func _announce_new_unlocks() -> void:
 	tw.tween_callback(_refresh_lock_state)
 
 func _apply_visual_settings() -> void:
-	world_environment.environment.glow_intensity = Settings.glow_strength
+	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
 	# Currency display disabled -- CoinsRow is hidden (see customization.tscn).
 	# Uncomment alongside it to bring the star count back.

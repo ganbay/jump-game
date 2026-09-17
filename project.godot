@@ -55,15 +55,10 @@ enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/admo
 [gui]
 
 theme/custom_font="res://fonts/Chillax-Regular.otf"
-_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [input_devices]
 
 sensors/enable_accelerometer=true
-
-[internationalization]
-
-locale/translations=PackedStringArray("res://addons/admob/gdscript/sample/translations/admob_sample.en.translation", "res://addons/admob/gdscript/sample/translations/admob_sample.pt_BR.translation", "res://addons/admob/gdscript/sample/translations/admob_sample.es.translation", "res://addons/admob/gdscript/sample/translations/admob_sample.zh_CN.translation", "res://addons/admob/gdscript/sample/translations/admob_sample.ja.translation")
 
 [physics]
 

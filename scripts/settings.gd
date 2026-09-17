@@ -124,6 +124,12 @@ func set_glow_strength(value: float) -> void:
 	_save()
 	visual_settings_changed.emit()
 
+## Zero intensity still runs the full-screen blur, so the slider's bottom end
+## switches the pass off entirely -- the cheap setting for weak GPUs.
+func apply_glow(env: Environment) -> void:
+	env.glow_intensity = glow_strength
+	env.glow_enabled = glow_strength > 0.0
+
 func set_player_color(value: Color, slider_value: float) -> void:
 	player_color = value
 	player_color_slider = slider_value

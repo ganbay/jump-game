@@ -116,23 +116,18 @@ const SOLAR_WIND_SHOW_TIME := 2.0
 ## same thing. Left above the glow threshold on purpose -- on a failure the
 ## plate is what blooms.
 const STREAK_FAIL_COLOR := Color(2.4, 0.5, 0.6)
-## Black glyphs, to read against that plate. The one message whose text sits
-## below the glow threshold and so does not bloom at all.
-const STREAK_FAIL_TEXT_COLOR := Color(0.0, 0.0, 0.0)
 ## A streak has to have been worth showing before losing it is worth
 ## announcing. Below this a mistimed landing is just a landing.
 const STREAK_FAIL_MIN := 2
-## The counter reads white whatever the character's colour is. It sits above
-## the environment's HDR glow threshold of 1.0, which is what makes it bloom
-## like the rest of the scene rather than sitting flat on top of it.
-const STREAK_TEXT_COLOR := Color(2.3, 2.3, 2.3)
-## The plate behind the counter: the character's own colour, multiplied down
-## rather than blended toward black, so a teal character and a red one land at
-## the same relative depth instead of one of them washing out. The palette is
-## authored HDR (channels up to 2.4), and this lands every entry well under the
-## glow threshold of 1.0 -- the plate must not bloom, or it would haze the white
-## text sitting on it instead of backing it.
-const STREAK_PLATE_DARKEN := 0.3
+## Every message on the counter -- FLARE, SOLAR WIND and FAILED alike -- is
+## plain black glyphs, no stroke, on its plate.
+const STREAK_TEXT_COLOR := Color(0.0, 0.0, 0.0)
+## The plate behind the counter: the character's own colour, scaled rather than
+## blended, so a teal character and a red one land at the same relative depth.
+## The palette is authored HDR (channels up to 2.4), so at 1.0 the plate sits
+## above the glow threshold and blooms the same way FAILED's red plate does --
+## black text stays readable on it either way.
+const STREAK_PLATE_DARKEN := 1.0
 const STREAK_PLATE_ALPHA := 1.0
 const STREAK_PLATE_CORNER := 14
 ## Multiplier over the raw (un-darkened) player colour used for sparks -- see
@@ -141,11 +136,10 @@ const STREAK_PLATE_CORNER := 14
 ## background_canvas_max_layer), this is worth pushing further than
 ## background_particles.gd's own 1.6 cap -- a spark is meant to read as a
 ## brief hot flash, not an ambient drift.
-const EMBER_GLOW_BOOST := 1.8
-## How far the plate stands off the glyphs. Generous horizontally: "FLARE x7"
-## is wide and short, and even padding would leave it looking pinched.
-const STREAK_PLATE_PAD_X := 22.0
-const STREAK_PLATE_PAD_Y := 8.0
+const EMBER_GLOW_BOOST := 1.4
+## How far the plate stands off the glyphs: barely at all, so it hugs the text.
+const STREAK_PLATE_PAD_X := 6.0
+const STREAK_PLATE_PAD_Y := 0.0
 
 ## How long a zone announcement stays up between its fade in and fade out.
 const ZONE_BANNER_HOLD := 1.1
@@ -365,15 +359,11 @@ func _drop_in_hud() -> void:
 			.set_delay(i * HUD_DROP_STAGGER)
 
 func _apply_visual_settings() -> void:
-	world_environment.environment.glow_intensity = Settings.glow_strength
+	Settings.apply_glow(world_environment.environment)
 	# Replaces the override the scene carries, which is only there so the label
 	# previews sensibly in the editor.
 	streak_label.add_theme_color_override("font_color", STREAK_TEXT_COLOR)
-	# A thin HDR-bright outline gives bloom a bit more surface to pick up
-	# without reading as a bold/thick glyph -- the actual glow halo comes
-	# from the glow_bloom pulse in _glow_pulse, not from stroke width.
-	streak_label.add_theme_constant_override("outline_size", 3)
-	streak_label.add_theme_color_override("font_outline_color", STREAK_TEXT_COLOR)
+	streak_label.add_theme_constant_override("outline_size", 0)
 	_refresh_streak_plate()
 	# Currency display disabled -- CoinRow is hidden (see main.tscn). Uncomment
 	# alongside it to bring the coin count back.
@@ -545,12 +535,12 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 	_grow_to(score_label, 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP),
 		_score_pivot())
 	if broke:
-		_show_streak_message("FAILED", STREAK_FAIL_TEXT_COLOR, true)
+		_show_streak_message("FAILED", true)
 		Audio.vibrate(30)
 	# Only a landing that actually extends the streak punches the counter --
 	# ordinary jumps leave it sitting still.
 	elif flared:
-		_show_streak_message("FLARE x%d" % streak, STREAK_TEXT_COLOR)
+		_show_streak_message("FLARE x%d" % streak)
 		_punch_streak(streak)
 	# `boosted` is required, not just the streak number: a passive landing that
 	# doesn't attempt a timed tap neither increments nor resets streak, so
@@ -560,8 +550,11 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 		# Overwrites the FLARE message _show_streak_message() just set above --
 		# same label, same frame, so the player only ever sees SOLAR WIND! on a
 		# milestone landing, never a flash of FLARE first.
-		_show_streak_message("SOLAR WIND!", STREAK_TEXT_COLOR, false,
+		_show_streak_message("SOLAR WIND!", false,
 			SOLAR_WIND_FONT_SIZE, SOLAR_WIND_SHOW_TIME)
+		# Re-aimed at the bigger SOLAR WIND plate, and kept sparking for its
+		# whole (longer) hold rather than the FLARE burst's.
+		_spawn_streak_embers(clampi(streak, 0, STREAK_SCALE_CAP), SOLAR_WIND_SHOW_TIME)
 		player.enter_solar_wind()
 	if boosted:
 		# `boosted` is already once per platform -- player.gd spends the
@@ -605,36 +598,29 @@ func _punch_streak(streak: int) -> void:
 ## this frame's plate, already refreshed for the new message by
 ## _refresh_streak_plate, and position is untouched by the scale tween that
 ## is about to run on it.
-func _spawn_streak_embers(tier: int) -> void:
-	# Undarkened player colour, not the plate's own tint: STREAK_PLATE_DARKEN
-	# keeps the plate itself under the HDR glow threshold on purpose (see
-	# _streak_plate_color), so a spark built from that tint could never bloom
-	# no matter how the glow settings were tuned. Player colour on its own
-	# already crosses 1.0 in at least one channel by default -- the same
-	# thing that lets StreakLabel's own text bloom -- and EMBER_GLOW_BOOST
-	# pushes it further, the way background_particles.gd boosts its own base
-	# colour per particle.
+func _spawn_streak_embers(tier: int, hold_time: float = STREAK_SHOW_TIME) -> void:
+	# Player colour scaled by its own EMBER_GLOW_BOOST, independent of the
+	# plate's STREAK_PLATE_DARKEN, so spark bloom and plate bloom tune
+	# separately.
 	var ember_color := Settings.player_color * EMBER_GLOW_BOOST
 	ember_color.a = 1.0
 	_streak_embers.color = ember_color
 	_streak_embers.plate_size = streak_label.size
 	_streak_embers.tier = tier
 	_streak_embers.position = streak_label.position + streak_label.size / 2.0
-	# Sparks for as long as the plate itself stays fully up before it starts
-	# to fade -- the same hold_time _flash_streak was given for this message.
-	_streak_embers.burst(STREAK_SHOW_TIME + STREAK_FADE_TIME)
+	# Sparks only while the plate is fully up: the spray is gone by the time the
+	# text starts its STREAK_FADE_TIME fade, so it never outlives the message.
+	_streak_embers.burst(hold_time)
 
 ## Puts one message in the counter's slot and flashes it. Any punch still
 ## springing back from the streak that just ended is cancelled first, so a
 ## FAILED does not inherit the swagger of the streak it is reporting the loss
 ## of; a streak message re-punches straight after this anyway.
-func _show_streak_message(text: String, color: Color, failed: bool = false,
+func _show_streak_message(text: String, failed: bool = false,
 		font_size: int = STREAK_FONT_SIZE, hold_time: float = STREAK_SHOW_TIME) -> void:
 	_streak_failed = failed
 	if streak_label.text != text:
 		streak_label.text = text
-	streak_label.add_theme_color_override("font_color", color)
-	streak_label.add_theme_color_override("font_outline_color", color)
 	streak_label.add_theme_font_size_override("font_size", font_size)
 	_refresh_streak_plate()
 	if _streak_tween != null and _streak_tween.is_valid():
@@ -679,10 +665,8 @@ func _streak_plate() -> StyleBoxFlat:
 ## embers) so its sparks read as pieces of the plate itself rather than a
 ## separately-tuned effect colour.
 ##
-## A failure keeps its colour at full strength: it is meant to bloom and be
-## alarming, and the black text on it does not need the plate held down to
-## stay readable. A flare's plate is taken right down instead, because white
-## text does.
+## Both plates are bright enough to bloom: red on a failure, the character's
+## own colour (scaled by STREAK_PLATE_DARKEN) on a flare or Solar Wind.
 func _streak_plate_color() -> Color:
 	var tint := STREAK_FAIL_COLOR if _streak_failed \
 		else Settings.player_color * STREAK_PLATE_DARKEN

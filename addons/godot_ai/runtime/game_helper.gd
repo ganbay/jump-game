@@ -111,6 +111,12 @@ func _ready() -> void:
 	## to skip registration in the game and time out every capture.
 	if Engine.is_editor_hint():
 		return
+	## Release exports have no editor to talk to: drop out entirely so the
+	## logger and per-frame _process never run on players' devices.
+	if not OS.is_debug_build():
+		set_process(false)
+		queue_free()
+		return
 	## Keep ticking while the tree is paused: _process both ferries game logs
 	## and timestamps main-loop liveness for the stalled-loop screenshot
 	## fallback (#777). A paused game still iterates its loop and renders, and

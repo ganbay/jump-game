@@ -34,7 +34,7 @@ func _ready() -> void:
 	IconPop.attach([prev_button, next_button, $UI/PlayButton, $UI/BackButton])
 
 func _apply_visual_settings() -> void:
-	world_environment.environment.glow_intensity = Settings.glow_strength
+	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
 
 func _show_page(page: int) -> void:

@@ -62,7 +62,7 @@ func _badges() -> String:
 	return "\n" + "     ".join(earned) if not earned.is_empty() else ""
 
 func _apply_visual_settings() -> void:
-	world_environment.environment.glow_intensity = Settings.glow_strength
+	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
 	graph.line_color = Settings.background_particle_color
 	graph.queue_redraw()

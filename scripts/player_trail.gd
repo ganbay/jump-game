@@ -27,7 +27,19 @@ var color: Color = Color.WHITE
 ## Fragments are drawn as this silhouette (see PlasmaBlob.Shape) instead of a
 ## plain circle, so a shape skin sheds little copies of its own body. CIRCLE
 ## draws exactly as before -- the round PLASMA skin is unaffected.
-var shape: PlasmaBlob.Shape = PlasmaBlob.Shape.CIRCLE
+var shape: PlasmaBlob.Shape = PlasmaBlob.Shape.CIRCLE:
+	set(value):
+		shape = value
+		_rebuild_shape_profile()
+
+const SHAPE_SEGMENTS := 12
+## Unit outline of `shape`, rebuilt only when the skin changes -- each fragment
+## just scales and offsets it instead of re-running PlasmaBlob.shape_radius.
+var _shape_profile: PackedVector2Array = PackedVector2Array()
+## Scratch buffers reused by every fragment; draw_polygon copies what it is
+## handed, so nothing has to be allocated per fragment per frame.
+var _shape_pts: PackedVector2Array = PackedVector2Array()
+var _shape_col: PackedColorArray = PackedColorArray([Color.WHITE])
 
 var _pos: PackedVector2Array = PackedVector2Array()
 var _vel: PackedVector2Array = PackedVector2Array()
@@ -46,6 +58,14 @@ func _ready() -> void:
 	_age.resize(max_fragments)
 	_size.resize(max_fragments)
 	_clear()
+	_rebuild_shape_profile()
+
+func _rebuild_shape_profile() -> void:
+	_shape_profile.resize(SHAPE_SEGMENTS)
+	_shape_pts.resize(SHAPE_SEGMENTS)
+	for i in range(SHAPE_SEGMENTS):
+		var a := TAU * float(i) / float(SHAPE_SEGMENTS)
+		_shape_profile[i] = Vector2(cos(a), sin(a)) * PlasmaBlob.shape_radius(a, shape)
 
 func _clear() -> void:
 	for i in range(max_fragments):
@@ -121,10 +141,7 @@ func _draw() -> void:
 ## Draws a small polygon following the same silhouette math as the body
 ## (PlasmaBlob.shape_radius), so fragments read as tiny copies of it.
 func _draw_shape(centre: Vector2, r: float, fragment_color: Color) -> void:
-	const SEGMENTS := 12
-	var pts := PackedVector2Array()
-	for i in range(SEGMENTS):
-		var a := TAU * float(i) / float(SEGMENTS)
-		var mul := PlasmaBlob.shape_radius(a, shape)
-		pts.append(centre + Vector2(cos(a), sin(a)) * r * mul)
-	draw_polygon(pts, PackedColorArray([fragment_color]))
+	for i in range(SHAPE_SEGMENTS):
+		_shape_pts[i] = centre + _shape_profile[i] * r
+	_shape_col[0] = fragment_color
+	draw_polygon(_shape_pts, _shape_col)
