@@ -955,6 +955,9 @@ func _finish_game_over() -> void:
 	})
 	Crash.log_message("run_end score=%d" % score)
 	Crash.set_custom_value("last_score", score)
+	# First finished run only; asks for the notification permission once the
+	# player is idle on this panel.
+	Notify.request_permission_once()
 	# Missions disabled -- see missions.gd ENABLED. Uncomment together with the
 	# other call sites; it goes after record_run so a mission payout lands on a
 	# balance that already includes the coins this run earned.

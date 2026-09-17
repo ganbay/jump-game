@@ -1,0 +1,36 @@
+// Builds ../bin/jetlet-notify.aar:  ./gradlew assembleRelease
+plugins {
+    id 'com.android.library' version '8.6.1'
+}
+
+// Compiled against the exact engine library the export uses, pulled straight
+// out of the installed build template rather than a Maven artifact, so the two
+// can never drift apart. compileOnly: the engine is already in the app.
+def godotAar = file('../../../android/build/libs/release/godot-lib.template_release.aar')
+
+android {
+    namespace 'com.eternalsky.jetletnotify'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    compileOnly files(zipTree(godotAar).matching { include 'classes.jar' })
+}
+
+tasks.register('copyAar', Copy) {
+    from layout.buildDirectory.file('outputs/aar/jetlet-notify-release.aar')
+    into file('../bin')
+    rename { 'jetlet-notify.aar' }
+}
+afterEvaluate {
+    tasks.named('assembleRelease') { finalizedBy 'copyAar' }
+}
