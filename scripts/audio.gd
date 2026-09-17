@@ -17,6 +17,16 @@ const MUSIC_SETS := [
 		"drum": preload("res://audio/music/gameplay_dnb_drums_155bpm.ogg"),
 		"bpm": 155.0,
 	},
+	{
+		"lead": preload("res://audio/music/gameplay_asap_clams_vocal_128bpm.ogg"),
+		"drum": preload("res://audio/music/gameplay_indie_drums_128bpm.ogg"),
+		"bpm": 128.0,
+	},
+	{
+		"lead": preload("res://audio/music/gameplay_too_tired_108bpm.ogg"),
+		"drum": preload("res://audio/music/gameplay_crystal_castles_drums_108bpm.ogg"),
+		"bpm": 108.0,
+	},
 ]
 
 const SFX_POOL_SIZE := 6
@@ -42,6 +52,7 @@ var _menu_player: AudioStreamPlayer
 var _streak_tier := -1
 var _drum_started := false
 var _bar_length := 0.0
+var _last_set_idx := -1
 var _layer_tweens: Dictionary = {}
 ## The mute lands on the master bus, not the music one: it silences the whole
 ## game, and muting a bus can't fight the volume_db fade tweens the music layers
@@ -98,14 +109,21 @@ func play_menu_music() -> void:
 		_menu_player.volume_db = 0.0
 		_menu_player.play(0.0)
 
-## Rolls a random lead+drum set for this run and (re)starts it fresh with a
-## fade-in, even if a previous run's set is still playing — so a restart
-## after game over can roll a different pairing.
+## Rolls a random lead+drum set for this run (never the previous run's set)
+## and (re)starts it fresh with a fade-in, even if a previous run's set is
+## still playing.
 func play_music() -> void:
 	if _menu_player.playing:
 		_menu_player.stop()
 	_stop_gameplay_music()
-	var music_set: Dictionary = MUSIC_SETS[randi() % MUSIC_SETS.size()]
+	# Roll among the other sets only, so back-to-back runs never repeat a song.
+	var set_idx := randi() % MUSIC_SETS.size()
+	if _last_set_idx >= 0 and MUSIC_SETS.size() > 1:
+		set_idx = randi() % (MUSIC_SETS.size() - 1)
+		if set_idx >= _last_set_idx:
+			set_idx += 1
+	_last_set_idx = set_idx
+	var music_set: Dictionary = MUSIC_SETS[set_idx]
 	_lead_player.stream = music_set["lead"]
 	_drum_player.stream = music_set["drum"]
 	_bar_length = 60.0 / music_set["bpm"] * 4.0

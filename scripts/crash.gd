@@ -44,6 +44,19 @@ func log_message(message: String) -> void:
 	if _crashlytics != null:
 		_crashlytics.log_message(message)
 
+## Dispatches to the native setter for the value's type. Deliberately not
+## FirebaseCrashlyticsHelper: addons/godotx_firebase/ is excluded from the
+## export, so naming that class made this whole autoload fail to parse on
+## device -- and every Crash.* call site then errored out mid-function.
 func set_custom_value(key: String, value) -> void:
-	if _crashlytics != null:
-		FirebaseCrashlyticsHelper.set_custom_value(_crashlytics, key, value)
+	if _crashlytics == null:
+		return
+	match typeof(value):
+		TYPE_BOOL:
+			_crashlytics.set_custom_value_bool(key, value)
+		TYPE_INT:
+			_crashlytics.set_custom_value_int(key, value)
+		TYPE_FLOAT:
+			_crashlytics.set_custom_value_float(key, value)
+		_:
+			_crashlytics.set_custom_value_string(key, str(value))
