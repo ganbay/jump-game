@@ -12,6 +12,7 @@
 
 [sub_resource type="Environment" id="Environment_menu"]
 background_mode = 3
+background_canvas_max_layer = 1
 glow_enabled = true
 glow_intensity = 0.4
 glow_strength = 0.7
@@ -69,6 +70,14 @@ theme_override_font_sizes/font_size = 38
 text = "SOLAR ESCAPE"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="PlayZone" type="Control" parent="UI"]
+anchors_preset = -1
+anchor_top = 0.32
+anchor_right = 1.0
+anchor_bottom = 0.87
+offset_bottom = -72.0
+mouse_filter = 2
 
 [node name="TapIcon" type="TextureRect" parent="UI" unique_id=153465056]
 anchors_preset = -1
@@ -133,13 +142,13 @@ icon_alignment = 1
 [node name="CustomizeButton" type="Button" parent="UI" unique_id=453665329]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.88
+anchor_top = 0.87
 anchor_right = 0.5
-anchor_bottom = 0.88
+anchor_bottom = 0.87
 offset_left = -246.0
-offset_top = 8.599976
+offset_top = -48.0
 offset_right = -150.0
-offset_bottom = 104.599976
+offset_bottom = 48.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 52
@@ -150,13 +159,13 @@ icon_alignment = 1
 [node name="StatisticsButton" type="Button" parent="UI" unique_id=1318597547]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.88
+anchor_top = 0.87
 anchor_right = 0.5
-anchor_bottom = 0.88
+anchor_bottom = 0.87
 offset_left = -114.0
-offset_top = 8.599976
+offset_top = -48.0
 offset_right = -18.0
-offset_bottom = 104.599976
+offset_bottom = 48.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 52
@@ -167,13 +176,13 @@ icon_alignment = 1
 [node name="GuideButton" type="Button" parent="UI" unique_id=1626263419]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.88
+anchor_top = 0.87
 anchor_right = 0.5
-anchor_bottom = 0.88
+anchor_bottom = 0.87
 offset_left = 18.0
-offset_top = 8.599976
+offset_top = -48.0
 offset_right = 114.0
-offset_bottom = 104.599976
+offset_bottom = 48.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 52
@@ -184,13 +193,13 @@ icon_alignment = 1
 [node name="SettingsButton" type="Button" parent="UI" unique_id=1298815438]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.88
+anchor_top = 0.87
 anchor_right = 0.5
-anchor_bottom = 0.88
+anchor_bottom = 0.87
 offset_left = 150.0
-offset_top = 8.599976
+offset_top = -48.0
 offset_right = 246.0
-offset_bottom = 104.599976
+offset_bottom = 48.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
 theme_override_constants/icon_max_width = 52

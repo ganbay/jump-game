@@ -49,7 +49,14 @@ const PUNCH_GLOW_BONUS := 0.7
 ## threshold -- at the scene's base 0.05 a bright shape just reads as a crisp
 ## bright shape, not a halo. Only a flare landing pushes it up, so the soft
 ## glow around the FLARE text reads as tied to that moment.
-const FLARE_GLOW_BLOOM_PEAK := 0.5
+##
+## Kept modest now that $UI shares the glow pass (see main.tscn's
+## background_canvas_max_layer): bloom is a screen-space blur added back on
+## top of the whole image, so it doesn't respect the streak plate's own
+## opacity -- a wide spike here washes a visible halo straight across the
+## plate at the exact moment it appears. This still punches, just without
+## blowing through it.
+const FLARE_GLOW_BLOOM_PEAK := 0.15
 ## Every Nth streak retriggers Solar Wind (see player.gd:enter_solar_wind) --
 ## flat, not escalating, so 20/30/40 feel the same as 10 rather than building.
 const SOLAR_WIND_STREAK_STEP := 10
@@ -58,6 +65,9 @@ const SAVE_PATH := "user://highscore.cfg"
 const STREAK_SCALE_STEP := 0.1
 const STREAK_SCALE_CAP := 10
 const VIBRATE_AMOUNT := 8.0
+## Gap between the screen's left edge and a left-aligned score. Wider than
+## VIBRATE_AMOUNT, so the landing rattle never pushes a digit off screen.
+const SCORE_LEFT_MARGIN := 28.0
 
 ## A coin lands on every perfect jump, so during a streak this fires as fast as
 ## the player is bouncing. The kick is much smaller than the streak counter's
@@ -123,10 +133,15 @@ const STREAK_TEXT_COLOR := Color(2.3, 2.3, 2.3)
 ## glow threshold of 1.0 -- the plate must not bloom, or it would haze the white
 ## text sitting on it instead of backing it.
 const STREAK_PLATE_DARKEN := 0.3
-## Short of opaque, so the plate reads as part of the HUD rather than a hole
-## punched in the playfield -- the platforms still show faintly through it.
-const STREAK_PLATE_ALPHA := 0.95
+const STREAK_PLATE_ALPHA := 1.0
 const STREAK_PLATE_CORNER := 14
+## Multiplier over the raw (un-darkened) player colour used for sparks -- see
+## _spawn_streak_embers for why the plate's own tint can't be reused here.
+## Now that $UI is actually inside the glow pass (see main.tscn's
+## background_canvas_max_layer), this is worth pushing further than
+## background_particles.gd's own 1.6 cap -- a spark is meant to read as a
+## brief hot flash, not an ambient drift.
+const EMBER_GLOW_BOOST := 1.8
 ## How far the plate stands off the glyphs. Generous horizontally: "FLARE x7"
 ## is wide and short, and even padding would leave it looking pinched.
 const STREAK_PLATE_PAD_X := 22.0
@@ -174,7 +189,7 @@ var run_flares: int = 0
 ## intro hands control over, so the cinematic launch is not charged to the
 ## player's pace.
 var run_time: float = 0.0
-var is_game_over: bool = false
+var is_game_over: bool = false 
 var is_intro: bool = false
 var is_paused: bool = false
 var high_score: int = 0
@@ -190,6 +205,9 @@ var _streak_center: Vector2
 ## also rebuilt when the character's colour changes under a message that is
 ## already on screen.
 var _streak_failed: bool = false
+## One persistent spark emitter, reused for every flare rather than
+## instantiated per landing -- see _spawn_streak_embers.
+var _streak_embers: Node2D
 var _shown_score: int = -1
 ## The streak the last landing reported. The player only sends the new value,
 ## so this is what makes a drop to zero distinguishable from never having had
@@ -257,9 +275,22 @@ func _ready() -> void:
 	game_over_panel.hide()
 	milestone_panel.hide()
 	zone_banner.hide()
+	# Before anything reads the label's position: the vibrate origin and the
+	# HUD drop-in home are both captured from where this leaves it.
+	_apply_score_align()
 	_score_base_position = score_label.position
 	_streak_center = streak_label.position + streak_label.size / 2.0
+	# The plate has to actually block what's behind it -- see UiOpacity's
+	# EXEMPT_GROUP doc for why the UI Opacity slider can't be allowed to
+	# thin it out the way it does every other readout.
+	streak_label.add_to_group(UiOpacity.EXEMPT_GROUP)
 	_refresh_streak_plate()
+	_streak_embers = preload("res://scenes/streak_embers.tscn").instantiate()
+	streak_label.get_parent().add_child(_streak_embers)
+	# Behind the plate and its text, not over them: a sibling drawn later
+	# paints on top, so this has to sit earlier than StreakLabel in the
+	# parent's child order.
+	streak_label.get_parent().move_child(_streak_embers, streak_label.get_index())
 	var view := get_viewport_rect().size
 	_death_margin = view.y / 2.0 + 80.0
 	# The scene parks both at x=360, half of the base 720. Under `expand` a
@@ -309,6 +340,8 @@ func _on_intro_finished() -> void:
 	# Warm up the revive ad from the first frame of the run, so the offer at
 	# the end of it has something ready to show.
 	Ads.load_rewarded()
+	Analytics.log_event("run_start")
+	Crash.log_message("run_start")
 	_score_origin_y = camera.global_position.y
 	spawner.score_origin_y = _score_origin_y
 	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
@@ -452,6 +485,11 @@ func _save_high_score() -> void:
 
 func _process(delta: float) -> void:
 	_decay_streak_shake(delta)
+	# Sparks track the counter's own fade (_flash_streak tweens
+	# streak_label.modulate.a) rather than a fixed brightness, so they die
+	# down together with the message instead of still shining after it's
+	# gone translucent or vanished.
+	_streak_embers.modulate.a = streak_label.modulate.a
 	# Ahead of the early return: the launch out of the star happens while the
 	# intro still owns the camera, and that is the shake most worth seeing.
 	_apply_camera_shake()
@@ -504,7 +542,8 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 	var broke := streak == 0 and _last_streak >= STREAK_FAIL_MIN
 	var flared := boosted and streak > 1
 	_last_streak = streak
-	_grow_to(score_label, 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP))
+	_grow_to(score_label, 1.0 + STREAK_SCALE_STEP * clampi(streak, 0, STREAK_SCALE_CAP),
+		_score_pivot())
 	if broke:
 		_show_streak_message("FAILED", STREAK_FAIL_TEXT_COLOR, true)
 		Audio.vibrate(30)
@@ -556,6 +595,34 @@ func _punch_streak(streak: int) -> void:
 	_streak_tween.tween_property(streak_label, "scale", Vector2.ONE, STREAK_SETTLE_TIME) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_streak_shake = STREAK_SHAKE_BASE + STREAK_SHAKE_STEP * float(tier)
+	_spawn_streak_embers(tier)
+
+## Refreshes the plate's spark emitter rather than spawning a new one each
+## landing: the emitter is one persistent node (see _ready) whose burst()
+## just extends how long it keeps sparking, so back-to-back flares read as
+## one continuous spray instead of overlapping one-shot bursts. Read before
+## the punch tween above has moved anything: streak_label.size/position are
+## this frame's plate, already refreshed for the new message by
+## _refresh_streak_plate, and position is untouched by the scale tween that
+## is about to run on it.
+func _spawn_streak_embers(tier: int) -> void:
+	# Undarkened player colour, not the plate's own tint: STREAK_PLATE_DARKEN
+	# keeps the plate itself under the HDR glow threshold on purpose (see
+	# _streak_plate_color), so a spark built from that tint could never bloom
+	# no matter how the glow settings were tuned. Player colour on its own
+	# already crosses 1.0 in at least one channel by default -- the same
+	# thing that lets StreakLabel's own text bloom -- and EMBER_GLOW_BOOST
+	# pushes it further, the way background_particles.gd boosts its own base
+	# colour per particle.
+	var ember_color := Settings.player_color * EMBER_GLOW_BOOST
+	ember_color.a = 1.0
+	_streak_embers.color = ember_color
+	_streak_embers.plate_size = streak_label.size
+	_streak_embers.tier = tier
+	_streak_embers.position = streak_label.position + streak_label.size / 2.0
+	# Sparks for as long as the plate itself stays fully up before it starts
+	# to fade -- the same hold_time _flash_streak was given for this message.
+	_streak_embers.burst(STREAK_SHOW_TIME + STREAK_FADE_TIME)
 
 ## Puts one message in the counter's slot and flashes it. Any punch still
 ## springing back from the streak that just ended is cancelled first, so a
@@ -600,19 +667,26 @@ func _refresh_streak_plate() -> void:
 
 func _streak_plate() -> StyleBoxFlat:
 	var plate := StyleBoxFlat.new()
-	# A failure keeps its colour at full strength: it is meant to bloom and be
-	# alarming, and the black text on it does not need the plate held down to
-	# stay readable. A flare's plate is taken right down instead, because white
-	# text does.
-	var tint := STREAK_FAIL_COLOR if _streak_failed \
-		else Settings.player_color * STREAK_PLATE_DARKEN
-	plate.bg_color = Color(tint.r, tint.g, tint.b, STREAK_PLATE_ALPHA)
+	plate.bg_color = _streak_plate_color()
 	plate.set_corner_radius_all(STREAK_PLATE_CORNER)
 	plate.content_margin_left = STREAK_PLATE_PAD_X
 	plate.content_margin_right = STREAK_PLATE_PAD_X
 	plate.content_margin_top = STREAK_PLATE_PAD_Y
 	plate.content_margin_bottom = STREAK_PLATE_PAD_Y
 	return plate
+
+## The plate's fill colour, also handed to the spark emitter (_spawn_streak_
+## embers) so its sparks read as pieces of the plate itself rather than a
+## separately-tuned effect colour.
+##
+## A failure keeps its colour at full strength: it is meant to bloom and be
+## alarming, and the black text on it does not need the plate held down to
+## stay readable. A flare's plate is taken right down instead, because white
+## text does.
+func _streak_plate_color() -> Color:
+	var tint := STREAK_FAIL_COLOR if _streak_failed \
+		else Settings.player_color * STREAK_PLATE_DARKEN
+	return Color(tint.r, tint.g, tint.b, STREAK_PLATE_ALPHA)
 
 ## Brings the counter up and then takes it away. Restarted by every streak, so
 ## back-to-back streaks hold it on screen continuously instead of blinking it
@@ -651,10 +725,32 @@ func _glow_pulse(peak: float, bloom_peak: float) -> void:
 ## Tweens the label's transform rather than its font size: animating
 ## theme_override_font_sizes/font_size re-rasterizes the glyph atlas at a new
 ## pixel size on every frame of the tween, which is a visible hitch on mobile.
-func _grow_to(label: Label, target_scale: float) -> void:
-	label.pivot_offset = label.size / 2.0
+func _grow_to(label: Label, target_scale: float, pivot: Vector2) -> void:
+	label.pivot_offset = pivot
 	var tw := create_tween()
 	tw.tween_property(label, "scale", Vector2.ONE * target_scale, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+## The scene authors the score centred along the top edge. LEFT re-anchors the
+## same box to the left edge, keeping its width and height, so only the
+## horizontal placement changes.
+func _apply_score_align() -> void:
+	if Settings.score_align != Settings.ScoreAlign.LEFT:
+		return
+	var width := score_label.size.x
+	# Left side first: anchor_left may never pass anchor_right, and the right
+	# anchor is still at 0.5 here. set_anchor_and_offset rather than the plain
+	# anchor properties, which rewrite the offsets to hold the old position.
+	score_label.set_anchor_and_offset(SIDE_LEFT, 0.0, SCORE_LEFT_MARGIN)
+	score_label.set_anchor_and_offset(SIDE_RIGHT, 0.0, SCORE_LEFT_MARGIN + width)
+	score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+
+## Centred text grows about its middle. Left-aligned text grows from its left
+## edge instead: scaled about the middle, it would spread left past the margin
+## and off the screen as the streak builds.
+func _score_pivot() -> Vector2:
+	if Settings.score_align == Settings.ScoreAlign.LEFT:
+		return Vector2(0.0, score_label.size.y / 2.0)
+	return score_label.size / 2.0
 
 func _vibrate(label: Label, base_pos: Vector2) -> void:
 	var tw := create_tween()
@@ -741,10 +837,12 @@ func _on_zone_changed(stage: int, zone_name: String) -> void:
 func _on_milestone_reached(kind: int) -> void:
 	if kind == ZoneDirector.Milestone.ESCAPE:
 		Stats.mark_escaped()
+		Analytics.log_event("milestone_escape")
 		milestone_title.text = "SOLAR GRAVITY ESCAPED"
 		milestone_body.text = "Continue on your journey!\n\nMore you explore, harder it gets!\n\nGood Luck!"
 	else:
 		Stats.mark_true_ending()
+		Analytics.log_event("milestone_true_ending")
 		milestone_title.text = "CONGRATS!!!"
 		milestone_body.text = "You've mastered the space!\n\nContinue your journey for eternity to come!"
 	_milestone_open = true
@@ -809,6 +907,7 @@ func _on_revive_watch_ad_pressed() -> void:
 
 func _on_revive_ad_rewarded() -> void:
 	_revive_used = true
+	Analytics.log_event("revive_used")
 	_close_revive_offer()
 	_revive_player()
 	# Fetch the next one now rather than at the next death -- this run can no
@@ -864,6 +963,14 @@ func _finish_game_over() -> void:
 		high_score = score
 		_save_high_score()
 	Stats.record_run(score, run_max_streak, run_coins, run_time)
+	Analytics.log_event("run_end", {
+		"score": score,
+		"max_streak": run_max_streak,
+		"coins": run_coins,
+		"duration_s": int(run_time),
+	})
+	Crash.log_message("run_end score=%d" % score)
+	Crash.set_custom_value("last_score", score)
 	# Missions disabled -- see missions.gd ENABLED. Uncomment together with the
 	# other call sites; it goes after record_run so a mission payout lands on a
 	# balance that already includes the coins this run earned.

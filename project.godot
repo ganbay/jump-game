@@ -26,6 +26,7 @@ config/icon="res://new_icon.png"
 
 Settings="*res://scripts/settings.gd"
 Stats="*res://scripts/stats.gd"
+Analytics="*res://scripts/analytics.gd"
 Audio="*res://scripts/audio.gd"
 Transition="*res://scripts/transition.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
@@ -33,6 +34,7 @@ Unlocks="*res://scripts/unlocks.gd"
 Notify="*res://scripts/notifications.gd"
 Missions="*res://scripts/missions.gd"
 Ads="*res://scripts/ads.gd"
+Crash="*res://scripts/crash.gd"
 
 [display]
 
@@ -48,7 +50,7 @@ movie_writer/movie_file="/home/ganbay/Godot/jump/screen_recording.avi"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/admob/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/admob/plugin.cfg", "res://addons/godotx_firebase/plugin.cfg")
 
 [gui]
 

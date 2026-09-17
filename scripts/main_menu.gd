@@ -1,10 +1,12 @@
 extends Node2D
 
-## The whole screen is the play button -- the icon buttons are the only things
-## that intercept a tap. Nothing here is labelled except the title and the tap
-## prompt, so the icons have to carry their own meaning: cart = what you can put
-## on the character, bars = your runs, ? = the guide, gear = settings, and the
-## speaker in the corner mutes the whole game.
+## The open middle of the screen (PlayZone) is the play button: everything from
+## under the title down to just above the icon row. Taps on the title, in the
+## corners or near the bottom edge start nothing, so a stray touch or a home
+## swipe from the gesture bar does not launch a run. Nothing here is labelled
+## except the title and the tap prompt, so the icons have to carry their own
+## meaning: cart = what you can put on the character, bars = your runs, ? = the
+## guide, gear = settings, and the speaker in the corner mutes the whole game.
 
 ## The mute toggle swaps its glyph rather than tinting one, so the state reads
 ## at a glance instead of asking the player to remember which shade means off.
@@ -15,6 +17,9 @@ const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
 @onready var tap_icon: TextureRect = $UI/TapIcon
 @onready var tap_label: Label = $UI/TapLabel
 @onready var sound_button: Button = $UI/SoundButton
+## Invisible and MOUSE_FILTER_IGNORE: only its rect is read, so it never takes
+## a press away from the buttons or from _unhandled_input.
+@onready var play_zone: Control = $UI/PlayZone
 @onready var _icon_buttons: Array[Node] = [$UI/SoundButton, $UI/ScienceButton,
 	$UI/CustomizeButton, $UI/StatisticsButton,
 	$UI/GuideButton, $UI/SettingsButton]
@@ -70,11 +75,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_echo():
 		return
+	# Keys carry no position and still play from anywhere.
+	var in_zone := event is InputEventKey \
+		or play_zone.get_global_rect().has_point(event.position)
 	if event.is_pressed():
-		_pressed = true
+		_pressed = in_zone
 	elif _pressed:
 		_pressed = false
-		_play()
+		# Dragging out of the zone before lifting cancels, like a button.
+		if in_zone:
+			_play()
 
 func _play() -> void:
 	_go("res://scenes/main.tscn" if Stats.tutorial_seen else "res://scenes/guide.tscn")

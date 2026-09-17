@@ -18,8 +18,11 @@ const HAPTICS_OFF_ICON := preload("res://assets/icons/no_symbol.svg")
 @onready var glow_slider: HSlider = $UI/GlowSlider
 @onready var opacity_slider: HSlider = $UI/OpacitySlider
 @onready var controls_button: Button = $UI/ControlsButton
+@onready var sensitivity_label: Label = $UI/SensitivityLabel
+@onready var sensitivity_slider: HSlider = $UI/SensitivitySlider
 @onready var sound_button: Button = $UI/SoundButton
 @onready var haptics_button: Button = $UI/HapticsButton
+@onready var score_align_button: Button = $UI/ScoreAlignButton
 @onready var privacy_button: Button = $UI/PrivacyButton
 @onready var privacy_panel: ColorRect = $UI/PrivacyPanel
 
@@ -27,11 +30,13 @@ func _ready() -> void:
 	glow_slider.value = Settings.glow_strength
 	opacity_slider.value = Settings.ui_opacity
 	_update_controls_icon()
+	_update_sensitivity_row()
 	_update_sound_icon()
 	_update_haptics_icon()
+	_update_score_align_text()
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
-	IconPop.attach([controls_button, sound_button, haptics_button, privacy_button, $UI/BackButton])
+	IconPop.attach([controls_button, sound_button, haptics_button, score_align_button, privacy_button, $UI/BackButton])
 
 func _apply_visual_settings() -> void:
 	world_environment.environment.glow_intensity = Settings.glow_strength
@@ -49,6 +54,21 @@ func _on_controls_pressed() -> void:
 	Audio.play_ui_click()
 	Settings.toggle_control_scheme()
 	_update_controls_icon()
+	_update_sensitivity_row()
+
+## One slider, bound to whichever scheme is active, so the row always tunes the
+## controls the player is actually using.
+func _update_sensitivity_row() -> void:
+	var tilt := Settings.control_scheme == Settings.ControlScheme.TILT
+	sensitivity_label.text = "TILT SENSITIVITY" if tilt else "DRAG SENSITIVITY"
+	sensitivity_slider.set_value_no_signal(
+		Settings.tilt_sensitivity if tilt else Settings.touch_sensitivity)
+
+func _on_sensitivity_slider_value_changed(value: float) -> void:
+	if Settings.control_scheme == Settings.ControlScheme.TILT:
+		Settings.set_tilt_sensitivity(value)
+	else:
+		Settings.set_touch_sensitivity(value)
 
 func _update_controls_icon() -> void:
 	controls_button.icon = (CONTROLS_TILT_ICON
@@ -69,6 +89,17 @@ func _on_haptics_pressed() -> void:
 
 func _update_haptics_icon() -> void:
 	haptics_button.icon = HAPTICS_ON_ICON if Settings.haptics_enabled else HAPTICS_OFF_ICON
+
+## A word rather than a glyph: no icon says "left" versus "centre" for a
+## number as plainly as the words do.
+func _on_score_align_pressed() -> void:
+	Audio.play_ui_click()
+	Settings.toggle_score_align()
+	_update_score_align_text()
+
+func _update_score_align_text() -> void:
+	score_align_button.text = ("LEFT"
+		if Settings.score_align == Settings.ScoreAlign.LEFT else "CENTER")
 
 func _on_privacy_pressed() -> void:
 	Audio.play_ui_click()

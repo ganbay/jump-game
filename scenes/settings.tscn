@@ -54,9 +54,9 @@ horizontal_alignment = 1
 [node name="GlowLabel" type="Label" parent="UI" unique_id=1516743856]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.21
+anchor_top = 0.14
 anchor_right = 0.5
-anchor_bottom = 0.21
+anchor_bottom = 0.14
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 140.0
@@ -69,9 +69,9 @@ horizontal_alignment = 1
 [node name="GlowSlider" type="HSlider" parent="UI" unique_id=1238064475]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.26
+anchor_top = 0.18
 anchor_right = 0.5
-anchor_bottom = 0.26
+anchor_bottom = 0.18
 offset_left = -140.0
 offset_top = -10.0
 offset_right = 140.0
@@ -83,9 +83,9 @@ value = 0.8
 [node name="OpacityLabel" type="Label" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.33
+anchor_top = 0.24
 anchor_right = 0.5
-anchor_bottom = 0.33
+anchor_bottom = 0.24
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 140.0
@@ -98,9 +98,9 @@ horizontal_alignment = 1
 [node name="OpacitySlider" type="HSlider" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.38
+anchor_top = 0.28
 anchor_right = 0.5
-anchor_bottom = 0.38
+anchor_bottom = 0.28
 offset_left = -140.0
 offset_top = -10.0
 offset_right = 140.0
@@ -110,12 +110,45 @@ max_value = 1.0
 step = 0.05
 value = 0.8
 
+[node name="ScoreAlignLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.35
+anchor_right = 0.5
+anchor_bottom = 0.35
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 20.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "SCORE POSITION"
+vertical_alignment = 1
+
+[node name="ScoreAlignButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.35
+anchor_right = 0.5
+anchor_bottom = 0.35
+offset_left = 36.0
+offset_top = -44.0
+offset_right = 156.0
+offset_bottom = 44.0
+focus_mode = 0
+theme_override_colors/font_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_colors/font_pressed_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_colors/font_hover_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_font_sizes/font_size = 20
+text = "LEFT"
+flat = true
+
 [node name="ControlsLabel" type="Label" parent="UI" unique_id=1952482922]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.52
+anchor_top = 0.44
 anchor_right = 0.5
-anchor_bottom = 0.52
+anchor_bottom = 0.44
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 20.0
@@ -128,9 +161,9 @@ vertical_alignment = 1
 [node name="ControlsButton" type="Button" parent="UI" unique_id=391914364]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.52
+anchor_top = 0.44
 anchor_right = 0.5
-anchor_bottom = 0.52
+anchor_bottom = 0.44
 offset_left = 52.0
 offset_top = -44.0
 offset_right = 140.0
@@ -142,12 +175,42 @@ icon = ExtResource("4_controls")
 flat = true
 icon_alignment = 1
 
+[node name="SensitivityLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.51
+anchor_right = 0.5
+anchor_bottom = 0.51
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 140.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "TILT SENSITIVITY"
+horizontal_alignment = 1
+
+[node name="SensitivitySlider" type="HSlider" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.55
+anchor_right = 0.5
+anchor_bottom = 0.55
+offset_left = -140.0
+offset_top = -10.0
+offset_right = 140.0
+offset_bottom = 10.0
+min_value = 0.5
+max_value = 2.0
+step = 0.05
+value = 1.0
+
 [node name="SoundLabel" type="Label" parent="UI" unique_id=1995807125]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.62
+anchor_top = 0.63
 anchor_right = 0.5
-anchor_bottom = 0.62
+anchor_bottom = 0.63
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 20.0
@@ -160,9 +223,9 @@ vertical_alignment = 1
 [node name="SoundButton" type="Button" parent="UI" unique_id=498754723]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.62
+anchor_top = 0.63
 anchor_right = 0.5
-anchor_bottom = 0.62
+anchor_bottom = 0.63
 offset_left = 52.0
 offset_top = -44.0
 offset_right = 140.0
@@ -177,9 +240,9 @@ icon_alignment = 1
 [node name="HapticsLabel" type="Label" parent="UI" unique_id=826691771]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.72
+anchor_top = 0.71
 anchor_right = 0.5
-anchor_bottom = 0.72
+anchor_bottom = 0.71
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 20.0
@@ -192,9 +255,9 @@ vertical_alignment = 1
 [node name="HapticsButton" type="Button" parent="UI" unique_id=252595316]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.72
+anchor_top = 0.71
 anchor_right = 0.5
-anchor_bottom = 0.72
+anchor_bottom = 0.71
 offset_left = 52.0
 offset_top = -44.0
 offset_right = 140.0
@@ -209,9 +272,9 @@ icon_alignment = 1
 [node name="PrivacyLabel" type="Label" parent="UI" unique_id=826691772]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.82
+anchor_top = 0.8
 anchor_right = 0.5
-anchor_bottom = 0.82
+anchor_bottom = 0.8
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 20.0
@@ -224,9 +287,9 @@ vertical_alignment = 1
 [node name="PrivacyButton" type="Button" parent="UI" unique_id=252595317]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.82
+anchor_top = 0.8
 anchor_right = 0.5
-anchor_bottom = 0.82
+anchor_bottom = 0.8
 offset_left = 52.0
 offset_top = -44.0
 offset_right = 140.0
@@ -290,13 +353,13 @@ theme_override_colors/default_color = Color(1.2, 1.2, 1.2, 1)
 theme_override_font_sizes/normal_font_size = 18
 theme_override_font_sizes/bold_font_size = 18
 bbcode_enabled = true
-text = "Last updated: September 14, 2026
+text = "Last updated: September 17, 2026
 
 [b]What we collect[/b]
-We don't require an account. Jetlet: Solar Escape shows ads through Google AdMob, which can collect your device's advertising ID, device info, IP-derived approximate location, and ad interaction data to serve and measure ads. Gameplay data (high score, stats, settings) stays on your device and is not sent to us.
+We don't require an account. Jetlet: Solar Escape shows ads through Google AdMob, which can collect your device's advertising ID, device info, IP-derived approximate location, and ad interaction data to serve and measure ads. We also send anonymous gameplay events (session length, run score/streak/duration, milestones reached) to Google Analytics, tied to a random per-install id rather than your identity. If the app crashes, Firebase Crashlytics collects a crash report (device info and the crash's stack trace) to help us fix it. High score, stats and settings themselves stay on your device.
 
 [b]Third parties[/b]
-Google AdMob serves and measures ads in the app. See Google's privacy policy at policies.google.com/privacy for details on how Google handles that data.
+Google AdMob serves and measures ads in the app, Google Analytics processes the anonymous gameplay events above, and Firebase Crashlytics processes crash reports. See Google's privacy policy at policies.google.com/privacy for details on how Google handles that data.
 
 [b]Your choices[/b]
 Where required, a consent form lets you decline ad personalization. You can also reset or limit your device's advertising ID in your system settings, or opt out of interest-based Google ads at adssettings.google.com.
@@ -325,9 +388,11 @@ text = "CLOSE"
 
 [connection signal="value_changed" from="UI/GlowSlider" to="." method="_on_glow_slider_value_changed"]
 [connection signal="value_changed" from="UI/OpacitySlider" to="." method="_on_opacity_slider_value_changed"]
+[connection signal="value_changed" from="UI/SensitivitySlider" to="." method="_on_sensitivity_slider_value_changed"]
 [connection signal="pressed" from="UI/ControlsButton" to="." method="_on_controls_pressed"]
 [connection signal="pressed" from="UI/SoundButton" to="." method="_on_sound_pressed"]
 [connection signal="pressed" from="UI/HapticsButton" to="." method="_on_haptics_pressed"]
+[connection signal="pressed" from="UI/ScoreAlignButton" to="." method="_on_score_align_pressed"]
 [connection signal="pressed" from="UI/PrivacyButton" to="." method="_on_privacy_pressed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]
 [connection signal="pressed" from="UI/PrivacyPanel/CloseButton" to="." method="_on_privacy_close_pressed"]

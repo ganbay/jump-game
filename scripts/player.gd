@@ -53,8 +53,12 @@ const SKIN_SHAPES := {
 ## Applies per streak point beyond streak_fall_cap, at a gentler rate so the
 ## fall doesn't keep compounding at the early pace forever.
 @export var streak_fall_step_late: float = 0.99
-@export var landing_window_ms: int = 100
+@export var landing_window_ms: int = 150
 @export var drag_sensitivity: float = 1.3
+## How far (viewport px) a touch has to travel before it counts as steering
+## rather than a tap. Only steering presses are excused from the mash check in
+## _mashed(); a finger that goes down and up in place is a tap.
+@export var steer_min_travel: float = 10.0
 ## How fast the arrow keys ramp horizontal speed. They used to snap straight to
 ## full move_speed on the first frame, which on a keyboard reads as
 ## hair-trigger: one tap threw the character across a whole platform.
@@ -99,7 +103,6 @@ const SKIN_SHAPES := {
 @export var solar_wind_speed_mult: float = 2.0
 @export var solar_wind_launch_mult: float = 2.0
 
-var is_holding: bool = false
 var streak: int = 0
 var last_press_ms: int = -999999
 ## The press before `last_press_ms`. A timed landing has to come from one
@@ -109,12 +112,18 @@ var last_press_ms: int = -999999
 ## has to time anything -- and in TOUCH mode they are already pressing to
 ## steer, which made it close to free.
 var _prev_press_ms: int = -999999
-var _last_pointer_x: float = 0.0
-## Whether the hold in progress came from a pointer. A keyboard hold must not
-## run the drag branch below: it would read the (stationary) mouse every frame
-## and zero the horizontal velocity, so tapping space to time a landing killed
-## whatever drift the arrow keys had built up.
-var _hold_is_pointer: bool = true
+## Pointers currently held down, keyed by touch index (or MOUSE_POINTER), each
+## mapped to the press record _register_press() made for it. Tracked per finger
+## so two-handed play works: one thumb holds and steers while the other taps to
+## time landings, and lifting the tapping thumb must not end the steering.
+var _pointers: Dictionary = {}
+## The held pointer that steers, or NO_POINTER. Only the first finger down
+## steers; a finger that lands while it is held is the other hand's timing tap.
+var _steer_pointer: int = NO_POINTER
+## Horizontal drag the steering pointer covered since the last physics tick.
+var _steer_dx: float = 0.0
+## Presses made while falling during this flight, oldest first. See _mashed().
+var _descent_presses: Array[Dictionary] = []
 var _attempted_since_last_landing: bool = false
 var _viewport_width: float = 720.0
 ## Impact compression, 1.0 = fully squashed. Driven as a damped spring rather
@@ -127,6 +136,9 @@ var _lean: float = 0.0
 ## the true baseline, not to whatever the last burst left behind.
 var _base_move_speed: float = 0.0
 var _solar_wind_tween: Tween
+const NO_POINTER := -1
+## Stands in for a touch index for the real (desktop) mouse.
+const MOUSE_POINTER := -100
 const FEET_HALF_WIDTH := 20.0
 const FEET_HALF_HEIGHT := 5.0
 const PLATFORM_HALF_WIDTH := 45.0
@@ -186,29 +198,80 @@ func _tween_solar_wind_speed(target: float, ease: Tween.EaseType) -> void:
 		.set_trans(Tween.TRANS_SINE).set_ease(ease)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		# On a touchscreen every tap also arrives a second time as an emulated
-		# mouse click (device -1). Letting both through pushes the same tap into
-		# `last_press_ms` twice, which leaves `_prev_press_ms` sitting on the very
-		# same timestamp -- so `single_tap` is never true and a timed landing is
-		# impossible on mobile. The emulation stays on: the drag steering below
-		# reads the mouse position, which is only fed by it.
-		if event.device == InputEvent.DEVICE_ID_EMULATION:
-			return
-		_set_hold(event.pressed, event.position.x)
-	elif event is InputEventScreenTouch:
-		_set_hold(event.pressed, event.position.x)
-	elif event is InputEventKey and event.keycode == KEY_SPACE and not event.echo:
-		_set_hold(event.pressed, get_viewport().get_mouse_position().x, false)
+	# On a touchscreen every touch also arrives a second time as an emulated
+	# mouse event (device -1). Letting both through registers each tap twice,
+	# which leaves `_prev_press_ms` on the very same timestamp -- so
+	# `single_tap` is never true and a timed landing is impossible on mobile.
+	# Touches are tracked directly below, so the emulated copies are not needed.
+	if event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
+	if event is InputEventScreenTouch:
+		_set_pointer(event.index, event.pressed)
+	elif event is InputEventScreenDrag:
+		_drag_pointer(event.index, event.relative.x)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_set_pointer(MOUSE_POINTER, event.pressed)
+	elif event is InputEventMouseMotion:
+		_drag_pointer(MOUSE_POINTER, event.relative.x)
+	elif event is InputEventKey and event.keycode == KEY_SPACE and event.pressed and not event.echo:
+		# A key never steers, so the arrow keys' drift survives a timing tap.
+		_register_press(false)
 
-func _set_hold(pressed: bool, pointer_x: float, from_pointer: bool = true) -> void:
-	is_holding = pressed
-	if pressed:
-		_hold_is_pointer = from_pointer
-		_prev_press_ms = last_press_ms
-		last_press_ms = Time.get_ticks_msec()
-		_last_pointer_x = pointer_x
-		_attempted_since_last_landing = true
+## Releases that happen while the game is paused never reach _unhandled_input,
+## so a finger lifted on the pause screen would otherwise stay "held" -- and
+## keep the steering slot -- for the rest of the run.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_UNPAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_pointers.clear()
+		_steer_pointer = NO_POINTER
+
+func _set_pointer(id: int, pressed: bool) -> void:
+	if not pressed:
+		_pointers.erase(id)
+		if id == _steer_pointer:
+			_steer_pointer = NO_POINTER
+		return
+	if _pointers.has(id):
+		return
+	var steers := (Settings.control_scheme == Settings.ControlScheme.TOUCH
+		and _steer_pointer == NO_POINTER)
+	if steers:
+		_steer_pointer = id
+		_steer_dx = 0.0
+	_pointers[id] = _register_press(steers)
+
+func _drag_pointer(id: int, dx: float) -> void:
+	if not _pointers.has(id):
+		return
+	_pointers[id]["travel"] += absf(dx)
+	if id == _steer_pointer:
+		_steer_dx += dx
+
+func _register_press(steers: bool) -> Dictionary:
+	var now := Time.get_ticks_msec()
+	_prev_press_ms = last_press_ms
+	last_press_ms = now
+	_attempted_since_last_landing = true
+	var press := {"ms": now, "steers": steers, "travel": 0.0}
+	if velocity.y > 0.0:
+		_descent_presses.append(press)
+	return press
+
+## Whether a tap on the way down went unanswered by a landing. The window checks
+## in _land_on() only look at the last two presses, so tapping steadily a little
+## slower than the window passes them on most landings without timing anything.
+## Any earlier press during the fall that was not steering is a missed tap, and
+## a missed tap breaks the streak even if a later one lands inside the window.
+## Presses on the way up are free: nothing can be timed there.
+func _mashed() -> bool:
+	var count := _descent_presses.size()
+	for i in count:
+		var press := _descent_presses[i]
+		if i == count - 1 and press["ms"] == last_press_ms:
+			continue # the timing tap itself
+		if not (press["steers"] and press["travel"] >= steer_min_travel):
+			return true
+	return false
 
 ## Streak points below streak_fall_cap each shave streak_fall_step off the
 ## fall-time multiplier; points beyond it each shave streak_fall_step_late
@@ -235,14 +298,14 @@ func _physics_process(delta: float) -> void:
 		if absf(tilt) < tilt_deadzone:
 			velocity.x = move_toward(velocity.x, 0.0, move_speed * 4.0 * delta)
 		else:
-			velocity.x = clampf(tilt * tilt_sensitivity, -speed, speed)
-	elif is_holding and _hold_is_pointer:
-		var pointer_x := get_viewport().get_mouse_position().x
-		var drag_delta := pointer_x - _last_pointer_x
-		_last_pointer_x = pointer_x
-		velocity.x = clampf((drag_delta * drag_sensitivity) / delta, -speed, speed)
+			velocity.x = clampf(tilt * tilt_sensitivity * Settings.tilt_sensitivity,
+				-speed, speed)
+	elif _steer_pointer != NO_POINTER:
+		velocity.x = clampf(
+			_steer_dx * drag_sensitivity * Settings.touch_sensitivity / delta, -speed, speed)
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, move_speed * 4.0 * delta)
+	_steer_dx = 0.0
 
 	var prev_feet_y := feet.global_position.y
 	move_and_slide()
@@ -285,7 +348,8 @@ func _land_on(area: Node) -> void:
 	# before the timing tap. What has to be sole is the press inside the window.
 	var in_window := now - last_press_ms <= landing_window_ms
 	var single_tap := now - _prev_press_ms > landing_window_ms
-	var is_timed := in_window and single_tap
+	var is_timed := in_window and single_tap and not _mashed()
+	_descent_presses.clear()
 	# The boost belongs to the platform, not to "wasn't the last one I touched":
 	# a mistimed landing spends nothing, so the next streak can start right here.
 	var boosted := is_timed and not _boost_spent(area)

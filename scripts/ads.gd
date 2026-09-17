@@ -197,6 +197,7 @@ func _settle(ad: RewardedAd) -> void:
 	_on_dismissed = Callable()
 	var earned := _reward_earned
 	_reward_earned = false
+	Analytics.log_event("ad_rewarded_result", {"earned": int(earned)})
 	# Cleared before the callback because game.gd calls straight back into
 	# load_rewarded() from it.
 	if earned and reward.is_valid():

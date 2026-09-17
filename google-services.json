@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "289656459371",
+    "project_id": "jetlet-108eb",
+    "storage_bucket": "jetlet-108eb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289656459371:android:17a674ecaf1434ba0d212e",
+        "android_client_info": {
+          "package_name": "com.eternalsky.jetlet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHv88uIYAQIwa4eWUCoffAY4UYhp6OtGc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

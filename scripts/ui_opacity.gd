@@ -26,12 +26,21 @@ static func tint(opacity: float) -> Color:
 ## dims are authored at a fixed alpha and do not track this setting: the dim is
 ## what makes the panel readable, so it is deliberately not something the
 ## slider can take away.
+##
+## Anything in EXEMPT_GROUP is skipped the same way, for the same reason, on
+## nodes that aren't ColorRects -- e.g. game.gd's StreakLabel, whose own plate
+## is a StyleBoxFlat baked into the Label rather than a separate node, so it
+## can't be caught by the `is ColorRect` check above. A generic utility used
+## by several screens has no business knowing that node by name, hence the
+## group instead of a hardcoded path.
+const EXEMPT_GROUP := "ui_opacity_exempt"
+
 static func apply(root: Node) -> void:
 	var shade := tint(Settings.ui_opacity)
 	_paint(root, shade)
 
 static func _paint(root: Node, shade: Color) -> void:
 	for child in root.get_children():
-		if child is Control and not child is ColorRect:
+		if child is Control and not child is ColorRect and not child.is_in_group(EXEMPT_GROUP):
 			child.self_modulate = shade
 		_paint(child, shade)
