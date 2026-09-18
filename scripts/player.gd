@@ -2,6 +2,10 @@ extends CharacterBody2D
 class_name Player
 
 signal landed(platform, boosted, streak)
+## Fired the instant a post-landing mash zeroes the streak, since that happens
+## mid-flight rather than at a landing -- callers that only want the "streak
+## just failed" moment should not wait for the next `landed` signal.
+signal streak_broken
 
 ## Selectable character visuals. Every one is the PlasmaBlob cell (see
 ## plasma_blob.gd) in a different Shape -- same churn, glow and squishy physics,
@@ -54,6 +58,10 @@ const SKIN_SHAPES := {
 ## fall doesn't keep compounding at the early pace forever.
 @export var streak_fall_step_late: float = 0.99
 @export var landing_window_ms: int = 150
+## After a landing, a press that both starts and releases inside this window is
+## a bare tap thrown right on top of the jump, not a steering hold -- see
+## _maybe_fail_post_landing_tap().
+@export var post_landing_mash_window_ms: int = 100
 @export var drag_sensitivity: float = 1.3
 ## How far (viewport px) a touch has to travel before it counts as steering
 ## rather than a tap. Only steering presses are excused from the mash check in
@@ -125,6 +133,9 @@ var _steer_dx: float = 0.0
 ## Presses made while falling during this flight, oldest first. See _mashed().
 var _descent_presses: Array[Dictionary] = []
 var _attempted_since_last_landing: bool = false
+## Timestamp and outcome of the last landing, for _maybe_fail_post_landing_tap().
+var _last_land_ms: int = -999999
+var _last_land_boosted: bool = false
 var _viewport_width: float = 720.0
 ## Impact compression, 1.0 = fully squashed. Driven as a damped spring rather
 ## than a tween so repeated landings add to it instead of fighting over
@@ -139,6 +150,8 @@ var _solar_wind_tween: Tween
 const NO_POINTER := -1
 ## Stands in for a touch index for the real (desktop) mouse.
 const MOUSE_POINTER := -100
+## Stands in for a touch index for the keyboard's space bar.
+const KEY_POINTER := -200
 const FEET_HALF_WIDTH := 20.0
 const FEET_HALF_HEIGHT := 5.0
 const PLATFORM_HALF_WIDTH := 45.0
@@ -213,9 +226,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_set_pointer(MOUSE_POINTER, event.pressed)
 	elif event is InputEventMouseMotion:
 		_drag_pointer(MOUSE_POINTER, event.relative.x)
-	elif event is InputEventKey and event.keycode == KEY_SPACE and event.pressed and not event.echo:
+	elif event is InputEventKey and event.keycode == KEY_SPACE and not event.echo:
 		# A key never steers, so the arrow keys' drift survives a timing tap.
-		_register_press(false)
+		_set_key_pointer(event.pressed)
 
 ## Releases that happen while the game is paused never reach _unhandled_input,
 ## so a finger lifted on the pause screen would otherwise stay "held" -- and
@@ -225,8 +238,24 @@ func _notification(what: int) -> void:
 		_pointers.clear()
 		_steer_pointer = NO_POINTER
 
+## Space has no drag to report travel, and never steers, so it does not need
+## the full pointer/_steer_pointer machinery -- but it still needs press/release
+## tracked like a held touch, so a long-held space is not judged as a bare tap
+## by _maybe_fail_post_landing_tap the instant it goes down.
+func _set_key_pointer(pressed: bool) -> void:
+	if not pressed:
+		if _pointers.has(KEY_POINTER):
+			_maybe_fail_post_landing_tap(_pointers[KEY_POINTER], Time.get_ticks_msec())
+		_pointers.erase(KEY_POINTER)
+		return
+	if _pointers.has(KEY_POINTER):
+		return
+	_pointers[KEY_POINTER] = _register_press(false)
+
 func _set_pointer(id: int, pressed: bool) -> void:
 	if not pressed:
+		if _pointers.has(id):
+			_maybe_fail_post_landing_tap(_pointers[id], Time.get_ticks_msec())
 		_pointers.erase(id)
 		if id == _steer_pointer:
 			_steer_pointer = NO_POINTER
@@ -252,10 +281,91 @@ func _register_press(steers: bool) -> Dictionary:
 	_prev_press_ms = last_press_ms
 	last_press_ms = now
 	_attempted_since_last_landing = true
-	var press := {"ms": now, "steers": steers, "travel": 0.0}
-	if velocity.y > 0.0:
+	# `falling` is captured once, at press time, so a press that started
+	# mid-fall is still recognisable as a fall press later even after landing
+	# clears _descent_presses -- see _mark_pending_fail_presses().
+	var press := {"ms": now, "steers": steers, "travel": 0.0, "falling": velocity.y > 0.0}
+	if press["falling"]:
 		_descent_presses.append(press)
 	return press
+
+## A press that both starts and releases inside the post-landing grace window,
+## without covering real steering distance, is a bare tap thrown right on top
+## of the jump. Steering a small distance and letting go quickly to settle on a
+## landing spot is normal play, not mashing -- see steer_min_travel -- so travel
+## exempts a press the same way it already does in _mashed(), regardless of how
+## briefly it was held; a press still held when the window closes is exempt too,
+## since it has not finished being judged yet. Skipped entirely when the landing
+## that just happened actually earned a streak point (`boosted`, not just
+## `is_timed` -- a landing can be perfectly timed and still not score if the
+## platform's boost was already spent, and that still counts as "didn't streak"
+## for this check), so the scoring press's own release (which can land just
+## after the landing it caused) can never cancel a streak it just won -- and
+## skipped when there is no streak left to break, so this can't fire twice for
+## the same failure. Fires streak_broken immediately rather than waiting for the
+## next landed signal, since this happens mid-flight.
+func _maybe_fail_post_landing_tap(press: Dictionary, release_ms: int) -> void:
+	if press.has("pending_fail_deadline_ms"):
+		_resolve_pending_fail(press, release_ms)
+		return
+	if _last_land_boosted or streak == 0:
+		return
+	var press_ms: int = press["ms"]
+	if press_ms <= _last_land_ms or press["travel"] >= steer_min_travel:
+		return
+	if press_ms - _last_land_ms <= post_landing_mash_window_ms \
+			and release_ms - _last_land_ms <= post_landing_mash_window_ms:
+		streak = 0
+		Audio.set_streak(0)
+		streak_broken.emit()
+
+## A press that started mid-fall, too early to be the timing tap, but was still
+## held (not yet released) at landing -- see _mark_pending_fail_presses(). Its
+## fate was deliberately left open at landing: it only breaks the streak if it
+## releases within post_landing_mash_window_ms of that landing, same grace
+## period as a fresh post-landing tap gets. Held longer than that, it reads as
+## an ordinary steering hold into the next jump, not a mash, and is forgiven --
+## even though the streak already failed to score at that landing (no new
+## point), it is spared the reset. Travel accumulated at any point, even after
+## landing, still exempts it, same as everywhere else this is checked.
+func _resolve_pending_fail(press: Dictionary, release_ms: int) -> void:
+	if streak == 0 or press["travel"] >= steer_min_travel:
+		return
+	if release_ms <= press["pending_fail_deadline_ms"]:
+		streak = 0
+		Audio.set_streak(0)
+		streak_broken.emit()
+
+## Whether the streak's fate at this landing should wait on a press that is
+## still held, rather than being decided right now. Any currently-held press
+## that started during this flight (climb or fall) means there is something
+## whose outcome is not known yet, so _land_on() must not reset the streak
+## immediately -- a press already released by landing time has nothing left to
+## wait on, and already failed via the ordinary is_timed/_mashed() path above
+## if it was going to.
+##
+## Among the still-held presses, only the ones that (a) started during the
+## fall, (b) weren't a steer, and (c) started more than landing_window_ms
+## before this landing -- i.e. exactly what _mashed() would flag as a stray tap
+## -- get tagged with a deadline for _resolve_pending_fail() to judge them by
+## once released (see _land_on()'s Rule 2). A held climb press, or a held fall
+## press still inside the scoring window, is left untagged: it can never fail
+## the streak this way, climb by rule, an in-window one because it might still
+## be the landing's own scoring press.
+func _mark_pending_fail_presses(now: int) -> bool:
+	var held := false
+	for press: Dictionary in _pointers.values():
+		if press["ms"] <= _last_land_ms:
+			continue
+		held = true
+		if not press["falling"]:
+			continue
+		if press["steers"] and press["travel"] >= steer_min_travel:
+			continue
+		if now - press["ms"] <= landing_window_ms:
+			continue
+		press["pending_fail_deadline_ms"] = now + post_landing_mash_window_ms
+	return held
 
 ## Whether a tap on the way down went unanswered by a landing. The window checks
 ## in _land_on() only look at the last two presses, so tapping steadily a little
@@ -357,9 +467,11 @@ func _land_on(area: Node) -> void:
 		if boosted:
 			streak += 1
 			_spend_boost(area)
-	elif _attempted_since_last_landing:
+	elif _attempted_since_last_landing and not _mark_pending_fail_presses(now):
 		streak = 0
 	_attempted_since_last_landing = false
+	_last_land_ms = now
+	_last_land_boosted = boosted
 	velocity.y = _boosted_jump_velocity() if boosted else jump_velocity
 	_play_squash(boosted)
 	Audio.set_streak(streak)

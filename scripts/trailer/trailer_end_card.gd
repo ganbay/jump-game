@@ -80,7 +80,7 @@ func _ready() -> void:
 
 	var title := _label(content, "JETLET", 0.42, 96, TITLE_COLOR)
 	var sub := _label(content, "SOLAR ESCAPE", 0.505, 44, SUB_COLOR)
-	var cta := _label(content, "FREE ON GOOGLE PLAY", 0.60, 28, CTA_COLOR)
+	var cta := _label(content, "COMING SOON ON GOOGLE PLAY", 0.60, 28, CTA_COLOR)
 
 	# Staggered so the card assembles itself instead of appearing whole: the
 	# name, then what it is, then where to get it -- the order it would be read

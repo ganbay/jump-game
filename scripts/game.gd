@@ -270,6 +270,7 @@ func _ready() -> void:
 	_base_glow_bloom = world_environment.environment.glow_bloom
 	_load_high_score()
 	player.landed.connect(_on_player_landed)
+	player.streak_broken.connect(_on_streak_broken)
 	zones.zone_changed.connect(_on_zone_changed)
 	zones.milestone_reached.connect(_on_milestone_reached)
 	spawner.zones = zones
@@ -624,6 +625,17 @@ func _apply_camera_shake() -> void:
 	_shake = _shake.lerp(
 		Vector2(randf_range(-amount, amount), randf_range(-amount, amount)), SHAKE_SMOOTHING)
 	camera.offset = _shake / maxf(camera.zoom.y, 0.001)
+
+## The player broke the streak by mashing right after a landing, mid-flight --
+## flash FAILED now rather than waiting for the (already-zeroed) streak to
+## arrive on the next landed signal. Mirrors the `broke` branch of
+## _on_player_landed, and updates _last_streak the same way so that later
+## landing doesn't flash FAILED a second time for this same break.
+func _on_streak_broken() -> void:
+	if _last_streak >= STREAK_FAIL_MIN:
+		_show_streak_message("FAILED", true)
+		Audio.vibrate(30)
+	_last_streak = 0
 
 func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 	_last_safe_position = platform.global_position

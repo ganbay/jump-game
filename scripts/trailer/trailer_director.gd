@@ -104,6 +104,13 @@ var _config: Dictionary = {}
 ## Latched once a gameplay segment has visibly gone wrong, so the warning is
 ## said once rather than on every one of the remaining frames.
 var _take_lost: bool = false
+## Latched the first frame the squish segment's death actually registers, so
+## the print in _tick_gameplay fires once. The frame number is read by hand
+## off the log and hard-coded into the trailer's audio mix (tools/mix_trailer_audio.sh)
+## -- the render has no audio track of its own (see _prepare_globals), so
+## post-production needs to know, in frames, exactly when the game itself
+## would have ducked the gameplay music out.
+var _death_reported: bool = false
 
 func _ready() -> void:
 	# game.gd pauses the tree for its own modals, and a paused tree stops every
@@ -257,6 +264,7 @@ func _swap_in(node: Node) -> void:
 		_current.queue_free()
 	_current = node
 	_take_lost = false
+	_death_reported = false
 	# Nothing may carry a pause across a cut. Each segment is a fresh scene and
 	# starts running.
 	get_tree().paused = false
@@ -541,6 +549,12 @@ func _tick_gameplay(frame: int) -> void:
 	if die_at >= 0.0 and frame == _frames(die_at) \
 			and _pilot != null and is_instance_valid(_pilot):
 		_pilot.miss_mode = true
+	# The frame the fall actually clears game.gd's _death_margin and
+	# _game_over() fires -- later than die_at, which only arms the miss.
+	if die_at >= 0.0 and not _death_reported and _current.is_game_over:
+		_death_reported = true
+		print("trailer: death registers at frame %d (%.3fs)" \
+			% [_frame, float(_frame) / float(FPS)])
 
 ## The character picker, stepped through the shape roster and then swept across
 ## the colour spectrum. Driven by calling the screen's own handlers rather than
