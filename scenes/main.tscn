@@ -132,7 +132,7 @@ theme_override_constants/line_spacing = 2
 theme_override_font_sizes/font_size = 15
 autowrap_mode = 2
 
-[node name="ZoneBanner" type="Label" parent="UI" unique_id=2128443116]
+[node name="ZoneBanner" type="Label" parent="UI" unique_id=2128443116 groups=["ui_accent"]]
 visible = false
 anchors_preset = -1
 anchor_left = 0.5
@@ -163,6 +163,70 @@ theme_override_constants/icon_max_width = 40
 icon = ExtResource("10_pause")
 flat = true
 icon_alignment = 1
+
+[node name="ControlHint" type="Control" parent="UI" unique_id=2101000001]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TitleLabel" type="Label" parent="UI/ControlHint" unique_id=2101000002 groups=["ui_accent"]]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.74
+anchor_right = 0.5
+anchor_bottom = 0.74
+offset_left = -320.0
+offset_top = -26.0
+offset_right = 320.0
+offset_bottom = 26.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1.1, 2, 2.4, 1)
+theme_override_font_sizes/font_size = 30
+text = "TILT TO STEER"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BodyLabel" type="Label" parent="UI/ControlHint" unique_id=2101000003]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.795
+anchor_right = 0.5
+anchor_bottom = 0.795
+offset_left = -300.0
+offset_top = -20.0
+offset_right = 300.0
+offset_bottom = 20.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1.3, 1.3, 1.3, 1)
+theme_override_constants/line_spacing = 4
+theme_override_font_sizes/font_size = 17
+text = "Or swipe -- change in pause menu."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="TapCue" type="Label" parent="UI" unique_id=2101000004 groups=["ui_accent"]]
+visible = false
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.68
+anchor_right = 0.5
+anchor_bottom = 0.68
+offset_left = -200.0
+offset_top = -30.0
+offset_right = 200.0
+offset_bottom = 30.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1.1, 2, 2.4, 1)
+theme_override_font_sizes/font_size = 34
+text = "TAP!"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="PausePanel" type="Control" parent="UI" unique_id=938220116]
 process_mode = 3
@@ -242,6 +306,23 @@ theme_override_constants/icon_max_width = 56
 icon = ExtResource("12_controls")
 flat = true
 icon_alignment = 1
+
+[node name="ControlsCaption" type="Label" parent="UI/PausePanel" unique_id=2101000011 groups=["ui_accent"]]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.82
+anchor_right = 0.5
+anchor_bottom = 0.82
+offset_left = -133.0
+offset_top = 54.0
+offset_right = -29.0
+offset_bottom = 78.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1.1, 2, 2.4, 1)
+theme_override_font_sizes/font_size = 15
+text = "TILT"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="SoundButton" type="Button" parent="UI/PausePanel" unique_id=1109345402]
 layout_mode = 0
@@ -407,6 +488,87 @@ icon = ExtResource("20_video")
 flat = true
 icon_alignment = 2
 
+[node name="TutorialPanel" type="Control" parent="UI" unique_id=2101000005]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="UI/TutorialPanel" unique_id=2101000006]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.85)
+
+[node name="TitleLabel" type="Label" parent="UI/TutorialPanel" unique_id=2101000007 groups=["ui_accent"]]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.36
+anchor_right = 0.5
+anchor_bottom = 0.36
+offset_left = -330.0
+offset_top = -36.0
+offset_right = 330.0
+offset_bottom = 36.0
+theme_override_colors/font_color = Color(1.1, 2.2, 2.6, 1)
+theme_override_font_sizes/font_size = 40
+text = "TAP TO FLARE"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BodyLabel" type="Label" parent="UI/TutorialPanel" unique_id=2101000008]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.47
+anchor_right = 0.5
+anchor_bottom = 0.47
+offset_left = -300.0
+offset_top = -50.0
+offset_right = 300.0
+offset_bottom = 50.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_constants/line_spacing = 6
+theme_override_font_sizes/font_size = 19
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="ContinueButton" type="Button" parent="UI/TutorialPanel" unique_id=2101000009]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.60
+anchor_right = 0.5
+anchor_bottom = 0.60
+offset_left = -130.0
+offset_top = -28.0
+offset_right = 130.0
+offset_bottom = 28.0
+focus_mode = 0
+theme_override_font_sizes/font_size = 20
+text = "GOT IT"
+
+[node name="DismissButton" type="Button" parent="UI/TutorialPanel" unique_id=2101000010]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.68
+anchor_right = 0.5
+anchor_bottom = 0.68
+offset_left = -170.0
+offset_top = -24.0
+offset_right = 170.0
+offset_bottom = 24.0
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 15
+text = "DON'T SHOW AGAIN"
+flat = true
+
 [node name="MilestonePanel" type="Control" parent="UI" unique_id=1772725848]
 process_mode = 3
 visible = false
@@ -423,7 +585,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.98039216)
 
-[node name="TitleLabel" type="Label" parent="UI/MilestonePanel" unique_id=1522443629]
+[node name="TitleLabel" type="Label" parent="UI/MilestonePanel" unique_id=1522443629 groups=["ui_accent"]]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.3
@@ -477,3 +639,5 @@ text = "COOL."
 [connection signal="pressed" from="UI/GameOverPanel/GameOverMenuButton" to="." method="_on_menu_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/WatchAdButton" to="." method="_on_revive_watch_ad_pressed"]
 [connection signal="pressed" from="UI/MilestonePanel/ContinueButton" to="." method="_on_milestone_continue_pressed"]
+[connection signal="pressed" from="UI/TutorialPanel/ContinueButton" to="." method="_on_tutorial_continue_pressed"]
+[connection signal="pressed" from="UI/TutorialPanel/DismissButton" to="." method="_on_tutorial_dismiss_pressed"]

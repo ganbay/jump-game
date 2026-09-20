@@ -29,6 +29,7 @@ const DOT_RADIUS := 4.5
 @onready var particle_slider: ColorSpectrumSlider = $UI/ParticleSlider
 @onready var trail_check: CheckButton = $UI/TrailCheck
 @onready var particles_check: CheckButton = $UI/ParticlesCheck
+@onready var shuffle_check: CheckButton = $UI/ShuffleCheck
 @onready var coins_label: Label = $UI/CoinsRow/Value
 @onready var coins_icon: TextureRect = $UI/CoinsRow/Icon
 @onready var hint_label: Label = $UI/SwipeHint
@@ -45,6 +46,10 @@ const UNLOCK_RATE_ICON := preload("res://assets/icons/unlock.svg")
 const UNLOCK_AD_ICON := preload("res://assets/icons/video.svg")
 
 const HINT_SWIPE := "SWIPE THE CHARACTER TO CHANGE"
+## Replaces the swipe line while shuffle is on, because the picker no longer
+## decides what you fly as -- and a screen that silently stopped honouring the
+## character under your thumb would read as a bug.
+const HINT_SHUFFLE := "SHUFFLE ON  -  EACH RUN PICKS A RANDOM CHARACTER"
 ## How dark the preview goes while its character is still locked -- a colour
 ## multiplier, not alpha, so the shape stays fully opaque (reads as dimmed,
 ## not faded/transparent) and the white lock icon sitting on top of it stands
@@ -117,6 +122,7 @@ func _ready() -> void:
 	# writing the config back on every visit to this screen.
 	trail_check.set_pressed_no_signal(Settings.trail_enabled)
 	particles_check.set_pressed_no_signal(Settings.background_particles)
+	shuffle_check.set_pressed_no_signal(Settings.shuffle_skin)
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 	# Warm one up on arrival, the same way a run does at its first frame: the
@@ -156,6 +162,7 @@ func _announce_new_unlocks() -> void:
 func _apply_visual_settings() -> void:
 	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
+	UiAccent.apply($UI)
 	# Currency display disabled -- CoinsRow is hidden (see customization.tscn).
 	# Uncomment alongside it to bring the star count back.
 	# modulate, not self_modulate: UiOpacity owns self_modulate on every Control
@@ -179,7 +186,7 @@ func _refresh_lock_state() -> void:
 	lock_icon.visible = not owned
 	if owned:
 		unlock_button.visible = false
-		hint_label.text = HINT_SWIPE
+		hint_label.text = HINT_SHUFFLE if Settings.shuffle_skin else HINT_SWIPE
 		return
 	# Only RATE and ADS have a button to press -- ESCAPE/TRUE_ENDING unlock
 	# themselves the moment the milestone is hit in a run, and PURCHASE has
@@ -374,6 +381,40 @@ func _on_trail_check_toggled(pressed: bool) -> void:
 func _on_particles_check_toggled(pressed: bool) -> void:
 	Audio.play_ui_click()
 	Settings.set_background_particles(pressed)
+
+## Shuffle leaves the picker exactly as it is. The browsed character stays
+## worn and stays previewed -- Settings.player_skin is untouched by a roll
+## (see Settings.active_player_skin) -- so switching shuffle back off returns
+## the player to the one they chose rather than to whatever the last run
+## happened to deal them. Only the hint line changes, to say so.
+func _on_shuffle_check_toggled(pressed: bool) -> void:
+	Audio.play_ui_click()
+	Settings.set_shuffle_skin(pressed)
+	_refresh_lock_state()
+
+## One draw per colour, never one draw shared between them: three matching
+## colours is just one colour, and the whole point of the button is a set the
+## player would not have assembled by hand.
+##
+## Each write goes through Settings the same way dragging that slider would,
+## so the swatches, the preview, the drift and every accent across the UI
+## repaint from the one signal they already listen to -- there is nothing here
+## that a randomised colour reaches and a dragged one does not.
+func _on_randomize_pressed() -> void:
+	Audio.play_ui_click()
+	_roll_colour(player_slider, Settings.set_player_color)
+	_roll_colour(platform_slider, Settings.set_platform_color)
+	_roll_colour(particle_slider, Settings.set_background_particle_color)
+
+## The slider's handle is moved to the point that produced the colour, not
+## just the colour applied: the two are stored together precisely so the
+## handle is still sitting on the right spot next visit (see Settings'
+## player_color_slider), and a randomise that skipped it would leave every
+## handle parked where the player last dragged it.
+func _roll_colour(slider: ColorSpectrumSlider, apply: Callable) -> void:
+	var t := randf()
+	slider.value = t
+	apply.call(slider.sample(t), t)
 
 func _on_back_pressed() -> void:
 	Audio.play_ui_click()

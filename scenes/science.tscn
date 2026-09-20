@@ -32,7 +32,7 @@ color = Color(0, 0, 0, 1)
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="TitleLabel" type="Label" parent="UI"]
+[node name="TitleLabel" type="Label" parent="UI" groups=["ui_accent"]]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.04
@@ -66,7 +66,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
-[node name="Head0" type="Label" parent="UI/Scroll/Column"]
+[node name="Head0" type="Label" parent="UI/Scroll/Column" groups=["ui_accent"]]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
 theme_override_constants/line_spacing = 2
@@ -86,7 +86,7 @@ autowrap_mode = 3
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
 
-[node name="Head1" type="Label" parent="UI/Scroll/Column"]
+[node name="Head1" type="Label" parent="UI/Scroll/Column" groups=["ui_accent"]]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
 theme_override_constants/line_spacing = 2
@@ -106,7 +106,7 @@ autowrap_mode = 3
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
 
-[node name="Head2" type="Label" parent="UI/Scroll/Column"]
+[node name="Head2" type="Label" parent="UI/Scroll/Column" groups=["ui_accent"]]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
 theme_override_constants/line_spacing = 2
@@ -126,7 +126,7 @@ autowrap_mode = 3
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
 
-[node name="Head3" type="Label" parent="UI/Scroll/Column"]
+[node name="Head3" type="Label" parent="UI/Scroll/Column" groups=["ui_accent"]]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
 theme_override_constants/line_spacing = 2
@@ -146,7 +146,7 @@ autowrap_mode = 3
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
 
-[node name="Head4" type="Label" parent="UI/Scroll/Column"]
+[node name="Head4" type="Label" parent="UI/Scroll/Column" groups=["ui_accent"]]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 1.55, 2.3, 1)
 theme_override_constants/line_spacing = 2

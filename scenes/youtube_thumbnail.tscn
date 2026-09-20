@@ -1,0 +1,125 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://ckfe5rxqhpvwr" path="res://scripts/promo_shot.gd" id="1_shot"]
+[ext_resource type="Script" uid="uid://df7pci5e8dawa" path="res://scripts/feature_graphic.gd" id="2_composition"]
+[ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="3_plasma"]
+[ext_resource type="PackedScene" path="res://scenes/platform.tscn" id="4_platform"]
+[ext_resource type="PackedScene" uid="uid://bjlj7sie3pqmh" path="res://scenes/player.tscn" id="5_player"]
+[ext_resource type="FontFile" uid="uid://d4iwveg8vqrgt" path="res://fonts/Chillax-Bold.otf" id="6_bold"]
+
+[sub_resource type="Environment" id="Environment_thumb"]
+background_mode = 3
+glow_enabled = true
+glow_intensity = 0.6
+glow_strength = 0.9
+glow_bloom = 0.25
+glow_hdr_threshold = 0.3
+
+[node name="YoutubeThumbnailShot" type="Node"]
+process_mode = 3
+script = ExtResource("1_shot")
+output_path = "res://promo/youtube_thumbnail.png"
+
+[node name="SubViewport" type="SubViewport" parent="."]
+process_mode = 1
+disable_3d = true
+own_world_3d = true
+handle_input_locally = false
+msaa_2d = 1
+use_hdr_2d = true
+size = Vector2i(1280, 720)
+render_target_update_mode = 4
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="SubViewport"]
+environment = SubResource("Environment_thumb")
+
+[node name="Composition" type="Node2D" parent="SubViewport"]
+script = ExtResource("2_composition")
+star_count = 280
+star_max_radius = 2.6
+sun_center = Vector2(980, 1157)
+sun_radius = 560.0
+halo_strength = 3.2
+halo_reach = 1.4
+char_target = Vector2(1010, 205)
+char_bow = 50.0
+character_scale = 3.6
+character_segments = 128
+eruption_size = 190.0
+tail_length = 340.0
+tail_width = 72.0
+
+[node name="Sun" type="Node2D" parent="SubViewport/Composition"]
+script = ExtResource("3_plasma")
+
+[node name="PlatformA" parent="SubViewport/Composition" instance=ExtResource("4_platform")]
+position = Vector2(660, 565)
+scale = Vector2(1.9, 1.9)
+
+[node name="PlatformB" parent="SubViewport/Composition" instance=ExtResource("4_platform")]
+position = Vector2(770, 485)
+scale = Vector2(1.9, 1.9)
+
+[node name="PlatformC" parent="SubViewport/Composition" instance=ExtResource("4_platform")]
+position = Vector2(870, 400)
+scale = Vector2(1.9, 1.9)
+
+[node name="Player" parent="SubViewport/Composition" instance=ExtResource("5_player")]
+position = Vector2(1004, 255)
+
+[node name="TitleLabel" type="Label" parent="SubViewport/Composition"]
+offset_left = 70.0
+offset_top = 230.0
+offset_right = 690.0
+offset_bottom = 390.0
+theme_override_colors/font_color = Color(1.08, 1.08, 1.08, 1)
+theme_override_fonts/font = ExtResource("6_bold")
+theme_override_font_sizes/font_size = 115
+text = "JETLET"
+vertical_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="SubViewport/Composition"]
+offset_left = 74.0
+offset_top = 400.0
+offset_right = 690.0
+offset_bottom = 455.0
+theme_override_colors/font_color = Color(1.04, 1.04, 1.13, 1)
+theme_override_font_sizes/font_size = 46
+text = "SOLAR ESCAPE"
+vertical_alignment = 1
+
+[node name="TaglineLabel" type="Label" parent="SubViewport/Composition"]
+visible = false
+offset_left = 76.0
+offset_top = 470.0
+offset_right = 690.0
+offset_bottom = 508.0
+theme_override_colors/font_color = Color(1.0938, 1.0938, 1.2188, 1)
+theme_override_font_sizes/font_size = 25
+text = "COMING SOON ON GOOGLE PLAY"
+vertical_alignment = 1
+
+[node name="PreviewLayer" type="CanvasLayer" parent="."]
+
+[node name="Backdrop" type="ColorRect" parent="PreviewLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.08, 0.08, 0.09, 1)
+
+[node name="Preview" type="TextureRect" parent="PreviewLayer"]
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Hint" type="Label" parent="PreviewLayer"]
+offset_left = 16.0
+offset_top = 720.0
+offset_right = 1280.0
+offset_bottom = 780.0
+theme_override_colors/font_color = Color(0.75, 0.78, 0.85, 1)
+theme_override_font_sizes/font_size = 17
+vertical_alignment = 1

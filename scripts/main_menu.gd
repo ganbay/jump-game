@@ -52,6 +52,7 @@ func _ready() -> void:
 func _apply_visual_settings() -> void:
 	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
+	UiAccent.apply($UI)
 
 func _on_sound_pressed() -> void:
 	Audio.play_ui_click()

@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" uid="uid://3xp75fkdrqds" path="res://assets/icons/coin.svg" id="24_coin"]
 [ext_resource type="Texture2D" uid="uid://cn4gueql8awnf" path="res://assets/icons/lock.svg" id="25_locked"]
 [ext_resource type="Texture2D" uid="uid://dvissjhqfc2l4" path="res://assets/icons/video.svg" id="26_video"]
+[ext_resource type="Texture2D" uid="uid://cq2tbjln7bx4k" path="res://assets/icons/arrow_counterclockwise.svg" id="27_shuffle"]
 
 [sub_resource type="Environment" id="Environment_custom"]
 background_mode = 3
@@ -41,7 +42,7 @@ color = Color(0, 0, 0, 1)
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=388563830]
 
-[node name="TitleLabel" type="Label" parent="UI" unique_id=403046224]
+[node name="TitleLabel" type="Label" parent="UI" unique_id=403046224 groups=["ui_accent"]]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.04
@@ -225,9 +226,9 @@ horizontal_alignment = 1
 [node name="PlayerColorLabel" type="Label" parent="UI" unique_id=308948076]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.44
+anchor_top = 0.435
 anchor_right = 0.5
-anchor_bottom = 0.44
+anchor_bottom = 0.435
 offset_left = -260.0
 offset_top = -14.0
 offset_right = -90.0
@@ -240,9 +241,9 @@ horizontal_alignment = 2
 [node name="PlayerSlider" type="Control" parent="UI" unique_id=729757651]
 layout_mode = 3
 anchor_left = 0.5
-anchor_top = 0.44
+anchor_top = 0.435
 anchor_right = 0.5
-anchor_bottom = 0.44
+anchor_bottom = 0.435
 offset_left = 60.0
 offset_top = -18.0
 offset_right = 260.0
@@ -252,9 +253,9 @@ script = ExtResource("5_colorslider")
 [node name="TrailCheck" type="CheckButton" parent="UI" unique_id=1406238040]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.51
+anchor_top = 0.495
 anchor_right = 0.5
-anchor_bottom = 0.51
+anchor_bottom = 0.495
 offset_left = -160.0
 offset_top = -26.0
 offset_right = 160.0
@@ -265,9 +266,9 @@ text = "CHARACTER TRAIL"
 [node name="PlatformColorLabel" type="Label" parent="UI" unique_id=1805726426]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.58
+anchor_top = 0.555
 anchor_right = 0.5
-anchor_bottom = 0.58
+anchor_bottom = 0.555
 offset_left = -260.0
 offset_top = -14.0
 offset_right = -90.0
@@ -280,9 +281,9 @@ horizontal_alignment = 2
 [node name="PlatformSlider" type="Control" parent="UI" unique_id=2146219552]
 layout_mode = 3
 anchor_left = 0.5
-anchor_top = 0.58
+anchor_top = 0.555
 anchor_right = 0.5
-anchor_bottom = 0.58
+anchor_bottom = 0.555
 offset_left = 60.0
 offset_top = -18.0
 offset_right = 260.0
@@ -292,9 +293,9 @@ script = ExtResource("5_colorslider")
 [node name="ParticlesCheck" type="CheckButton" parent="UI" unique_id=1190868346]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.65
+anchor_top = 0.615
 anchor_right = 0.5
-anchor_bottom = 0.65
+anchor_bottom = 0.615
 offset_left = -160.0
 offset_top = -26.0
 offset_right = 160.0
@@ -305,9 +306,9 @@ text = "BACKGROUND DRIFT"
 [node name="ParticleColorLabel" type="Label" parent="UI" unique_id=717826135]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.72
+anchor_top = 0.675
 anchor_right = 0.5
-anchor_bottom = 0.72
+anchor_bottom = 0.675
 offset_left = -260.0
 offset_top = -14.0
 offset_right = -90.0
@@ -320,14 +321,48 @@ horizontal_alignment = 2
 [node name="ParticleSlider" type="Control" parent="UI" unique_id=1575536318]
 layout_mode = 3
 anchor_left = 0.5
-anchor_top = 0.72
+anchor_top = 0.675
 anchor_right = 0.5
-anchor_bottom = 0.72
+anchor_bottom = 0.675
 offset_left = 60.0
 offset_top = -18.0
 offset_right = 260.0
 offset_bottom = 18.0
 script = ExtResource("5_colorslider")
+
+[node name="ShuffleCheck" type="CheckButton" parent="UI" unique_id=2102000001]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.735
+anchor_right = 0.5
+anchor_bottom = 0.735
+offset_left = -160.0
+offset_top = -26.0
+offset_right = 160.0
+offset_bottom = 26.0
+theme_override_font_sizes/font_size = 20
+text = "SHUFFLE CHARACTER"
+
+[node name="RandomizeButton" type="Button" parent="UI" unique_id=2102000002]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.8
+anchor_right = 0.5
+anchor_bottom = 0.8
+offset_left = -160.0
+offset_top = -26.0
+offset_right = 160.0
+offset_bottom = 26.0
+focus_mode = 0
+theme_override_colors/font_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_colors/font_hover_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_colors/font_pressed_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 26
+theme_override_font_sizes/font_size = 18
+text = "RANDOMIZE COLORS"
+icon = ExtResource("27_shuffle")
+flat = true
 
 [node name="BackButton" type="Button" parent="UI" unique_id=2121920165]
 anchors_preset = -1
@@ -361,7 +396,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.98039216)
 
-[node name="TitleLabel" type="Label" parent="UI/ConfirmPanel" unique_id=1745128014]
+[node name="TitleLabel" type="Label" parent="UI/ConfirmPanel" unique_id=1745128014 groups=["ui_accent"]]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.36
@@ -440,6 +475,8 @@ flat = true
 [connection signal="color_changed" from="UI/PlatformSlider" to="." method="_on_platform_slider_color_changed"]
 [connection signal="toggled" from="UI/ParticlesCheck" to="." method="_on_particles_check_toggled"]
 [connection signal="color_changed" from="UI/ParticleSlider" to="." method="_on_particle_slider_color_changed"]
+[connection signal="toggled" from="UI/ShuffleCheck" to="." method="_on_shuffle_check_toggled"]
+[connection signal="pressed" from="UI/RandomizeButton" to="." method="_on_randomize_pressed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]
 [connection signal="gui_input" from="UI/ConfirmPanel/Dim" to="." method="_on_confirm_dim_input"]
 [connection signal="pressed" from="UI/ConfirmPanel/WatchButton" to="." method="_on_confirm_watch_pressed"]

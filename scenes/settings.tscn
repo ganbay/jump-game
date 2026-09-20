@@ -7,6 +7,7 @@
 [ext_resource type="Texture2D" path="res://assets/icons/signal_wave.svg" id="6_haptics"]
 [ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="7_home"]
 [ext_resource type="Texture2D" path="res://assets/icons/lock.svg" id="8_privacy"]
+[ext_resource type="Texture2D" path="res://assets/icons/help.svg" id="9_hints"]
 
 [sub_resource type="Environment" id="Environment_settings"]
 background_mode = 3
@@ -36,7 +37,7 @@ color = Color(0, 0, 0, 1)
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=44455857]
 
-[node name="TitleLabel" type="Label" parent="UI" unique_id=1607770288]
+[node name="TitleLabel" type="Label" parent="UI" unique_id=1607770288 groups=["ui_accent"]]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.04
@@ -113,9 +114,9 @@ value = 0.8
 [node name="ScoreAlignLabel" type="Label" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.35
+anchor_top = 0.345
 anchor_right = 0.5
-anchor_bottom = 0.35
+anchor_bottom = 0.345
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 20.0
@@ -128,9 +129,9 @@ vertical_alignment = 1
 [node name="ScoreAlignButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.35
+anchor_top = 0.345
 anchor_right = 0.5
-anchor_bottom = 0.35
+anchor_bottom = 0.345
 offset_left = 36.0
 offset_top = -44.0
 offset_right = 156.0
@@ -146,9 +147,9 @@ flat = true
 [node name="ControlsLabel" type="Label" parent="UI" unique_id=1952482922]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.44
+anchor_top = 0.425
 anchor_right = 0.5
-anchor_bottom = 0.44
+anchor_bottom = 0.425
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 20.0
@@ -161,9 +162,9 @@ vertical_alignment = 1
 [node name="ControlsButton" type="Button" parent="UI" unique_id=391914364]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.44
+anchor_top = 0.425
 anchor_right = 0.5
-anchor_bottom = 0.44
+anchor_bottom = 0.425
 offset_left = 52.0
 offset_top = -44.0
 offset_right = 140.0
@@ -178,9 +179,9 @@ icon_alignment = 1
 [node name="SensitivityLabel" type="Label" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.51
+anchor_top = 0.495
 anchor_right = 0.5
-anchor_bottom = 0.51
+anchor_bottom = 0.495
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 140.0
@@ -193,9 +194,9 @@ horizontal_alignment = 1
 [node name="SensitivitySlider" type="HSlider" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.55
+anchor_top = 0.535
 anchor_right = 0.5
-anchor_bottom = 0.55
+anchor_bottom = 0.535
 offset_left = -140.0
 offset_top = -10.0
 offset_right = 140.0
@@ -208,9 +209,9 @@ value = 1.0
 [node name="SoundLabel" type="Label" parent="UI" unique_id=1995807125]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.63
+anchor_top = 0.605
 anchor_right = 0.5
-anchor_bottom = 0.63
+anchor_bottom = 0.605
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 20.0
@@ -223,9 +224,9 @@ vertical_alignment = 1
 [node name="SoundButton" type="Button" parent="UI" unique_id=498754723]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.63
+anchor_top = 0.605
 anchor_right = 0.5
-anchor_bottom = 0.63
+anchor_bottom = 0.605
 offset_left = 52.0
 offset_top = -44.0
 offset_right = 140.0
@@ -240,9 +241,9 @@ icon_alignment = 1
 [node name="HapticsLabel" type="Label" parent="UI" unique_id=826691771]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.71
+anchor_top = 0.675
 anchor_right = 0.5
-anchor_bottom = 0.71
+anchor_bottom = 0.675
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 20.0
@@ -255,9 +256,9 @@ vertical_alignment = 1
 [node name="HapticsButton" type="Button" parent="UI" unique_id=252595316]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.71
+anchor_top = 0.675
 anchor_right = 0.5
-anchor_bottom = 0.71
+anchor_bottom = 0.675
 offset_left = 52.0
 offset_top = -44.0
 offset_right = 140.0
@@ -269,12 +270,44 @@ icon = ExtResource("6_haptics")
 flat = true
 icon_alignment = 1
 
+[node name="HintsLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.745
+anchor_right = 0.5
+anchor_bottom = 0.745
+offset_left = -140.0
+offset_top = -14.0
+offset_right = 20.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "HINTS"
+vertical_alignment = 1
+
+[node name="HintsButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.745
+anchor_right = 0.5
+anchor_bottom = 0.745
+offset_left = 52.0
+offset_top = -44.0
+offset_right = 140.0
+offset_bottom = 44.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 48
+icon = ExtResource("9_hints")
+flat = true
+icon_alignment = 1
+
 [node name="PrivacyLabel" type="Label" parent="UI" unique_id=826691772]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.8
+anchor_top = 0.815
 anchor_right = 0.5
-anchor_bottom = 0.8
+anchor_bottom = 0.815
 offset_left = -140.0
 offset_top = -14.0
 offset_right = 20.0
@@ -287,9 +320,9 @@ vertical_alignment = 1
 [node name="PrivacyButton" type="Button" parent="UI" unique_id=252595317]
 anchors_preset = -1
 anchor_left = 0.5
-anchor_top = 0.8
+anchor_top = 0.815
 anchor_right = 0.5
-anchor_bottom = 0.8
+anchor_bottom = 0.815
 offset_left = 52.0
 offset_top = -44.0
 offset_right = 140.0
@@ -393,6 +426,7 @@ text = "CLOSE"
 [connection signal="pressed" from="UI/SoundButton" to="." method="_on_sound_pressed"]
 [connection signal="pressed" from="UI/HapticsButton" to="." method="_on_haptics_pressed"]
 [connection signal="pressed" from="UI/ScoreAlignButton" to="." method="_on_score_align_pressed"]
+[connection signal="pressed" from="UI/HintsButton" to="." method="_on_hints_pressed"]
 [connection signal="pressed" from="UI/PrivacyButton" to="." method="_on_privacy_pressed"]
 [connection signal="pressed" from="UI/BackButton" to="." method="_on_back_pressed"]
 [connection signal="pressed" from="UI/PrivacyPanel/CloseButton" to="." method="_on_privacy_close_pressed"]

@@ -13,6 +13,8 @@ const SOUND_ON_ICON := preload("res://assets/icons/speaker.svg")
 const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
 const HAPTICS_ON_ICON := preload("res://assets/icons/signal_wave.svg")
 const HAPTICS_OFF_ICON := preload("res://assets/icons/no_symbol.svg")
+const HINTS_ON_ICON := preload("res://assets/icons/help.svg")
+const HINTS_OFF_ICON := preload("res://assets/icons/no_symbol.svg")
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var glow_slider: HSlider = $UI/GlowSlider
@@ -22,6 +24,7 @@ const HAPTICS_OFF_ICON := preload("res://assets/icons/no_symbol.svg")
 @onready var sensitivity_slider: HSlider = $UI/SensitivitySlider
 @onready var sound_button: Button = $UI/SoundButton
 @onready var haptics_button: Button = $UI/HapticsButton
+@onready var hints_button: Button = $UI/HintsButton
 @onready var score_align_button: Button = $UI/ScoreAlignButton
 @onready var privacy_button: Button = $UI/PrivacyButton
 @onready var privacy_panel: ColorRect = $UI/PrivacyPanel
@@ -33,14 +36,17 @@ func _ready() -> void:
 	_update_sensitivity_row()
 	_update_sound_icon()
 	_update_haptics_icon()
+	_update_hints_icon()
 	_update_score_align_text()
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
-	IconPop.attach([controls_button, sound_button, haptics_button, score_align_button, privacy_button, $UI/BackButton])
+	IconPop.attach([controls_button, sound_button, haptics_button, hints_button,
+		score_align_button, privacy_button, $UI/BackButton])
 
 func _apply_visual_settings() -> void:
 	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
+	UiAccent.apply($UI)
 
 func _on_glow_slider_value_changed(value: float) -> void:
 	Settings.set_glow_strength(value)
@@ -89,6 +95,17 @@ func _on_haptics_pressed() -> void:
 
 func _update_haptics_icon() -> void:
 	haptics_button.icon = HAPTICS_ON_ICON if Settings.haptics_enabled else HAPTICS_OFF_ICON
+
+## The in-run coaching (see game.gd's tutorial section). Off is the same
+## crossed-out glyph the haptics row uses for its off state, so the two
+## switches read as the same kind of switch.
+func _on_hints_pressed() -> void:
+	Audio.play_ui_click()
+	Settings.toggle_tutorial_hints()
+	_update_hints_icon()
+
+func _update_hints_icon() -> void:
+	hints_button.icon = HINTS_ON_ICON if Settings.tutorial_hints else HINTS_OFF_ICON
 
 ## A word rather than a glyph: no icon says "left" versus "centre" for a
 ## number as plainly as the words do.

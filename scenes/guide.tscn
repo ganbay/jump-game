@@ -7,6 +7,8 @@
 [ext_resource type="Texture2D" path="res://assets/icons/arrow_right.svg" id="21_next"]
 [ext_resource type="Texture2D" path="res://assets/icons/play.svg" id="22_play"]
 [ext_resource type="Texture2D" path="res://assets/icons/house.svg" id="23_home"]
+[ext_resource type="Texture2D" path="res://assets/icons/mobile_phone.svg" id="24_tilt"]
+[ext_resource type="Texture2D" path="res://assets/icons/hand.svg" id="25_touch"]
 
 [sub_resource type="Environment" id="Environment_guide"]
 background_mode = 3
@@ -48,7 +50,7 @@ color = Color(0, 0, 0, 1)
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="TitleLabel" type="Label" parent="UI"]
+[node name="TitleLabel" type="Label" parent="UI" groups=["ui_accent"]]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.04
@@ -98,10 +100,56 @@ layout_mode = 2
 theme_override_colors/font_color = Color(1.4, 1.4, 1.4, 1)
 theme_override_constants/line_spacing = 4
 theme_override_font_sizes/font_size = 16
-text = "Tilt or drag to steer. Tap the moment you land to boost the jump -- one tap, not a mash."
+text = "Tap the moment you land to boost the jump -- one tap, not a mash."
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
+
+[node name="ControlsRow" type="PanelContainer" parent="UI/Page1/Body/Column"]
+custom_minimum_size = Vector2(600, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_zone")
+
+[node name="Inset" type="MarginContainer" parent="UI/Page1/Body/Column/ControlsRow"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="Column" type="VBoxContainer" parent="UI/Page1/Body/Column/ControlsRow/Inset"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="HeadLabel" type="Label" parent="UI/Page1/Body/Column/ControlsRow/Inset/Column"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1.6, 1.6, 1.6, 1)
+theme_override_font_sizes/font_size = 17
+text = "STEER WITH"
+horizontal_alignment = 1
+
+[node name="Choices" type="HBoxContainer" parent="UI/Page1/Body/Column/ControlsRow/Inset/Column"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="TiltButton" type="Button" parent="UI/Page1/Body/Column/ControlsRow/Inset/Column/Choices"]
+custom_minimum_size = Vector2(170, 58)
+layout_mode = 2
+focus_mode = 0
+theme_override_constants/icon_max_width = 30
+theme_override_font_sizes/font_size = 18
+text = "TILT"
+icon = ExtResource("24_tilt")
+
+[node name="TouchButton" type="Button" parent="UI/Page1/Body/Column/ControlsRow/Inset/Column/Choices"]
+custom_minimum_size = Vector2(170, 58)
+layout_mode = 2
+focus_mode = 0
+theme_override_constants/icon_max_width = 30
+theme_override_font_sizes/font_size = 18
+text = "SWIPE"
+icon = ExtResource("25_touch")
 
 [node name="NormalRow" type="Control" parent="UI/Page1/Body/Column"]
 custom_minimum_size = Vector2(600, 84)
@@ -372,7 +420,7 @@ layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 12
 
-[node name="ZoneTitleLabel" type="Label" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn"]
+[node name="ZoneTitleLabel" type="Label" parent="UI/Page2/Body/Column/ZoneFrame/Inset/ZoneColumn" groups=["ui_accent"]]
 custom_minimum_size = Vector2(564, 30)
 layout_mode = 2
 theme_override_colors/font_color = Color(1.2, 2, 2.6, 1)
@@ -563,6 +611,8 @@ flat = true
 icon = ExtResource("23_home")
 icon_alignment = 1
 
+[connection signal="pressed" from="UI/Page1/Body/Column/ControlsRow/Inset/Column/Choices/TiltButton" to="." method="_on_tilt_pressed"]
+[connection signal="pressed" from="UI/Page1/Body/Column/ControlsRow/Inset/Column/Choices/TouchButton" to="." method="_on_touch_pressed"]
 [connection signal="pressed" from="UI/PrevButton" to="." method="_on_prev_pressed"]
 [connection signal="pressed" from="UI/PlayButton" to="." method="_on_play_pressed"]
 [connection signal="pressed" from="UI/NextButton" to="." method="_on_next_pressed"]

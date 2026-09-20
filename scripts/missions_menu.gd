@@ -24,6 +24,7 @@ func _ready() -> void:
 func _apply_visual_settings() -> void:
 	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
+	UiAccent.apply($UI)
 	# modulate, not self_modulate: UiOpacity owns self_modulate on every Control
 	# under the UI layer, so the star's tint has to live on the other channel.
 	coins_icon.modulate = Settings.background_particle_color

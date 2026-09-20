@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# Renders the store trailer to a 1080x1920 mp4.
+# Renders the trailer.
 #
-#   tools/render_trailer.sh [seed]
+#   tools/render_trailer.sh [--landscape] [seed]
+#
+# Portrait (1080x1920) is the store cut. --landscape renders the 16:9 YouTube
+# cut instead: the same running order, the same seed and the same takes, with
+# the game shown in a 9:16 strip and the rest of the frame given to the sky and
+# side copy (see trailer_side_panel.gd). Because only the framing differs, both
+# cuts hit their beats on the same frames and share one audio mix.
 #
 # Godot runs scenes/trailer.tscn under --fixed-fps, which decouples simulated
 # time from wall clock: the director writes a PNG per frame, each taking far
@@ -17,9 +23,25 @@ set -euo pipefail
 
 PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 USER_DIR="$HOME/.local/share/godot/app_userdata/Jetlet- Solar Escape"
-FRAMES="$USER_DIR/trailer_frames"
-OUT="$PROJECT/promo/trailer_1080x1920.mp4"
+
+ASPECT="portrait"
+if [ "${1:-}" = "--landscape" ]; then
+  ASPECT="landscape"
+  shift
+fi
 SEED="${1:-20260916}"
+
+# Separate scratch directories, so rendering one cut does not throw away the
+# frames of the other -- they are kept deliberately (see the closing message)
+# and a re-render wipes whichever it is about to write.
+if [ "$ASPECT" = "landscape" ]; then
+  FRAMES_NAME="trailer_frames_16x9"
+  OUT="$PROJECT/promo/trailer_1920x1080.mp4"
+else
+  FRAMES_NAME="trailer_frames"
+  OUT="$PROJECT/promo/trailer_1080x1920.mp4"
+fi
+FRAMES="$USER_DIR/$FRAMES_NAME"
 
 command -v ffmpeg >/dev/null || { echo "ffmpeg not found" >&2; exit 1; }
 
@@ -38,7 +60,7 @@ done
 rm -rf "$FRAMES"
 mkdir -p "$FRAMES" "$PROJECT/promo"
 
-echo "== rendering frames (seed $SEED) =="
+echo "== rendering frames ($ASPECT, seed $SEED) =="
 LOG="$(mktemp)"
 # Judged by what it produced, not by how it exited. Godot has been seen to
 # abort while unwinding the render's viewports at shutdown -- after the
@@ -46,7 +68,8 @@ LOG="$(mktemp)"
 # render, and treating it as a failure would throw away several minutes of
 # work over a crash in the teardown of a process that has nothing left to do.
 set +e
-godot --path "$PROJECT" --fixed-fps 60 res://scenes/trailer.tscn -- --seed "$SEED" 2>&1 | tee "$LOG"
+godot --path "$PROJECT" --fixed-fps 60 res://scenes/trailer.tscn \
+  -- --seed "$SEED" --aspect "$ASPECT" --out "user://$FRAMES_NAME" 2>&1 | tee "$LOG"
 GODOT_STATUS=${PIPESTATUS[0]}
 set -e
 
@@ -104,51 +127,16 @@ ffmpeg -y -framerate 60 -i "$FRAMES/f_%05d.png" \
   -movflags +faststart "$OUT"
 
 echo "== mixing in music =="
-# Mirrors what the game itself would be playing under this footage (see
-# audio.gd): the 125bpm lead loop alone through the climb showcase, its drum
-# layer joining at the drift showcase (matching Audio.set_streak's tiered
-# layering, not a hard cut), both ducking out together the moment the squish
-# showcase's death would have fired Audio.fade_to_menu_music(), silence
-# across the game-over beat, then the menu ambient track fading in under the
-# customization showcase and riding out to the end card. The render itself
-# has no audio (see trailer_director.gd:_prepare_globals) -- this is the one
-# and only pass that adds any.
-FPS=60
-MUSIC="$PROJECT/audio/music"
-t() { awk -v f="$1" -v fps="$FPS" 'BEGIN{printf "%.5f", f/fps}'; }
-ms() { awk -v s="$1" 'BEGIN{printf "%d", s*1000}'; }
-
-DRIFT_T=$(t "${SEG_END[climb]}")     # drift's slide-in starts where climb's hold ends
-CUSTOM_T=$(t "${SEG_END[squish]}")   # customization's slide-in starts where squish's hold ends
-DEATH_T=$(t "$DEATH_FRAME")
-TOTAL_T=$(t "$EXPECTED")
-
-GAMEPLAY_FADE=0.6   # Audio.LAYER_FADE_TIME
-LEAD_FADE_IN=1.5     # Audio.MUSIC_INTRO_FADE_TIME
-DRUM_FADE_IN=0.3
-MENU_FADE_IN=1.2
-MENU_FADE_OUT=0.6
-
-LEAD_END=$(awk -v d="$DEATH_T" -v f="$GAMEPLAY_FADE" 'BEGIN{printf "%.5f", d+f}')
-DRUM_DUR=$(awk -v e="$LEAD_END" -v s="$DRIFT_T" 'BEGIN{printf "%.5f", e-s}')
-DRUM_FADE_OUT_AT=$(awk -v d="$DRUM_DUR" -v f="$GAMEPLAY_FADE" 'BEGIN{printf "%.5f", d-f}')
-MENU_DUR=$(awk -v t="$TOTAL_T" -v s="$CUSTOM_T" 'BEGIN{printf "%.5f", t-s}')
-MENU_FADE_OUT_AT=$(awk -v d="$MENU_DUR" -v f="$MENU_FADE_OUT" 'BEGIN{printf "%.5f", d-f}')
-
-FILTER="[1:a]atrim=start=0:end=${LEAD_END},afade=t=in:st=0:d=${LEAD_FADE_IN},afade=t=out:st=${DEATH_T}:d=${GAMEPLAY_FADE},volume=0.85[lead];"
-FILTER+="[2:a]atrim=start=0:end=${DRUM_DUR},afade=t=in:st=0:d=${DRUM_FADE_IN},afade=t=out:st=${DRUM_FADE_OUT_AT}:d=${GAMEPLAY_FADE},adelay=$(ms "$DRIFT_T")|$(ms "$DRIFT_T"),volume=0.8[drum];"
-FILTER+="[3:a]atrim=start=0:end=${MENU_DUR},afade=t=in:st=0:d=${MENU_FADE_IN},afade=t=out:st=${MENU_FADE_OUT_AT}:d=${MENU_FADE_OUT},adelay=$(ms "$CUSTOM_T")|$(ms "$CUSTOM_T"),volume=0.85[menu];"
-FILTER+="[lead][drum][menu]amix=inputs=3:duration=longest:normalize=0,apad,alimiter=limit=0.97[aout]"
-
-MIXED="$PROJECT/promo/.trailer_mixed.mp4"
-ffmpeg -y -i "$OUT" \
-  -i "$MUSIC/gameplay_asap_125bpm.ogg" \
-  -i "$MUSIC/gameplay_indie_drums_125bpm_v2.ogg" \
-  -i "$MUSIC/menu_ambient.ogg" \
-  -filter_complex "$FILTER" \
-  -map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 192k -movflags +faststart -shortest \
-  -f mp4 "$MIXED"
-mv -f "$MIXED" "$OUT"
+# The render itself has no audio (see trailer_director.gd:_prepare_globals) --
+# the mix below is the one and only pass that adds any. It lives in its own
+# script so that re-cutting the music does not cost a re-render: once this has
+# run you can iterate on the mix directly with
+#   tools/mix_trailer_audio.sh "$OUT" <drift> <custom> <death>
+# using the three cue frames it prints here.
+DRIFT_F="${SEG_END[climb]}"    # drift's slide-in starts where climb's hold ends
+CUSTOM_F="${SEG_END[squish]}"  # customization's slide-in starts where squish's hold ends
+echo "   cues: drift $DRIFT_F  custom $CUSTOM_F  death $DEATH_FRAME"
+"$PROJECT/tools/mix_trailer_audio.sh" "$OUT" "$DRIFT_F" "$CUSTOM_F" "$DEATH_FRAME"
 
 echo
 echo "trailer: $OUT"

@@ -152,9 +152,24 @@ const NO_POINTER := -1
 const MOUSE_POINTER := -100
 ## Stands in for a touch index for the keyboard's space bar.
 const KEY_POINTER := -200
-const FEET_HALF_WIDTH := 20.0
+## How far either side of the landing point still counts as over a platform.
+## Matched to PlasmaBlob's radius, so the catch ends exactly where the drawn
+## silhouette does: the widest skins (STAR's points, SQUARE's corners) reach a
+## full radius, so this is the character's real half-width on screen. It used
+## to be 20 -- half of the 40x10 FeetShape rectangle, which nothing reads --
+## and those 2px bought a sliver where a landing registered on a platform the
+## character was visibly clear of.
+const FEET_HALF_WIDTH := 18.0
+## Vertical slop on the sweep band below, not a half-height of anything drawn:
+## the landing point is a point (the blob is bottom-anchored on it), so there
+## is no visual extent here to match.
 const FEET_HALF_HEIGHT := 5.0
+## Fallback half-width for a platform that is not a Platform; real ones report
+## their own (see _platform_half_width), since the spawner narrows them with
+## difficulty.
 const PLATFORM_HALF_WIDTH := 45.0
+## Half of Platform's 12px visual, so the surface the character is placed on
+## is the top of what is drawn.
 const PLATFORM_HALF_HEIGHT := 6.0
 
 const COLOR := Color(0.66295815, 2.299754, 0.0, 1.0)
@@ -174,7 +189,7 @@ func _ready() -> void:
 
 func _apply_visual_settings() -> void:
 	var shape: PlasmaBlob.Shape = SKIN_SHAPES.get(
-		Settings.player_skin, PlasmaBlob.Shape.CIRCLE)
+		Settings.active_player_skin(), PlasmaBlob.Shape.CIRCLE)
 	visual.shape = shape
 	visual.color = Settings.player_color
 	trail.color = Settings.player_color
@@ -451,8 +466,34 @@ func _check_landing(prev_y: float, new_y: float) -> void:
 func _platform_half_width(area: Node) -> float:
 	return area.width / 2.0 if area is Platform else PLATFORM_HALF_WIDTH
 
+## Puts the character on the surface it just landed on, before anything else
+## reacts to the landing.
+##
+## _check_landing sweeps the feet between the last physics frame's position
+## and this one's, which is what stops a fast fall from tunnelling straight
+## through a platform -- but detecting the crossing is not the same as being
+## at it. The descent gets quicker with every streak point
+## (_streak_fall_multiplier), and at streak 10 it runs near 3400 px/s: about
+## 56px in one 60Hz tick, against a character 36px tall. So by the time the
+## landing resolved, the platform could be anywhere from under the feet to
+## above the head -- which is exactly the "it bounced with the platform
+## through its middle" report. The bounce was right; only the position was
+## wherever the frame happened to stop.
+##
+## Correcting it costs nothing to look at: the character leaves at 900-2600
+## px/s on the very next frame, so a sub-frame snap is invisible, and every
+## launch now starts from the surface it is supposed to be launching off.
+## Platforms are non-colliding Area2Ds (monitoring and mask both off), so
+## moving the body here cannot push it out of anything.
+func _snap_to_platform(area: Node) -> void:
+	# Read from the node rather than assuming the authored 17px, so moving
+	# Feet in the scene moves the contact point with it.
+	var feet_offset := feet.global_position.y - global_position.y
+	global_position.y = area.global_position.y - PLATFORM_HALF_HEIGHT - feet_offset
+
 func _land_on(area: Node) -> void:
 	var now := Time.get_ticks_msec()
+	_snap_to_platform(area)
 	# Counting presses since the last landing would not work here: steering is
 	# press-and-drag, so an ordinary flight already spends two or three presses
 	# before the timing tap. What has to be sole is the press inside the window.

@@ -28,6 +28,7 @@ const SKIP_BUTTON_FADE_TIME := 0.2
 @onready var pause_panel: Control = $UI/PausePanel
 @onready var pause_button: Button = $UI/PauseButton
 @onready var controls_button: Button = $UI/PausePanel/ControlsButton
+@onready var controls_caption: Label = $UI/PausePanel/ControlsCaption
 @onready var sound_button: Button = $UI/PausePanel/SoundButton
 @onready var resume_icon: TextureRect = $UI/PausePanel/ResumeIcon
 @onready var resume_label: Label = $UI/PausePanel/ResumeLabel
@@ -45,6 +46,13 @@ const SKIP_BUTTON_FADE_TIME := 0.2
 @onready var coin_label: Label = $UI/CoinRow/Value
 # @onready var mission_toast: Label = $UI/MissionToast  # missions disabled
 @onready var zone_banner: Label = $UI/ZoneBanner
+@onready var control_hint: Control = $UI/ControlHint
+@onready var control_hint_title: Label = $UI/ControlHint/TitleLabel
+@onready var control_hint_body: Label = $UI/ControlHint/BodyLabel
+@onready var tap_cue: Label = $UI/TapCue
+@onready var tutorial_panel: Control = $UI/TutorialPanel
+@onready var tutorial_title: Label = $UI/TutorialPanel/TitleLabel
+@onready var tutorial_body: Label = $UI/TutorialPanel/BodyLabel
 @onready var milestone_panel: Control = $UI/MilestonePanel
 @onready var milestone_title: Label = $UI/MilestonePanel/TitleLabel
 @onready var milestone_body: Label = $UI/MilestonePanel/BodyLabel
@@ -149,6 +157,32 @@ const STREAK_PLATE_PAD_Y := 0.0
 ## How long a zone announcement stays up between its fade in and fade out.
 const ZONE_BANNER_HOLD := 1.1
 
+## In-run coaching, gated on Settings.tutorial_hints. Two beats: a steer
+## prompt naming whichever scheme is actually active as the run starts, then a
+## one-time freeze on the first landing teaching the timed tap. Both repeat
+## every run rather than only the first -- a player who dies in the opening
+## seconds has learnt nothing yet -- and both go away for good from the
+## panel's own dismiss button or the HINTS row in Settings.
+
+## How long the steer prompt holds before fading on its own, if the player
+## has not already started steering.
+const CONTROL_HINT_HOLD := 4.0
+const CONTROL_HINT_FADE_IN := 0.25
+const CONTROL_HINT_FADE_OUT := 0.45
+## Horizontal speed, as a fraction of the character's top speed, that counts as
+## the player actually steering rather than drift bleeding off. Held for
+## CONTROL_HINT_STEER_TIME before the prompt takes itself away, so a single
+## frame of accelerometer noise does not dismiss it.
+const CONTROL_HINT_STEER_FRACTION := 0.35
+const CONTROL_HINT_STEER_TIME := 0.3
+## The follow-up cue after the tap lesson: shown on each descent until the
+## player lands their first flare, and given up on after this many descents so
+## it cannot nag for a whole run.
+const TAP_CUE_MAX_DESCENTS := 4
+const TAP_CUE_PULSE_TIME := 0.45
+const TAP_CUE_PULSE_MIN_ALPHA := 0.35
+const TAP_CUE_FADE := 0.15
+
 const HUD_DROP_HEIGHT := 240.0
 const HUD_DROP_TIME := 0.55
 const HUD_DROP_STAGGER := 0.07
@@ -241,6 +275,22 @@ var _skip_shown := false
 var _hud_nodes: Array[Control] = []
 var _hud_home: Array[Vector2] = []
 var _death_margin: float = 720.0
+## The tap lesson pauses the run the same way a milestone does, and needs the
+## same treatment from the pause controls.
+var _tutorial_open: bool = false
+## One tap lesson per run: a fresh script instance is created on every restart
+## (reload_current_scene), so this needs no explicit reset.
+var _boost_hint_shown: bool = false
+var _control_hint_open: bool = false
+## Set when the scheme is swapped from the pause menu, where the prompt would
+## only be showing behind the dim -- resuming is what actually puts it up.
+var _control_hint_pending: bool = false
+var _control_hint_steer_time: float = 0.0
+var _control_hint_tween: Tween
+## Whether the follow-up TAP cue is still looking for a first flare this run.
+var _tap_cue_active: bool = false
+var _tap_cue_descents: int = 0
+var _tap_cue_tween: Tween
 ## A milestone popup pauses the run the same way the pause menu does, so the
 ## pause controls have to stay out of its way until it is answered.
 var _milestone_open: bool = false
@@ -267,6 +317,11 @@ const REVIVE_SPAWN_LIFT := 40.0
 const REVIVE_SAFE_DROP := 240.0
 
 func _ready() -> void:
+	# First thing in the run: under shuffle this picks the character and emits
+	# visual_settings_changed, which the already-ready Player is listening on,
+	# so it re-dresses in the same frame and nothing is ever drawn wearing the
+	# previous run's skin.
+	Settings.roll_shuffled_skin()
 	_base_glow_bloom = world_environment.environment.glow_bloom
 	_load_high_score()
 	player.landed.connect(_on_player_landed)
@@ -278,6 +333,9 @@ func _ready() -> void:
 	# Missions.completed.connect(_on_mission_completed)  # missions disabled; see missions.gd ENABLED
 	game_over_panel.hide()
 	milestone_panel.hide()
+	tutorial_panel.hide()
+	control_hint.hide()
+	tap_cue.hide()
 	zone_banner.hide()
 	# Before anything reads the label's position: the vibrate origin and the
 	# HUD drop-in home are both captured from where this leaves it.
@@ -314,6 +372,10 @@ func _ready() -> void:
 	IconPop.pulse(resume_icon, resume_label)
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
+	# The pause menu can swap the scheme mid-run, and the prompt names the
+	# scheme -- so a swap re-shows it rather than leaving the player with a
+	# line about the controls they just stopped using.
+	Settings.control_scheme_changed.connect(_on_control_scheme_changed)
 	Audio.play_music()
 	_start_intro()
 
@@ -432,6 +494,7 @@ func _on_intro_finished() -> void:
 	spawner.begin(player.global_position.y - reach * intro_platform_lead)
 	# Missions.begin_run()  # missions disabled; see missions.gd ENABLED
 	_drop_in_hud()
+	_show_control_hint()
 
 ## Slides the HUD down into place instead of switching it on. Each element is
 ## parked above its home position and staggered, so it reads as arriving.
@@ -462,6 +525,7 @@ func _apply_visual_settings() -> void:
 	# under the UI layer, so the tint has to live on the other channel.
 	# coin_icon.modulate = Settings.background_particle_color
 	UiOpacity.apply($UI)
+	UiAccent.apply($UI)
 	_update_pause_button_opacity()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -480,11 +544,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				_show_skip_button()
 			get_viewport().set_input_as_handled()
 		return
-	if event.is_action_pressed("ui_cancel") and not is_game_over and not _milestone_open and not _revive_open:
+	if event.is_action_pressed("ui_cancel") and not is_game_over and not _milestone_open \
+			and not _revive_open and not _tutorial_open:
 		_toggle_pause()
 
 func _on_pause_pressed() -> void:
-	if is_game_over or _milestone_open or _revive_open:
+	if is_game_over or _milestone_open or _revive_open or _tutorial_open:
 		return
 	Audio.play_ui_click()
 	_toggle_pause()
@@ -505,11 +570,20 @@ func _toggle_pause() -> void:
 	get_tree().paused = is_paused
 	_set_hud_visible(not is_paused)
 	if is_paused:
+		# Both hints sit in the UI layer above the run, not in _hud_nodes (the
+		# drop-in tweens those by position, which these have no part in), so
+		# they have to be taken down by hand -- and the steer prompt's hold
+		# should not be burning away behind the pause panel either.
+		_dismiss_control_hint()
+		_hide_tap_cue()
 		Audio.fade_to_menu_music()
 		_show_pause_panel()
 	else:
 		Audio.fade_to_gameplay_music()
 		_hide_pause_panel()
+		if _control_hint_pending:
+			_control_hint_pending = false
+			_show_control_hint()
 
 ## Pops the panel in from slightly small and transparent rather than snapping
 ## it on -- TWEEN_PAUSE_PROCESS is required here since get_tree().paused is
@@ -543,9 +617,17 @@ func _on_controls_pressed() -> void:
 	Settings.toggle_control_scheme()
 	_update_controls_icon()
 
+## The one glyph in this panel that needs a word under it. Sound and home
+## swap between two readings of the same idea -- a speaker with or without its
+## mute bar, a house that is always a house -- but a hand and a phone are two
+## unrelated pictures, and a player who has only ever seen one of them has no
+## way to tell it is a switch rather than a decoration. Testers proved that:
+## they finished runs on tilt without ever learning swipe existed. The caption
+## names the scheme that is live, so the glyph reads as state.
 func _update_controls_icon() -> void:
-	controls_button.icon = (CONTROLS_TILT_ICON
-		if Settings.control_scheme == Settings.ControlScheme.TILT else CONTROLS_TOUCH_ICON)
+	var tilt := Settings.control_scheme == Settings.ControlScheme.TILT
+	controls_button.icon = CONTROLS_TILT_ICON if tilt else CONTROLS_TOUCH_ICON
+	controls_caption.text = "TILT" if tilt else "SWIPE"
 
 func _on_sound_pressed() -> void:
 	Audio.play_ui_click()
@@ -585,6 +667,8 @@ func _process(delta: float) -> void:
 	_apply_camera_shake()
 	if is_game_over or is_intro:
 		return
+	_update_control_hint(delta)
+	_update_tap_cue()
 	run_time += delta
 	camera.global_position.y = min(camera.global_position.y, player.global_position.y)
 	if _burst_climbing:
@@ -667,6 +751,7 @@ func _on_player_landed(platform: Node, boosted: bool, streak: int) -> void:
 		# whole (longer) hold rather than the FLARE burst's.
 		_spawn_streak_embers(clampi(streak, 0, STREAK_SCALE_CAP), SOLAR_WIND_SHOW_TIME)
 		player.enter_solar_wind()
+	_tutorial_on_landed(boosted)
 	if boosted:
 		# `boosted` is already once per platform -- player.gd spends the
 		# platform's boost on the landing that claims it, and a mistimed one
@@ -913,6 +998,186 @@ func run_speed() -> float:
 # func _update_coin_label() -> void:
 # 	coin_label.text = "%d" % (Stats.coins + run_coins)
 
+## --- In-run coaching -----------------------------------------------------
+##
+## Named after the scheme that is actually live, because the two are steered
+## in completely different ways and a generic "steer to move" teaches neither.
+## Non-blocking: it sits low on the screen, out of the platform field, and
+## takes itself away on a timer or as soon as the player starts steering --
+## whichever comes first.
+func _show_control_hint() -> void:
+	if not Settings.tutorial_hints or is_game_over or is_intro:
+		return
+	var tilt := Settings.control_scheme == Settings.ControlScheme.TILT
+	control_hint_title.text = "TILT TO STEER" if tilt else "SWIPE TO STEER"
+	# One line, and only the half the title doesn't already say: that the other
+	# scheme exists and where to find it. A prompt over live play is read in a
+	# glance or not at all.
+	control_hint_body.text = ("Or swipe -- change in pause menu." if tilt
+		else "Or tilt -- change in pause menu.")
+	_control_hint_open = true
+	_control_hint_steer_time = 0.0
+	control_hint.modulate.a = 0.0
+	control_hint.show()
+	if _control_hint_tween != null and _control_hint_tween.is_valid():
+		_control_hint_tween.kill()
+	_control_hint_tween = create_tween()
+	_control_hint_tween.tween_property(control_hint, "modulate:a", 1.0, CONTROL_HINT_FADE_IN)
+	_control_hint_tween.tween_interval(CONTROL_HINT_HOLD)
+	_control_hint_tween.tween_callback(_fade_control_hint_out)
+
+## Steering for real retires the prompt early -- it has nothing left to say to
+## someone already doing it. Measured as sustained speed rather than a single
+## frame, since a phone at rest still reports a little accelerometer noise.
+func _update_control_hint(delta: float) -> void:
+	if not _control_hint_open:
+		return
+	if absf(player.velocity.x) < player.move_speed * CONTROL_HINT_STEER_FRACTION:
+		_control_hint_steer_time = 0.0
+		return
+	_control_hint_steer_time += delta
+	if _control_hint_steer_time >= CONTROL_HINT_STEER_TIME:
+		_fade_control_hint_out()
+
+func _fade_control_hint_out() -> void:
+	if not _control_hint_open:
+		return
+	_control_hint_open = false
+	if _control_hint_tween != null and _control_hint_tween.is_valid():
+		_control_hint_tween.kill()
+	_control_hint_tween = create_tween()
+	_control_hint_tween.tween_property(control_hint, "modulate:a", 0.0, CONTROL_HINT_FADE_OUT)
+	_control_hint_tween.tween_callback(control_hint.hide)
+
+## No fade: this is for the frame a panel comes up over the run, where a
+## prompt easing out behind the dim is just something else moving.
+func _dismiss_control_hint() -> void:
+	_control_hint_open = false
+	if _control_hint_tween != null and _control_hint_tween.is_valid():
+		_control_hint_tween.kill()
+	control_hint.hide()
+
+func _on_control_scheme_changed(_scheme: int) -> void:
+	if is_game_over or is_intro:
+		return
+	if is_paused or _tutorial_open:
+		# Swapped from the pause menu, which is the usual case -- the prompt
+		# would only be showing behind the dim, so it waits for the resume.
+		_control_hint_pending = true
+		return
+	_show_control_hint()
+
+## The first landing of the run is the teaching moment for the timed tap: the
+## player has just felt a landing happen and has a whole jump ahead of them to
+## try it on. A landing that already flared is skipped -- they found it on
+## their own, and interrupting to explain what they just did is worse than
+## saying nothing.
+func _tutorial_on_landed(boosted: bool) -> void:
+	if boosted:
+		_end_tap_cue()
+	if _boost_hint_shown or not Settings.tutorial_hints or is_game_over:
+		return
+	_boost_hint_shown = true
+	if boosted:
+		return
+	# Deferred so the freeze lands between frames rather than partway through
+	# the physics step this landing was resolved in -- the launch velocity,
+	# squash and burst the landing just set all get to play out first.
+	call_deferred("_open_boost_tutorial")
+
+func _open_boost_tutorial() -> void:
+	if is_game_over or is_paused or _milestone_open or _revive_open:
+		return
+	_tutorial_open = true
+	_dismiss_control_hint()
+	_set_hud_visible(false)
+	tutorial_title.text = "TAP TO FLARE"
+	# Two lines, not a paragraph: the panel has already stopped the run, and
+	# what it costs the player is reading time. The title carries the reward,
+	# so the body only has to carry the timing and the one mistake worth
+	# warning about -- what a streak is worth shows itself on the next flare.
+	tutorial_body.text = "Tap the instant you land.\nOne tap, not a mash."
+	tutorial_panel.pivot_offset = tutorial_panel.size / 2.0
+	tutorial_panel.modulate.a = 0.0
+	tutorial_panel.scale = Vector2(0.92, 0.92)
+	tutorial_panel.visible = true
+	# TWEEN_PAUSE_PROCESS for the same reason the pause panel needs it: the
+	# tree is about to stop, and a bound tween would stop with it.
+	var tw := create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_property(tutorial_panel, "modulate:a", 1.0, 0.18)
+	tw.parallel().tween_property(tutorial_panel, "scale", Vector2.ONE, 0.22) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	get_tree().paused = true
+
+func _on_tutorial_continue_pressed() -> void:
+	Audio.play_ui_click()
+	_close_boost_tutorial()
+	_begin_tap_cue()
+
+## Turning the hints off here rather than only in Settings: the panel is where
+## a returning player meets them, and making them hunt through a menu to stop
+## seeing it every run is the whole complaint.
+func _on_tutorial_dismiss_pressed() -> void:
+	Audio.play_ui_click()
+	Settings.set_tutorial_hints(false)
+	_close_boost_tutorial()
+
+func _close_boost_tutorial() -> void:
+	_tutorial_open = false
+	tutorial_panel.hide()
+	_set_hud_visible(true)
+	get_tree().paused = false
+
+## Reading the rule is not the same as feeling the window, so the cue rides
+## the next few descents -- the part of the jump the tap belongs to -- and
+## retires the moment a flare actually lands.
+func _begin_tap_cue() -> void:
+	if not Settings.tutorial_hints:
+		return
+	_tap_cue_active = true
+	_tap_cue_descents = 0
+
+func _update_tap_cue() -> void:
+	if not _tap_cue_active:
+		return
+	if is_paused or _tutorial_open or _milestone_open or _revive_open:
+		_hide_tap_cue()
+		return
+	var descending := player.velocity.y > 0.0
+	if descending == tap_cue.visible:
+		return
+	if descending:
+		_tap_cue_descents += 1
+		if _tap_cue_descents > TAP_CUE_MAX_DESCENTS:
+			_end_tap_cue()
+			return
+		_show_tap_cue()
+	else:
+		_hide_tap_cue()
+
+## Pulsed rather than held solid: the cue is asking for an action on a beat,
+## and a label just sitting there reads as part of the HUD.
+func _show_tap_cue() -> void:
+	tap_cue.modulate.a = 1.0
+	tap_cue.visible = true
+	if _tap_cue_tween != null and _tap_cue_tween.is_valid():
+		_tap_cue_tween.kill()
+	_tap_cue_tween = create_tween().set_loops()
+	_tap_cue_tween.tween_property(tap_cue, "modulate:a", TAP_CUE_PULSE_MIN_ALPHA,
+		TAP_CUE_PULSE_TIME).set_trans(Tween.TRANS_SINE)
+	_tap_cue_tween.tween_property(tap_cue, "modulate:a", 1.0,
+		TAP_CUE_PULSE_TIME).set_trans(Tween.TRANS_SINE)
+
+func _hide_tap_cue() -> void:
+	if _tap_cue_tween != null and _tap_cue_tween.is_valid():
+		_tap_cue_tween.kill()
+	tap_cue.visible = false
+
+func _end_tap_cue() -> void:
+	_tap_cue_active = false
+	_hide_tap_cue()
+
 func _on_zone_changed(stage: int, zone_name: String) -> void:
 	if stage == 0:
 		return
@@ -958,6 +1223,10 @@ func _on_milestone_continue_pressed() -> void:
 ## Restart/Menu stay live the whole time: pressing either while the offer is
 ## still up simply ends it (see _on_restart_pressed/_on_menu_pressed).
 func _game_over() -> void:
+	# _process stops looking at either hint from here on (it returns early on
+	# is_game_over), so anything still up has to be taken down now.
+	_dismiss_control_hint()
+	_end_tap_cue()
 	game_over_title.text = "GAME OVER"
 	result_label.text = "SCORE %d   BEST %d" % [score, max(score, high_score)]
 	result_label.show()

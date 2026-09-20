@@ -44,9 +44,26 @@ extends Node
 ## seed produces the same trailer.
 
 const OUTPUT_SIZE := Vector2i(1080, 1920)
+## The YouTube cut. The game cannot be reframed to 16:9 -- platform gaps, edge
+## margins and the difficulty curve are all tuned against GAME_SIZE -- so this
+## shows it in a 9:16 strip and gives the rest of the frame to the chrome (see
+## trailer_side_panel.gd). Selected with `-- --aspect landscape`.
+const LANDSCAPE_SIZE := Vector2i(1920, 1080)
 ## The canvas the game is authored against -- project.godot's
 ## display/window/size. Changing one without the other reframes every scene.
 const GAME_SIZE := Vector2i(720, 1280)
+## What the landscape cut overrides to for the two segments that fill the whole
+## 16:9 frame. The splash and the end card are laid out from anchors and a
+## centred box, so they compose themselves against any aspect handed to them --
+## which is the only reason those two can go full-bleed while the game cannot.
+const WIDE_GAME_SIZE := Vector2i(1280, 720)
+## The gameplay strip inside a landscape frame. SHOT_W is 1080 * 720/1280
+## rounded to a whole pixel (607.5 -> 608): the 0.08% of horizontal stretch
+## that costs is invisible, a fractional rect would not be. Kept in step by
+## hand with the same constants in trailer_side_panel.gd, which lays the copy
+## out beside this box.
+const SHOT_X := 120.0
+const SHOT_W := 608.0
 const FPS := 60
 ## Long enough to read as a deliberate push, short enough that it is not the
 ## thing you remember about the trailer.
@@ -57,6 +74,7 @@ const SLIDE_TIME := 0.42
 ## entry in the editor's script class cache for a headless run to resolve.
 const Autopilot := preload("res://scripts/trailer/trailer_autopilot.gd")
 const EndCard := preload("res://scripts/trailer/trailer_end_card.gd")
+const SidePanel := preload("res://scripts/trailer/trailer_side_panel.gd")
 
 const GAME_SCENE := preload("res://scenes/main.tscn")
 const SPLASH_SCENE := preload("res://scenes/splash.tscn")
@@ -66,22 +84,62 @@ const CUSTOMIZATION_SCENE := preload("res://scenes/customization.tscn")
 ## line by the render script as `-- --seed N`.
 @export var random_seed: int = 20260916
 @export var output_dir: String = "user://trailer_frames"
+## 16:9 instead of 9:16. Everything below that differs between the two cuts
+## reads this; the running order, the timings and the takes are identical, so
+## the two renders stay in step and share one audio mix.
+@export var landscape: bool = false
 
 ## The running order. `seconds` is how long the segment holds *after* it has
 ## finished sliding in; the slide itself is charged to neither side.
+##
+## `full` marks a segment that fills the whole frame in the landscape cut
+## instead of sitting in the strip; `panel` is the copy shown beside the strip
+## while it is on screen, as [headline, body, accent]. Both are ignored by the
+## portrait cut, where every segment is already the whole frame.
 var _segments: Array[Dictionary] = [
-	{"name": "splash", "seconds": 1.30, "build": "_build_splash"},
-	{"name": "climb", "seconds": 3.00, "build": "_build_climb"},
-	{"name": "drift", "seconds": 3.00, "build": "_build_drift"},
-	{"name": "glass", "seconds": 3.00, "build": "_build_glass"},
-	{"name": "phantom", "seconds": 3.00, "build": "_build_phantom"},
-	{"name": "squish", "seconds": 3.00, "build": "_build_squish"},
-	{"name": "custom", "seconds": 6.00, "build": "_build_customization"},
-	{"name": "end", "seconds": 2.80, "build": "_build_end_card"},
+	{"name": "splash", "seconds": 1.30, "build": "_build_splash", "full": true},
+	{"name": "climb", "seconds": 3.00, "build": "_build_climb",
+		"panel": ["ENDLESS CLIMB",
+			"One thumb. No floor. Every jump is a choice of where to land next.",
+			WHITE]},
+	{"name": "drift", "seconds": 3.00, "build": "_build_drift",
+		"panel": ["DRIFT ZONE",
+			"Every platform is moving. Lead the landing, or watch it slide out from under you.",
+			CYAN]},
+	{"name": "glass", "seconds": 3.00, "build": "_build_glass",
+		"panel": ["GLASS ZONE",
+			"The platform shatters the moment you leave it. There is no going back down.",
+			MAGENTA]},
+	{"name": "phantom", "seconds": 3.00, "build": "_build_phantom",
+		"panel": ["PHANTOM ZONE",
+			"The platforms are still there. You just cannot see them any more.",
+			ORANGE]},
+	{"name": "squish", "seconds": 3.00, "build": "_build_squish",
+		"panel": ["SQUISH ZONE",
+			"Time the landing and it throws you back higher than you fell.",
+			GREEN]},
+	{"name": "custom", "seconds": 6.00, "build": "_build_customization",
+		"panel": ["MAKE IT YOURS",
+			"Ten characters, and every colour on the spectrum, yours to mix.",
+			VIOLET]},
+	{"name": "end", "seconds": 2.80, "build": "_build_end_card", "full": true},
 ]
 
 ## Composited output, and what gets written to disk.
 var _stage: SubViewport
+## LANDSCAPE_SIZE or OUTPUT_SIZE, resolved once the command line has been read.
+var _output_size: Vector2i
+## The clipping box the shot is drawn in, and the rect it currently holds. In
+## portrait this is the whole frame for the whole render; in landscape it
+## resizes between the strip and the full frame as segments come and go.
+var _shot_box: Control
+var _frame_rect: Rect2
+## The landscape cut's surround -- sky and side copy -- in a viewport of its
+## own so it can run the game's glow without putting the gameplay texture
+## through a second bloom. Null in portrait, where nothing is ever beside the
+## shot.
+var _chrome_vp: SubViewport
+var _panel: Node2D
 ## The live segment, rasterised at OUTPUT_SIZE against a GAME_SIZE canvas.
 var _game_vp: SubViewport
 var _live: SubViewportContainer
@@ -119,6 +177,7 @@ func _ready() -> void:
 	# single popup silently freezes the rest of the trailer.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_read_cmdline()
+	_output_size = LANDSCAPE_SIZE if landscape else OUTPUT_SIZE
 	seed(random_seed)
 	_build_stage()
 	_prepare_globals()
@@ -132,45 +191,48 @@ func _read_cmdline() -> void:
 			random_seed = int(args[i + 1])
 		elif args[i] == "--out":
 			output_dir = args[i + 1]
+		elif args[i] == "--aspect":
+			landscape = args[i + 1] == "landscape"
 
 func _build_stage() -> void:
 	_stage = SubViewport.new()
-	_stage.size = OUTPUT_SIZE
+	_stage.size = _output_size
 	_stage.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_stage.disable_3d = true
-	# The compositor only ever draws two already-tonemapped textures, so it has
-	# no glow of its own to run and nothing above 1.0 to preserve.
+	# The compositor only ever draws already-tonemapped textures, so it has no
+	# glow of its own to run and nothing above 1.0 to preserve. The landscape
+	# chrome does want glow, and runs it inside its own viewport for exactly
+	# this reason -- turning it on here instead would put the gameplay texture
+	# through a second bloom on its way out.
 	_stage.use_hdr_2d = false
 	_stage.transparent_bg = false
 	add_child(_stage)
 
-	var frame := Control.new()
-	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-	frame.anchor_right = 1.0
-	frame.anchor_bottom = 1.0
-	frame.offset_right = 0.0
-	frame.offset_bottom = 0.0
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.clip_contents = true
-	# Explicit, rather than waiting on the anchors above to be resolved by the
-	# first layout pass -- the two children are positioned against this box on
-	# the very first frame.
-	frame.position = Vector2.ZERO
-	frame.size = Vector2(OUTPUT_SIZE)
-	_stage.add_child(frame)
+	# Added before the shot so it draws under it. In portrait there is nothing
+	# to draw: the shot covers the frame for the whole render.
+	if landscape:
+		_build_chrome()
+
+	_shot_box = Control.new()
+	_shot_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shot_box.clip_contents = true
+	# Positioned explicitly rather than by anchors -- its two children are laid
+	# out against this box on the very first frame, before any layout pass has
+	# run, and in landscape the box is not the frame anyway.
+	_frame_rect = _shot_rect(_segments[0])
+	_shot_box.position = _frame_rect.position
+	_shot_box.size = _frame_rect.size
+	_stage.add_child(_shot_box)
 
 	_live = SubViewportContainer.new()
 	# False, so the container does not resize the viewport down to its own box:
-	# the viewport is authored at OUTPUT_SIZE and drawn 1:1 into a compositor
+	# the viewport is authored at the shot size and drawn 1:1 into a compositor
 	# whose units are output pixels.
 	_live.stretch = false
-	_live.size = Vector2(OUTPUT_SIZE)
 	_live.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(_live)
+	_shot_box.add_child(_live)
 
 	_game_vp = SubViewport.new()
-	_game_vp.size = OUTPUT_SIZE
-	_game_vp.size_2d_override = GAME_SIZE
 	_game_vp.size_2d_override_stretch = true
 	_game_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_game_vp.disable_3d = true
@@ -183,14 +245,73 @@ func _build_stage() -> void:
 	# compositor above it.
 	_game_vp.world_2d = World2D.new()
 	_live.add_child(_game_vp)
+	_apply_shot_viewport(_segments[0])
 
 	_snapshot = TextureRect.new()
-	_snapshot.size = Vector2(OUTPUT_SIZE)
 	_snapshot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_snapshot.visible = false
-	frame.add_child(_snapshot)
+	_shot_box.add_child(_snapshot)
 
 	_build_preview()
+
+## The 16:9 surround: the sky the strip sits on, and the column of copy beside
+## it. Given a viewport of its own because it wants the same glow the game
+## scenes run and the compositor above it deliberately has none.
+func _build_chrome() -> void:
+	var holder := SubViewportContainer.new()
+	holder.stretch = false
+	holder.size = Vector2(_output_size)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stage.add_child(holder)
+
+	_chrome_vp = SubViewport.new()
+	_chrome_vp.size = _output_size
+	_chrome_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_chrome_vp.disable_3d = true
+	_chrome_vp.use_hdr_2d = true
+	_chrome_vp.msaa_2d = Viewport.MSAA_2X
+	_chrome_vp.transparent_bg = false
+	_chrome_vp.world_2d = World2D.new()
+	holder.add_child(_chrome_vp)
+
+	_panel = SidePanel.new()
+	_chrome_vp.add_child(_panel)
+
+## Where in the frame a segment's shot is drawn. Portrait is the whole frame
+## throughout. Landscape gives the whole frame to the two slates that compose
+## themselves from anchors and can therefore fill any aspect, and the 9:16
+## strip to everything that is actually the game.
+func _shot_rect(segment: Dictionary) -> Rect2:
+	if not landscape:
+		return Rect2(Vector2.ZERO, Vector2(OUTPUT_SIZE))
+	if segment.get("full", false):
+		return Rect2(Vector2.ZERO, Vector2(LANDSCAPE_SIZE))
+	return Rect2(Vector2(SHOT_X, 0.0), Vector2(SHOT_W, float(LANDSCAPE_SIZE.y)))
+
+## Reshapes the live viewport for the segment about to be built.
+##
+## Must run *before* the scene is added to it. BackgroundParticles and
+## splash_stars both scatter their fields from get_viewport_rect().size inside
+## _ready; splash_stars has no _process and never re-scatters, so a sky built
+## against the previous segment's shape is the shape it keeps.
+func _apply_shot_viewport(segment: Dictionary) -> void:
+	var rect := _shot_rect(segment)
+	_game_vp.size = Vector2i(rect.size)
+	_game_vp.size_2d_override = \
+		WIDE_GAME_SIZE if (landscape and segment.get("full", false)) else GAME_SIZE
+	_live.size = rect.size
+
+## Hands the incoming segment's copy to the side panel. A segment with no copy
+## of its own is one that covers the whole frame, so the panel clears rather
+## than holding the last one underneath it.
+func _update_panel(segment: Dictionary) -> void:
+	if _panel == null:
+		return
+	var copy: Array = segment.get("panel", [])
+	if copy.is_empty():
+		_panel.clear()
+	else:
+		_panel.set_segment(copy[0], copy[1], copy[2])
 
 ## A fit-to-window view of the stage, purely so the render can be watched. It
 ## is in the OS window, not in the stage, so it is never part of the output.
@@ -229,7 +350,7 @@ func _prepare_globals() -> void:
 		Unlocks._owned[Unlocks.skin_id(skin)] = true
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(output_dir))
 	print_rich("[b]trailer[/b] %dx%d @ %d fps  seed %d" % [
-		OUTPUT_SIZE.x, OUTPUT_SIZE.y, FPS, random_seed])
+		_output_size.x, _output_size.y, FPS, random_seed])
 	print("frames -> %s" % ProjectSettings.globalize_path(output_dir))
 
 # --- the render loop ---------------------------------------------------------
@@ -241,10 +362,12 @@ func _render() -> void:
 		_segment_frame = 0
 		if first:
 			first = false
+			_apply_shot_viewport(segment)
 			_swap_in(node)
+			_update_panel(segment)
 			await get_tree().process_frame
 		else:
-			await _slide_to(node)
+			await _slide_to(node, segment)
 		await _hold(_frames(segment["seconds"]))
 		_verify_death(segment)
 		print("  %-8s %5.2fs  -> frame %d" % [segment["name"], segment["seconds"], _frame])
@@ -274,17 +397,41 @@ func _swap_in(node: Node) -> void:
 		_pending_setup = Callable()
 		setup.call()
 
-func _slide_to(node: Node) -> void:
+func _slide_to(node: Node, segment: Dictionary) -> void:
 	# The last frame of the outgoing shot, frozen. Grabbed before the swap,
 	# because after it that scene no longer exists.
 	await RenderingServer.frame_post_draw
 	var image := _game_vp.get_texture().get_image()
+	var out_rect := _frame_rect
+	var in_rect := _shot_rect(segment)
 	_snapshot.texture = ImageTexture.create_from_image(image)
 	_snapshot.position = Vector2.ZERO
+	_snapshot.size = out_rect.size
 	_snapshot.visible = true
 
+	_apply_shot_viewport(segment)
 	_swap_in(node)
-	_live.position.x = float(OUTPUT_SIZE.x)
+	# Copy is normally handed over on the swap, so the rise plays under the
+	# incoming shot's push rather than after it has settled.
+	#
+	# Not when the box is *shrinking* -- a full-bleed slate giving way to the
+	# strip. The incoming strip sweeps right across the panel column on its way
+	# in, and copy already faded up underneath it gets clipped by the strip's
+	# own black ground: a hard edge travelling through a headline, which reads
+	# as a glitch and not as a transition. Handed over after the slide in that
+	# case, onto a column the box has finished uncovering. A box that grows or
+	# stays put never crosses copy it was not already covering.
+	var shrinking := in_rect.size.x < out_rect.size.x
+	if not shrinking:
+		_update_panel(segment)
+	# Both shots travel by the *outgoing* box's width, so the incoming one
+	# starts just outside whatever is currently on screen. Between two strips
+	# that is simply the strip width and this is the push it has always been.
+	# Into or out of a full-bleed slate the box is resizing underneath them at
+	# the same time, and measuring the push against the box being left is what
+	# keeps the incoming shot off frame on the first frame of the slide.
+	var travel := out_rect.size.x
+	_live.position.x = travel
 	# One uncaptured frame for the incoming scene to build itself, so the slide
 	# does not start on a half-drawn first frame.
 	await get_tree().process_frame
@@ -292,12 +439,19 @@ func _slide_to(node: Node) -> void:
 	var total := _frames(SLIDE_TIME)
 	for i in range(total):
 		var t := _ease_out(float(i + 1) / float(total))
-		_live.position.x = float(OUTPUT_SIZE.x) * (1.0 - t)
-		_snapshot.position.x = -float(OUTPUT_SIZE.x) * t
+		_shot_box.position = out_rect.position.lerp(in_rect.position, t)
+		_shot_box.size = out_rect.size.lerp(in_rect.size, t)
+		_live.position.x = travel * (1.0 - t)
+		_snapshot.position.x = -travel * t
 		await _step_frame()
+	_shot_box.position = in_rect.position
+	_shot_box.size = in_rect.size
+	_frame_rect = in_rect
 	_live.position.x = 0.0
 	_snapshot.visible = false
 	_snapshot.texture = null
+	if shrinking:
+		_update_panel(segment)
 
 func _hold(count: int) -> void:
 	for i in range(count):
@@ -542,7 +696,13 @@ func _tick_gameplay(frame: int) -> void:
 	if _current == null or not is_instance_valid(_current):
 		return
 	var zone: int = _config.get("zone", -1)
-	if zone >= 0 and frame == _frames(ZONE_BANNER_AT):
+	# Suppressed in landscape: the banner is authored for a 720px-wide canvas
+	# and would be rasterised into a 608px strip in the corner of a 1920px
+	# frame -- readable on a phone, not there. The side panel carries the zone
+	# name instead, at a size the format supports, and for the whole segment
+	# rather than for a beat of it. Cutting it also avoids the same words
+	# appearing twice at two sizes at once, which reads as a mistake.
+	if zone >= 0 and not landscape and frame == _frames(ZONE_BANNER_AT):
 		_flash_zone_banner(_current,
 			"%s ZONE" % ZoneDirector.ZONE_NAMES[zone], ZONE_BANNER_HOLD)
 	var die_at: float = _config.get("die_at", -1.0)

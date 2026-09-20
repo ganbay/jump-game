@@ -64,6 +64,7 @@ func _badges() -> String:
 func _apply_visual_settings() -> void:
 	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
+	UiAccent.apply($UI)
 	graph.line_color = Settings.background_particle_color
 	graph.queue_redraw()
 

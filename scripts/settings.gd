@@ -50,10 +50,23 @@ var platform_color: Color = PLATFORM_COLOR_DEFAULT
 var background_particles: bool = true
 var background_particle_color: Color = PARTICLE_COLOR_DEFAULT
 var player_skin: Player.SkinType = Player.SkinType.PLASMA
+## Shuffle mode: every run wears a different unlocked character, drawn fresh
+## at the start of it. player_skin is left alone while this is on -- it stays
+## whatever the picker was last parked on -- so switching shuffle off puts the
+## player straight back on the character they chose rather than stranding them
+## on whatever the last run happened to roll.
+var shuffle_skin: bool = false
 var trail_enabled: bool = true
 var sound_muted: bool = false
 var score_align: ScoreAlign = ScoreAlign.LEFT
 var haptics_enabled: bool = true
+## Whether the in-run coaching appears: the steer prompt at the start of a run
+## and the tap-to-flare lesson on the first landing. On for everyone by
+## default and shown every run rather than only the first, since a player who
+## dies in the opening seconds has learnt nothing yet and a run is cheap to
+## start over. Both the tutorial panel's own dismiss button and the settings
+## row turn it off, which is the escape hatch for anyone who already knows.
+var tutorial_hints: bool = true
 ## How solid every label, button and readout draws, across the game. Floored
 ## well above zero: the pause button is the only way back out of a run, so the
 ## UI can be faded but never made invisible.
@@ -65,6 +78,9 @@ var ui_opacity: float = UI_OPACITY_DEFAULT
 var player_color_slider: float = PLAYER_COLOR_SLIDER_DEFAULT
 var platform_color_slider: float = PLATFORM_COLOR_SLIDER_DEFAULT
 var particle_color_slider: float = PARTICLE_COLOR_SLIDER_DEFAULT
+## The character this run rolled under shuffle, or -1 for none. Deliberately
+## not saved: it belongs to a single run, not to the player's preferences.
+var _shuffled_skin: int = -1
 
 func _ready() -> void:
 	var cfg := ConfigFile.new()
@@ -88,12 +104,17 @@ func _ready() -> void:
 		background_particles = cfg.get_value("visual", "background_particles", legacy_fx != 0)
 		background_particle_color = cfg.get_value("visual", "background_particle_color", background_particle_color)
 		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.PLASMA) as Player.SkinType
+		shuffle_skin = cfg.get_value("visual", "shuffle_skin", false)
 		trail_enabled = cfg.get_value("visual", "trail_enabled", true)
 		# The toggle used to mute only the music bus; a save from that era carries
 		# its choice over to the mute that now covers everything.
 		sound_muted = cfg.get_value("audio", "sound_muted",
 			cfg.get_value("audio", "music_muted", false))
 		haptics_enabled = cfg.get_value("audio", "haptics_enabled", true)
+		# Saves written before the hints existed have nothing stored here, and
+		# default to on -- a returning player sees them once and can switch
+		# them off from the panel itself.
+		tutorial_hints = cfg.get_value("gameplay", "tutorial_hints", true)
 		score_align = cfg.get_value("visual", "score_align", ScoreAlign.LEFT) as ScoreAlign
 		ui_opacity = clampf(cfg.get_value("visual", "ui_opacity", UI_OPACITY_DEFAULT),
 			UI_OPACITY_MIN, UI_OPACITY_MAX)
@@ -158,6 +179,46 @@ func set_player_skin(value: Player.SkinType) -> void:
 	_save()
 	visual_settings_changed.emit()
 
+## What the character is wearing right now: the rolled skin during a shuffled
+## run, the chosen one otherwise. The roll only ever happens from a run
+## starting (see game.gd), so the trailer, icon and feature-graphic tools --
+## which set player_skin directly and never roll -- are unaffected by a player
+## who happens to have shuffle switched on.
+func active_player_skin() -> Player.SkinType:
+	if shuffle_skin and _shuffled_skin >= 0:
+		return _shuffled_skin as Player.SkinType
+	return player_skin
+
+func set_shuffle_skin(value: bool) -> void:
+	if value == shuffle_skin:
+		return
+	shuffle_skin = value
+	if not value:
+		_shuffled_skin = -1
+	_save()
+	visual_settings_changed.emit()
+
+## Draws the character for one run. Called as a run starts rather than at a
+## fixed interval, so "each run is someone new" is literally what it does.
+func roll_shuffled_skin() -> void:
+	if not shuffle_skin:
+		_shuffled_skin = -1
+		return
+	var pool: Array[int] = []
+	for skin in range(Player.SkinType.size()):
+		if Unlocks.is_unlocked(Unlocks.skin_id(skin)):
+			pool.append(skin)
+	if pool.is_empty():
+		_shuffled_skin = -1
+		return
+	# Never the same character twice running when there is another to hand:
+	# a shuffle that repeats itself does not read as a shuffle at all. With
+	# only one unlocked there is nothing to vary, and it simply stays.
+	if pool.size() > 1:
+		pool.erase(_shuffled_skin)
+	_shuffled_skin = pool.pick_random()
+	visual_settings_changed.emit()
+
 func set_trail_enabled(value: bool) -> void:
 	trail_enabled = value
 	_save()
@@ -185,6 +246,13 @@ func set_haptics_enabled(value: bool) -> void:
 func toggle_haptics_enabled() -> void:
 	set_haptics_enabled(not haptics_enabled)
 
+func set_tutorial_hints(value: bool) -> void:
+	tutorial_hints = value
+	_save()
+
+func toggle_tutorial_hints() -> void:
+	set_tutorial_hints(not tutorial_hints)
+
 func set_score_align(value: ScoreAlign) -> void:
 	score_align = value
 	_save()
@@ -204,9 +272,11 @@ func _save() -> void:
 	cfg.set_value("visual", "background_particles", background_particles)
 	cfg.set_value("visual", "background_particle_color", background_particle_color)
 	cfg.set_value("visual", "player_skin", player_skin)
+	cfg.set_value("visual", "shuffle_skin", shuffle_skin)
 	cfg.set_value("visual", "trail_enabled", trail_enabled)
 	cfg.set_value("audio", "sound_muted", sound_muted)
 	cfg.set_value("audio", "haptics_enabled", haptics_enabled)
+	cfg.set_value("gameplay", "tutorial_hints", tutorial_hints)
 	cfg.set_value("visual", "ui_opacity", ui_opacity)
 	cfg.set_value("visual", "score_align", score_align)
 	cfg.set_value("visual", "player_color_slider", player_color_slider)
