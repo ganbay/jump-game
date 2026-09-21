@@ -36,6 +36,19 @@ var _alpha: PackedFloat32Array = PackedFloat32Array()
 ## pulse in lockstep.
 var _phase: PackedFloat32Array = PackedFloat32Array()
 
+## The whole field is emitted as one indexed triangle array rather than one
+## draw_circle per particle: polygon commands do not batch on the mobile
+## renderer, so 52 stars meant 52 draw calls every frame. Particles are only a
+## few pixels across, so a 10-sided fan is indistinguishable from a circle --
+## at max_radius the flat side sits about a third of a pixel inside the arc,
+## and glow blurs that away.
+const CIRCLE_SEGMENTS := 10
+## Unit circle, scaled and offset per particle. Built once.
+var _unit_circle: PackedVector2Array = PackedVector2Array()
+var _tri_indices: PackedInt32Array = PackedInt32Array()
+var _tri_points: PackedVector2Array = PackedVector2Array()
+var _tri_colors: PackedColorArray = PackedColorArray()
+
 var _t: float = 0.0
 var _last_camera_pos: Vector2 = Vector2.ZERO
 var _has_camera_ref: bool = false
@@ -45,12 +58,33 @@ func _ready() -> void:
 	_bounds = get_viewport_rect().size
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	visibility_changed.connect(_apply_mode)
+	_build_geometry_buffers()
 	_spawn_particles()
 	_apply_mode()
 	Settings.visual_settings_changed.connect(_on_visual_settings_changed)
 
 func _on_viewport_resized() -> void:
 	_bounds = get_viewport_rect().size
+
+## Fixed index pattern for `particle_count` fans, each triangulated from its
+## first vertex. Only vertex positions and colours change per frame.
+func _build_geometry_buffers() -> void:
+	_unit_circle.resize(CIRCLE_SEGMENTS)
+	for i in range(CIRCLE_SEGMENTS):
+		var a := TAU * float(i) / float(CIRCLE_SEGMENTS)
+		_unit_circle[i] = Vector2(cos(a), sin(a))
+	var tris_per_fan := CIRCLE_SEGMENTS - 2
+	_tri_points.resize(particle_count * CIRCLE_SEGMENTS)
+	_tri_colors.resize(particle_count * CIRCLE_SEGMENTS)
+	_tri_indices.resize(particle_count * tris_per_fan * 3)
+	var w := 0
+	for f in range(particle_count):
+		var base := f * CIRCLE_SEGMENTS
+		for t in range(tris_per_fan):
+			_tri_indices[w] = base
+			_tri_indices[w + 1] = base + t + 1
+			_tri_indices[w + 2] = base + t + 2
+			w += 3
 
 func _spawn_particles() -> void:
 	var size := _bounds
@@ -142,4 +176,11 @@ func _draw() -> void:
 		var twinkle := lerpf(TWINKLE_FLOOR, 1.0, 0.5 + 0.5 * sin(_t * TWINKLE_FREQ + _phase[i] * 1.7))
 		var col := _color[i]
 		col.a *= twinkle
-		draw_circle(_pos[i] + wobble, _radius[i], col)
+		var centre := _pos[i] + wobble
+		var r := _radius[i]
+		var base := i * CIRCLE_SEGMENTS
+		for v in range(CIRCLE_SEGMENTS):
+			_tri_points[base + v] = centre + _unit_circle[v] * r
+			_tri_colors[base + v] = col
+	RenderingServer.canvas_item_add_triangle_array(
+		get_canvas_item(), _tri_indices, _tri_points, _tri_colors)

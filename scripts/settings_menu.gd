@@ -33,6 +33,11 @@ func _ready() -> void:
 	glow_slider.value = Settings.glow_strength
 	opacity_slider.value = Settings.ui_opacity
 	_update_controls_icon()
+	# The slider's range comes from Settings rather than the scene, so widening
+	# or narrowing the allowed sensitivities is a one-place change and a saved
+	# value from an older range can never sit outside the handle's travel.
+	sensitivity_slider.min_value = Settings.SENSITIVITY_MIN
+	sensitivity_slider.max_value = Settings.SENSITIVITY_MAX
 	_update_sensitivity_row()
 	_update_sound_icon()
 	_update_haptics_icon()

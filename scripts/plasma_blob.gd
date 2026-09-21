@@ -111,6 +111,13 @@ const _FLAME_SPREAD := 1.1
 const _FLAME_TAPER := 0.45
 const _FLAME_TAPER_POWER := 1.5
 
+## The orientation baked into `shape_radius` for `shape_type`. Exposed so a
+## caller sampling the silhouette can start its sweep from the shape's own
+## zero and land its samples on the corners and spike tips rather than
+## wherever a sweep from absolute zero happens to fall.
+static func shape_rotation(shape_type: Shape) -> float:
+	return _SHAPE_ROTATION.get(shape_type, 0.0)
+
 ## Silhouette radius multiplier at angle `a` for the given `shape` (1.0 ==
 ## circle). Static and shared with PlayerTrail, so trail fragments can be
 ## drawn as the same silhouette as the body that's shedding them.
@@ -237,9 +244,16 @@ var _t: float = 0.0
 ## re-evaluating shape_radius (plus a cos/sin pair) per point per band per frame.
 var _profile: PackedVector2Array = PackedVector2Array()
 var _profile_dirty: bool = true
+## Scratch buffers shared by every band. draw_polygon copies what it is handed
+## before the next band overwrites it, so one ring's worth is enough -- and it
+## keeps a per-band, per-frame pair of allocations off the heap. With the intro
+## star at 160 segments that was six packed arrays a frame, every frame.
+var _ring_pts: PackedVector2Array = PackedVector2Array()
+var _band_col: PackedColorArray = PackedColorArray([Color.WHITE])
 
 func _rebuild_profile() -> void:
 	_profile.resize(segments)
+	_ring_pts.resize(segments)
 	for i in range(segments):
 		var a := TAU * float(i) / float(segments)
 		_profile[i] = Vector2(cos(a), sin(a)) * shape_radius(a, shape)
@@ -255,8 +269,9 @@ func _process(delta: float) -> void:
 func _ring(scale_mul: float, phase: float, deform_mul: float, centre: Vector2) -> PackedVector2Array:
 	if _profile_dirty:
 		_rebuild_profile()
-	var pts := PackedVector2Array()
-	pts.resize(segments)
+	# Written through the member, never via a local alias: packed arrays are
+	# copy-on-write, so `var pts := _ring_pts` would fork a fresh copy on the
+	# first element assignment and reintroduce the allocation this avoids.
 	var breath := 1.0 + sin(_t * 1.3 + phase) * breathe
 	var base := radius * scale_mul * breath
 	for i in range(segments):
@@ -269,8 +284,8 @@ func _ring(scale_mul: float, phase: float, deform_mul: float, centre: Vector2) -
 		if turbulence != 0.0:
 			wob += (sin(a * 11.0 - _t * 3.1 + phase * 1.7) * turbulence
 				+ sin(a * 17.0 + _t * 4.3 + phase * 2.3) * turbulence * 0.6)
-		pts[i] = centre + _profile[i] * (base * (1.0 + wob * deform_mul))
-	return pts
+		_ring_pts[i] = centre + _profile[i] * (base * (1.0 + wob * deform_mul))
+	return _ring_pts
 
 func _draw() -> void:
 	var centre := Vector2(0.0, -radius)
@@ -288,6 +303,7 @@ func _draw() -> void:
 		var c := centre
 		if wander != 0.0:
 			c += Vector2(sin(_t * 0.9), cos(_t * 0.7)) * radius * wander
+		_band_col[0] = col
 		draw_polygon(
 			_ring(band["r"], band["phase"], band["churn"] * churn_scale, c),
-			PackedColorArray([col]))
+			_band_col)

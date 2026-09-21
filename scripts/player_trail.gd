@@ -32,14 +32,44 @@ var shape: PlasmaBlob.Shape = PlasmaBlob.Shape.CIRCLE:
 		shape = value
 		_rebuild_shape_profile()
 
-const SHAPE_SEGMENTS := 12
+## Vertices per fragment silhouette, per shape. Sampling is aligned to the
+## shape's own rotation (see _rebuild_shape_profile), so these counts are
+## chosen to put a sample exactly on every feature: a regular polygon needs
+## only its corners, a star needs its tips and its notches. A 5-point star at
+## 10 vertices is therefore *exact*, while the same star at an unaligned 16
+## lands on none of its tips and shears all five of them off at random
+## heights. Shapes built from curves rather than straight runs (heart, flame,
+## dome) just need enough samples to stay smooth.
+const _SHAPE_SEGMENTS := {
+	PlasmaBlob.Shape.TRIANGLE: 12,
+	PlasmaBlob.Shape.SQUARE: 8,
+	PlasmaBlob.Shape.DIAMOND: 8,
+	PlasmaBlob.Shape.PRISM: 12,
+	PlasmaBlob.Shape.STAR: 10,
+	PlasmaBlob.Shape.SPARKLE: 8,
+	PlasmaBlob.Shape.HEART: 24,
+	PlasmaBlob.Shape.FLAME: 20,
+}
+const _DEFAULT_SEGMENTS := 16
+## Vertices in the current shape's outline -- _SHAPE_SEGMENTS for `shape`.
+var _segments: int = _DEFAULT_SEGMENTS
 ## Unit outline of `shape`, rebuilt only when the skin changes -- each fragment
 ## just scales and offsets it instead of re-running PlasmaBlob.shape_radius.
 var _shape_profile: PackedVector2Array = PackedVector2Array()
-## Scratch buffers reused by every fragment; draw_polygon copies what it is
-## handed, so nothing has to be allocated per fragment per frame.
-var _shape_pts: PackedVector2Array = PackedVector2Array()
-var _shape_col: PackedColorArray = PackedColorArray([Color.WHITE])
+
+## Every fragment used to cost two polygon commands (halo + body), and on the
+## mobile renderer a polygon command does not batch with its neighbours -- a
+## full trail was up to 80 separate draw calls a frame. All of them are now
+## written into one indexed triangle array and submitted as a single command.
+##
+## The buffers are allocated once and always submitted whole: the index pattern
+## depends only on fragment and segment counts, never on which slots are alive,
+## so a dead fragment collapses to a zero-area fan (discarded by the rasteriser
+## at no fill cost) instead of forcing the indices to be rebuilt.
+const FANS_PER_FRAGMENT := 2
+var _tri_indices: PackedInt32Array = PackedInt32Array()
+var _tri_points: PackedVector2Array = PackedVector2Array()
+var _tri_colors: PackedColorArray = PackedColorArray()
 
 var _pos: PackedVector2Array = PackedVector2Array()
 var _vel: PackedVector2Array = PackedVector2Array()
@@ -61,11 +91,55 @@ func _ready() -> void:
 	_rebuild_shape_profile()
 
 func _rebuild_shape_profile() -> void:
-	_shape_profile.resize(SHAPE_SEGMENTS)
-	_shape_pts.resize(SHAPE_SEGMENTS)
-	for i in range(SHAPE_SEGMENTS):
-		var a := TAU * float(i) / float(SHAPE_SEGMENTS)
+	_segments = _SHAPE_SEGMENTS.get(shape, _DEFAULT_SEGMENTS)
+	# Swept from the shape's own zero rather than from absolute zero: every
+	# silhouette places its corners and spikes at whole fractions of a turn
+	# measured from there, so this is what makes the sample angles land on
+	# them. shape_radius re-applies the same rotation internally, so the
+	# outline itself comes out in exactly the orientation it always had.
+	var rot := PlasmaBlob.shape_rotation(shape)
+	_shape_profile.resize(_segments)
+	for i in range(_segments):
+		var a := TAU * float(i) / float(_segments) - rot
 		_shape_profile[i] = Vector2(cos(a), sin(a)) * PlasmaBlob.shape_radius(a, shape)
+	_rebuild_triangle_buffers()
+
+## Sizes the shared buffers for the current shape and lays out its index
+## pattern. The outline is triangulated once, here, and the result reused by
+## every fragment: scaling and translating a polygon cannot invalidate its
+## triangulation, so the indices only ever change when the skin does.
+func _rebuild_triangle_buffers() -> void:
+	var fans := max_fragments * FANS_PER_FRAGMENT
+	_tri_points.resize(fans * _segments)
+	_tri_colors.resize(fans * _segments)
+	# A fan from vertex 0 is only valid for a convex outline -- it webs across
+	# the notches of STAR and SPARKLE and the cleft of HEART, which is what
+	# draw_polygon's own triangulation was quietly handling before.
+	var tri := Geometry2D.triangulate_polygon(_shape_profile)
+	if tri.is_empty():
+		tri = _fan_indices()
+	_tri_indices.resize(fans * tri.size())
+	var w := 0
+	for f in range(fans):
+		var base := f * _segments
+		for k in range(tri.size()):
+			_tri_indices[w] = base + tri[k]
+			w += 1
+
+## Convex fallback, for the case where triangulation fails outright. Every
+## silhouette here is a radial function of angle and so cannot self-intersect,
+## which means this should be unreachable -- but a shape that failed to
+## triangulate would otherwise draw nothing at all.
+func _fan_indices() -> PackedInt32Array:
+	var out := PackedInt32Array()
+	out.resize((_segments - 2) * 3)
+	var w := 0
+	for t in range(_segments - 2):
+		out[w] = 0
+		out[w + 1] = t + 1
+		out[w + 2] = t + 2
+		w += 3
+	return out
 
 func _clear() -> void:
 	for i in range(max_fragments):
@@ -118,30 +192,39 @@ func _emit() -> void:
 	_size[i] = randf_range(0.55, 1.0)
 
 func _draw() -> void:
+	var fan := 0
 	for i in range(max_fragments):
 		var age := _age[i]
-		if age >= lifetime:
-			continue
-		var t := age / lifetime
-		var fade := (1.0 - t) * (1.0 - t)
+		var t := age / lifetime if age < lifetime else 1.0
 		var r := start_radius * _size[i] * (1.0 - t * 0.65)
-		if r <= 0.2:
+		if age >= lifetime or r <= 0.2:
+			_collapse_fan(fan)
+			_collapse_fan(fan + 1)
+			fan += FANS_PER_FRAGMENT
 			continue
+		var fade := (1.0 - t) * (1.0 - t)
 		var halo := color * 0.9
 		halo.a = fade * 0.30
 		var body := color
 		body.a = fade * 0.85
-		if shape == PlasmaBlob.Shape.CIRCLE:
-			draw_circle(_pos[i], r * 1.7, halo)
-			draw_circle(_pos[i], r, body)
-		else:
-			_draw_shape(_pos[i], r * 1.7, halo)
-			_draw_shape(_pos[i], r, body)
+		# Halo first, so the body still lands on top of it exactly as it did
+		# when these were two separate draw calls.
+		_write_fan(fan, _pos[i], r * 1.7, halo)
+		_write_fan(fan + 1, _pos[i], r, body)
+		fan += FANS_PER_FRAGMENT
+	RenderingServer.canvas_item_add_triangle_array(
+		get_canvas_item(), _tri_indices, _tri_points, _tri_colors)
 
-## Draws a small polygon following the same silhouette math as the body
-## (PlasmaBlob.shape_radius), so fragments read as tiny copies of it.
-func _draw_shape(centre: Vector2, r: float, fragment_color: Color) -> void:
-	for i in range(SHAPE_SEGMENTS):
-		_shape_pts[i] = centre + _shape_profile[i] * r
-	_shape_col[0] = fragment_color
-	draw_polygon(_shape_pts, _shape_col)
+## Lays one fragment's silhouette into its slice of the shared vertex buffer.
+## Same math `_draw_shape` used per fragment, minus the per-fragment command.
+func _write_fan(fan: int, centre: Vector2, r: float, fragment_color: Color) -> void:
+	var base := fan * _segments
+	for i in range(_segments):
+		_tri_points[base + i] = centre + _shape_profile[i] * r
+		_tri_colors[base + i] = fragment_color
+
+func _collapse_fan(fan: int) -> void:
+	var base := fan * _segments
+	for i in range(_segments):
+		_tri_points[base + i] = Vector2.ZERO
+		_tri_colors[base + i] = Color.TRANSPARENT

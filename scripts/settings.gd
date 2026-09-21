@@ -13,8 +13,8 @@ const SAVE_PATH := "user://settings.cfg"
 
 ## Multipliers on Player's base drag / tilt response, one per scheme since a
 ## good drag speed says nothing about a good tilt speed.
-const SENSITIVITY_MIN := 0.5
-const SENSITIVITY_MAX := 2.0
+const SENSITIVITY_MIN := 0.6
+const SENSITIVITY_MAX := 1.5
 const SENSITIVITY_DEFAULT := 1.0
 
 ## Bumped when the default control scheme changes, so saves written under the

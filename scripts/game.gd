@@ -25,6 +25,12 @@ const SKIP_BUTTON_FADE_TIME := 0.2
 @onready var restart_button: Button = $UI/GameOverPanel/RestartButton
 @onready var game_over_menu_button: Button = $UI/GameOverPanel/GameOverMenuButton
 @onready var watch_ad_button: Button = $UI/GameOverPanel/WatchAdButton
+## How far past the resume glyph a tap still counts. The icon is 96px square,
+## which is a small target on its own; this grows it to 224 and takes in the
+## "TAP TO RESUME" caption underneath, while leaving the rest of the screen
+## inert. See _on_pause_dim_input().
+const RESUME_TAP_PADDING := 64.0
+
 @onready var pause_panel: Control = $UI/PausePanel
 @onready var pause_button: Button = $UI/PauseButton
 @onready var controls_button: Button = $UI/PausePanel/ControlsButton
@@ -53,9 +59,12 @@ const SKIP_BUTTON_FADE_TIME := 0.2
 @onready var tutorial_panel: Control = $UI/TutorialPanel
 @onready var tutorial_title: Label = $UI/TutorialPanel/TitleLabel
 @onready var tutorial_body: Label = $UI/TutorialPanel/BodyLabel
+@onready var tutorial_continue: Button = $UI/TutorialPanel/ContinueButton
+@onready var tutorial_dismiss: Button = $UI/TutorialPanel/DismissButton
 @onready var milestone_panel: Control = $UI/MilestonePanel
 @onready var milestone_title: Label = $UI/MilestonePanel/TitleLabel
 @onready var milestone_body: Label = $UI/MilestonePanel/BodyLabel
+@onready var milestone_continue: Button = $UI/MilestonePanel/ContinueButton
 
 const PUNCH_GLOW_BONUS := 0.7
 ## glow_bloom controls how far the blur spreads into pixels *below* the HDR
@@ -526,6 +535,10 @@ func _apply_visual_settings() -> void:
 	# coin_icon.modulate = Settings.background_particle_color
 	UiOpacity.apply($UI)
 	UiAccent.apply($UI)
+	# After UiAccent, never before: the plated headings are in its group, so it
+	# would otherwise paint their text back to accent-on-accent and leave them
+	# invisible against their own plate.
+	_apply_ui_plates()
 	_update_pause_button_opacity()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -558,12 +571,39 @@ func _on_pause_pressed() -> void:
 ## controls or home icon is taken by that button and never reaches here. The
 ## panel runs while the tree is paused, which is what lets it hear the tap at
 ## all -- the game root does not.
+##
+## Only a tap inside _resume_tap_rect() resumes. The dim still swallows every
+## other tap: a paused screen that resumes from anywhere is far too easy to
+## dismiss by accident -- picking the phone back up, or brushing the display
+## while reading the panel, dropped the player straight into a live run.
 func _on_pause_dim_input(event: InputEvent) -> void:
 	# Guarded on is_paused rather than toggling: a touch also arrives as an
 	# emulated mouse click, and a toggle would unpause then pause straight back.
-	if is_paused and event.is_pressed() and not event.is_echo():
-		Audio.play_ui_click()
-		_toggle_pause()
+	if not (is_paused and event.is_pressed() and not event.is_echo()):
+		return
+	# Only positional events carry a position to test; gui_input can hand a
+	# focused Control key presses too, and those must not resume from nowhere.
+	if not (event is InputEventMouseButton or event is InputEventScreenTouch):
+		return
+	if not _resume_tap_rect().has_point(event.position):
+		return
+	Audio.play_ui_click()
+	_toggle_pause()
+
+## The resume target: the glyph, grown to a comfortable thumb and reaching down
+## far enough to take in the caption under it. The dim spans the whole panel
+## from the origin, so a gui_input position on it is already in the same space
+## as these rects.
+func _resume_tap_rect() -> Rect2:
+	var rect := resume_icon.get_rect().grow(RESUME_TAP_PADDING)
+	# Read the caption's real position rather than assuming the spacing of the
+	# design resolution: the glyph is anchored at the centre in fixed pixels
+	# and the caption proportionally, so the gap between the two widens as the
+	# viewport gets taller -- and with stretch mode "viewport" plus an expand
+	# aspect, a tall phone is a good deal taller than 1280.
+	var caption_bottom := resume_label.get_rect().end.y + RESUME_TAP_PADDING * 0.25
+	rect.end = Vector2(rect.end.x, maxf(rect.end.y, caption_bottom))
+	return rect
 
 func _toggle_pause() -> void:
 	is_paused = not is_paused
@@ -913,6 +953,20 @@ func _grow_to(label: Label, target_scale: float, pivot: Vector2) -> void:
 ## The scene authors the score centred along the top edge. LEFT re-anchors the
 ## same box to the left edge, keeping its width and height, so only the
 ## horizontal placement changes.
+## Gives the coaching prompts and the panel buttons the streak counter's plate,
+## so they stop reading as bare text on a dim. Re-run whenever the accent moves,
+## since the fill is the character's colour.
+##
+## The two body paragraphs and the milestone's 48px headline stay bare on
+## purpose -- see UiPlate's header for why.
+func _apply_ui_plates() -> void:
+	UiPlate.title(control_hint_title)
+	UiPlate.title(tap_cue)
+	UiPlate.title(tutorial_title)
+	UiPlate.action(tutorial_continue)
+	UiPlate.quiet(tutorial_dismiss)
+	UiPlate.action(milestone_continue)
+
 func _apply_score_align() -> void:
 	if Settings.score_align != Settings.ScoreAlign.LEFT:
 		return
@@ -1010,6 +1064,9 @@ func _show_control_hint() -> void:
 		return
 	var tilt := Settings.control_scheme == Settings.ControlScheme.TILT
 	control_hint_title.text = "TILT TO STEER" if tilt else "SWIPE TO STEER"
+	# The plate is fitted to whatever string was on the label when it was
+	# built, and these two differ in width, so it has to be rebuilt here.
+	UiPlate.title(control_hint_title)
 	# One line, and only the half the title doesn't already say: that the other
 	# scheme exists and where to find it. A prompt over live play is read in a
 	# glance or not at all.
@@ -1092,6 +1149,7 @@ func _open_boost_tutorial() -> void:
 	_dismiss_control_hint()
 	_set_hud_visible(false)
 	tutorial_title.text = "TAP TO FLARE"
+	UiPlate.title(tutorial_title)
 	# Two lines, not a paragraph: the panel has already stopped the run, and
 	# what it costs the player is reading time. The title carries the reward,
 	# so the body only has to carry the timing and the one mistake worth

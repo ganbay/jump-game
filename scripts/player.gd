@@ -62,7 +62,12 @@ const SKIN_SHAPES := {
 ## a bare tap thrown right on top of the jump, not a steering hold -- see
 ## _maybe_fail_post_landing_tap().
 @export var post_landing_mash_window_ms: int = 100
-@export var drag_sensitivity: float = 1.3
+## Viewport px the character moves per px of finger travel, before the player's
+## sensitivity slider scales it. Both sides of that ratio are viewport pixels --
+## drag events are already mapped through the stretch transform -- so 1.0 means
+## the character tracks the finger exactly, on a 720p phone and a 1440p one
+## alike.
+@export var drag_sensitivity: float = 1.0
 ## How far (viewport px) a touch has to travel before it counts as steering
 ## rather than a tap. Only steering presses are excused from the mash check in
 ## _mashed(); a finger that goes down and up in place is a tap.
@@ -180,12 +185,18 @@ const COLOR := Color(0.66295815, 2.299754, 0.0, 1.0)
 
 func _ready() -> void:
 	add_to_group("player")
-	# Orientation is locked to portrait, so this never changes mid-run and does
-	# not need re-querying every physics frame.
+	# Cached rather than re-queried every physics frame. Orientation is locked
+	# to portrait so a phone never changes this mid-run, but a resizable window
+	# (desktop, editor) and a tablet's wider aspect both do, and screen wrap
+	# lands on the wrong edge if the cache goes stale.
 	_viewport_width = get_viewport_rect().size.x
+	get_viewport().size_changed.connect(_on_viewport_resized)
 	_base_move_speed = move_speed
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
+
+func _on_viewport_resized() -> void:
+	_viewport_width = get_viewport_rect().size.x
 
 func _apply_visual_settings() -> void:
 	var shape: PlasmaBlob.Shape = SKIN_SHAPES.get(
@@ -252,6 +263,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_UNPAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_pointers.clear()
 		_steer_pointer = NO_POINTER
+		_steer_dx = 0.0
 
 ## Space has no drag to report travel, and never steers, so it does not need
 ## the full pointer/_steer_pointer machinery -- but it still needs press/release
@@ -359,14 +371,20 @@ func _resolve_pending_fail(press: Dictionary, release_ms: int) -> void:
 ## wait on, and already failed via the ordinary is_timed/_mashed() path above
 ## if it was going to.
 ##
-## Among the still-held presses, only the ones that (a) started during the
-## fall, (b) weren't a steer, and (c) started more than landing_window_ms
-## before this landing -- i.e. exactly what _mashed() would flag as a stray tap
-## -- get tagged with a deadline for _resolve_pending_fail() to judge them by
-## once released (see _land_on()'s Rule 2). A held climb press, or a held fall
-## press still inside the scoring window, is left untagged: it can never fail
-## the streak this way, climb by rule, an in-window one because it might still
-## be the landing's own scoring press.
+## Among the still-held presses, the ones that (a) started during the fall and
+## (b) weren't a steer get tagged with a deadline for _resolve_pending_fail()
+## to judge them by once released (see _land_on()'s Rule 2). A held climb press
+## is left untagged: it can never fail the streak this way, by rule.
+##
+## A press that started inside landing_window_ms used to be spared as well, on
+## the grounds that it might still be the landing's own scoring press. That was
+## wrong, and it was the whole of the "mashing breaks nothing" bug: this only
+## runs from the branch where is_timed is already false, so by the time it is
+## reached nothing scored and there is no scoring press left to protect. A mash
+## that ended with a finger still down at touchdown therefore slipped past
+## every check -- disqualified as the timing tap, never tagged here, and then
+## rejected by _maybe_fail_post_landing_tap for having started before the
+## landing.
 func _mark_pending_fail_presses(now: int) -> bool:
 	var held := false
 	for press: Dictionary in _pointers.values():
@@ -376,8 +394,6 @@ func _mark_pending_fail_presses(now: int) -> bool:
 		if not press["falling"]:
 			continue
 		if press["steers"] and press["travel"] >= steer_min_travel:
-			continue
-		if now - press["ms"] <= landing_window_ms:
 			continue
 		press["pending_fail_deadline_ms"] = now + post_landing_mash_window_ms
 	return held
@@ -426,8 +442,15 @@ func _physics_process(delta: float) -> void:
 			velocity.x = clampf(tilt * tilt_sensitivity * Settings.tilt_sensitivity,
 				-speed, speed)
 	elif _steer_pointer != NO_POINTER:
-		velocity.x = clampf(
-			_steer_dx * drag_sensitivity * Settings.touch_sensitivity / delta, -speed, speed)
+		# Drag steering tracks the finger 1:1 (times sensitivity): the travel
+		# reported since the last tick is turned into exactly that much motion
+		# over exactly this tick, so the character keeps up with the finger in
+		# both distance and time. move_speed deliberately does NOT cap this --
+		# clamping to it is what made a quick flick cover far less ground than
+		# a slow drag of the same length. The only limit is a sanity guard of
+		# one viewport width per tick, which a real finger cannot exceed.
+		var drag_step := _steer_dx * drag_sensitivity * Settings.touch_sensitivity
+		velocity.x = clampf(drag_step, -_viewport_width, _viewport_width) / delta
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, move_speed * 4.0 * delta)
 	_steer_dx = 0.0
@@ -499,7 +522,11 @@ func _land_on(area: Node) -> void:
 	# before the timing tap. What has to be sole is the press inside the window.
 	var in_window := now - last_press_ms <= landing_window_ms
 	var single_tap := now - _prev_press_ms > landing_window_ms
-	var is_timed := in_window and single_tap and not _mashed()
+	# Kept in a local rather than folded straight into is_timed: a mash is
+	# proven by presses that have already come and gone, so it still has to be
+	# answered below even when a finger is left down across the landing.
+	var mashed := _mashed()
+	var is_timed := in_window and single_tap and not mashed
 	_descent_presses.clear()
 	# The boost belongs to the platform, not to "wasn't the last one I touched":
 	# a mistimed landing spends nothing, so the next streak can start right here.
@@ -508,8 +535,16 @@ func _land_on(area: Node) -> void:
 		if boosted:
 			streak += 1
 			_spend_boost(area)
-	elif _attempted_since_last_landing and not _mark_pending_fail_presses(now):
-		streak = 0
+	elif _attempted_since_last_landing:
+		# Called first in either case, so a held press still receives its
+		# deadline and cannot then be judged a second time on release.
+		var held := _mark_pending_fail_presses(now)
+		# Deferring to a held press is only right while the landing's verdict
+		# is genuinely still open. A mash has already happened -- the taps that
+		# proved it were released before touchdown -- so leaving a finger down
+		# over the landing must not launder it into a clean slate.
+		if mashed or not held:
+			streak = 0
 	_attempted_since_last_landing = false
 	_last_land_ms = now
 	_last_land_boosted = boosted
