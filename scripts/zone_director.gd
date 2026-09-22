@@ -78,6 +78,12 @@ func attrs_for_score(score: int) -> int:
 		attrs |= Platform.Attr.SQUISHY
 	return attrs
 
+## The zone bits this stage forces, for anything that wants the zones
+## themselves rather than the platform attributes they map to -- the backdrop
+## picks from these (see zone_ambience.gd).
+func zone_mask(stage: int) -> int:
+	return _stages[clampi(stage, 0, _stages.size() - 1)]
+
 func zone_name(stage: int) -> String:
 	var mask := _stages[clampi(stage, 0, _stages.size() - 1)]
 	if mask == 0:

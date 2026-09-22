@@ -40,15 +40,37 @@ const PLATFORM_COLOR_DEFAULT := Color(0.7403599, 2.2, 0.6491324, 1)
 const PLATFORM_COLOR_SLIDER_DEFAULT := 0.86967499
 const PARTICLE_COLOR_DEFAULT := Color(1.0859209, 0.6570395, 2.4, 1)
 const PARTICLE_COLOR_SLIDER_DEFAULT := 0.26534302
+## Platform and drift colour are no longer player-set: they are dressed per zone
+## at runtime, by ZoneAmbience multiplying the zone's hue over these (see
+## customization.gd for the hidden pickers, and zone_ambience.gd for the tints).
+##
+## Near-white, and HDR at roughly the peak the old authored colours sat at, for
+## two reasons: a multiply can only take brightness away, so a neutral base is
+## the only one a zone can push to any hue cleanly -- and OPEN SPACE applies no
+## tint at all, so this is also literally what the opening stretch looks like.
+##
+## Leans very slightly warm. It used to lean the other way, and since every
+## tinted surface in the game is this base multiplied by a hue, a cool base put
+## a faint blue under all of them at once -- which is most of why the palette
+## read as blue overall even where the zone was not. A neutral that errs warm
+## costs nothing and takes that cast off everything in one place.
+const PLATFORM_COLOR_NEUTRAL := Color(2.15, 2.08, 2.0, 1)
+const PARTICLE_COLOR_NEUTRAL := Color(2.15, 2.08, 2.0, 1)
 
 var control_scheme: ControlScheme = ControlScheme.TILT
 var touch_sensitivity: float = SENSITIVITY_DEFAULT
 var tilt_sensitivity: float = SENSITIVITY_DEFAULT
 var glow_strength: float = GLOW_STRENGTH_DEFAULT
 var player_color: Color = PLAYER_COLOR_DEFAULT
-var platform_color: Color = PLATFORM_COLOR_DEFAULT
+var platform_color: Color = PLATFORM_COLOR_NEUTRAL  # was PLATFORM_COLOR_DEFAULT
+## How the platforms' colour relates to the zone's: opposite it on the wheel,
+## or the same hue as it. Stored as a bool rather than as
+## ZoneAmbience.PaletteMode because that enum's script reaches Settings again
+## through ZoneDirector and Platform, and naming the type here would close the
+## cycle. game.gd maps it (see _apply_zone_ambience).
+var platform_complementary: bool = true
 var background_particles: bool = true
-var background_particle_color: Color = PARTICLE_COLOR_DEFAULT
+var background_particle_color: Color = PARTICLE_COLOR_NEUTRAL  # was PARTICLE_COLOR_DEFAULT
 var player_skin: Player.SkinType = Player.SkinType.PLASMA
 ## Shuffle mode: every run wears a different unlocked character, drawn fresh
 ## at the start of it. player_skin is left alone while this is on -- it stays
@@ -93,16 +115,22 @@ func _ready() -> void:
 			SENSITIVITY_DEFAULT), SENSITIVITY_MIN, SENSITIVITY_MAX)
 		glow_strength = cfg.get_value("visual", "glow_strength", GLOW_STRENGTH_DEFAULT)
 		player_color = cfg.get_value("visual", "player_color", PLAYER_COLOR_DEFAULT)
+		# Platform colour is zone-driven now, so a saved one is deliberately NOT
+		# read back -- an existing save would otherwise restore a colour the
+		# player can no longer see or change. The value stays in the file
+		# untouched, so uncommenting this restores their old pick intact.
 		# Platforms used to be four colour-coded types; a save from that era
 		# keeps its tint by falling back to what the plain platform was.
-		var legacy := cfg.get_value("visual", "platform_color_0", platform_color) as Color
-		platform_color = cfg.get_value("visual", "platform_color", legacy)
+		# var legacy := cfg.get_value("visual", "platform_color_0", platform_color) as Color
+		# platform_color = cfg.get_value("visual", "platform_color", legacy)
 		# The drift used to have a third "many colours" mode, drawn from the
 		# platform type palette. Platforms are one colour now, so it is just on
 		# or off; anything but the old OFF migrates to on.
+		platform_complementary = cfg.get_value("visual", "platform_complementary", true)
 		var legacy_fx := int(cfg.get_value("visual", "background_fx", 1))
 		background_particles = cfg.get_value("visual", "background_particles", legacy_fx != 0)
-		background_particle_color = cfg.get_value("visual", "background_particle_color", background_particle_color)
+		# Zone-driven now, same as platform_color above.
+		# background_particle_color = cfg.get_value("visual", "background_particle_color", background_particle_color)
 		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.PLASMA) as Player.SkinType
 		shuffle_skin = cfg.get_value("visual", "shuffle_skin", false)
 		trail_enabled = cfg.get_value("visual", "trail_enabled", true)
@@ -160,6 +188,11 @@ func set_player_color(value: Color, slider_value: float) -> void:
 func set_platform_color(value: Color, slider_value: float) -> void:
 	platform_color = value
 	platform_color_slider = slider_value
+	_save()
+	visual_settings_changed.emit()
+
+func set_platform_complementary(value: bool) -> void:
+	platform_complementary = value
 	_save()
 	visual_settings_changed.emit()
 
@@ -268,9 +301,12 @@ func _save() -> void:
 	cfg.set_value("controls", "tilt_sensitivity", tilt_sensitivity)
 	cfg.set_value("visual", "glow_strength", glow_strength)
 	cfg.set_value("visual", "player_color", player_color)
-	cfg.set_value("visual", "platform_color", platform_color)
+	# Left out of the save alongside its load, so the player's old pick stays
+	# in the file as they left it rather than being overwritten with neutral.
+	# cfg.set_value("visual", "platform_color", platform_color)
+	cfg.set_value("visual", "platform_complementary", platform_complementary)
 	cfg.set_value("visual", "background_particles", background_particles)
-	cfg.set_value("visual", "background_particle_color", background_particle_color)
+	# cfg.set_value("visual", "background_particle_color", background_particle_color)
 	cfg.set_value("visual", "player_skin", player_skin)
 	cfg.set_value("visual", "shuffle_skin", shuffle_skin)
 	cfg.set_value("visual", "trail_enabled", trail_enabled)

@@ -12,8 +12,17 @@ extends Node2D
 ## at a glance instead of asking the player to remember which shade means off.
 const SOUND_ON_ICON := preload("res://assets/icons/speaker.svg")
 const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
+const BACKDROP_SHADER := preload("res://shaders/zone_backdrop.gdshader")
+
+## The zone the menu last wore. Static because the menu is freed and rebuilt on
+## every return to it, and a per-instance var could not remember what the last
+## visit showed -- which is exactly what a fresh roll has to avoid repeating.
+static var _last_zone: int = ZoneAmbience.NONE
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
+@onready var background: ColorRect = $BackgroundLayer/Background
+@onready var background_particles: BackgroundParticles = $BackgroundLayer/BackgroundParticles
+@onready var title_label: Label = $UI/TitleLabel
 @onready var tap_icon: TextureRect = $UI/TapIcon
 @onready var tap_label: Label = $UI/TapLabel
 @onready var sound_button: Button = $UI/SoundButton
@@ -35,7 +44,12 @@ var _leaving: bool = false
 ## down as this screen loads) starts nothing.
 var _pressed: bool = false
 
+## Which zone's sky this visit is wearing, rolled in _ready.
+var _zone: int = ZoneAmbience.OPENING
+
 func _ready() -> void:
+	# Before _apply_visual_settings, which tints the title from _zone.
+	_roll_backdrop()
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 	Audio.play_menu_music()
@@ -49,10 +63,40 @@ func _ready() -> void:
 	# to load would otherwise strand the menu with every button dead.
 	Transition.scene_change_failed.connect(_on_scene_change_failed)
 
+## The menu wears one of the zones' skies, re-rolled on every load -- so the
+## screen a run ends on is never the screen the next one starts from, and the
+## four zones get seen between runs as well as during them.
+##
+## Open space is in the draw alongside the four zones -- it is a sky in its own
+## right, and the one the game has always looked like, so leaving it out would
+## make the menu the only screen that never shows it.
+##
+## The previous visit's choice is handed over to be avoided, so the sky always
+## visibly changes. Its own drift profile comes along: a deep blue backdrop
+## behind a field of white dots would read as half-dressed.
+func _roll_backdrop() -> void:
+	_zone = ZoneAmbience.pick_any(_last_zone)
+	_last_zone = _zone
+	var profile: Dictionary = ZoneAmbience.resolved_profile(_zone)
+	var mat := ShaderMaterial.new()
+	mat.shader = BACKDROP_SHADER
+	mat.set_shader_parameter("top_color", profile["bg_top"])
+	mat.set_shader_parameter("bottom_color", profile["bg_bottom"])
+	background.material = mat
+	# Crossfades from the opening profile the field starts on, so the sky
+	# arrives over the menu's own fade-in rather than being there first.
+	background_particles.blend_to(profile)
+
 func _apply_visual_settings() -> void:
 	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
 	UiAccent.apply($UI)
+	# After UiAccent, never before: the title is in its group, so the accent
+	# walk would otherwise paint the zone straight back out of it. Only the
+	# title -- the subtitle and every icon stay on the character colour, so the
+	# zone reads as one deliberate accent rather than as a reskin of the menu.
+	title_label.add_theme_color_override("font_color",
+		ZoneAmbience.tint_toward(UiAccent.color(), _zone, ZoneAmbience.TITLE_TINT))
 
 func _on_sound_pressed() -> void:
 	Audio.play_ui_click()

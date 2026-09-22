@@ -57,7 +57,11 @@ func _draw() -> void:
 		_draw_glass(half)
 
 func _draw_glass(half: Vector2) -> void:
-	var glare := Color(2.2, 2.4, 2.6, 0.32)
+	# Stronger than it was, across all three marks below. They used to be drawn
+	# near-white onto a near-white body, where extra opacity would only have
+	# made a bright slab brighter; against the dim pane glass now has (see
+	# Platform.GLASS_COLOR) they are the edge that reads.
+	var glare := Color(2.2, 2.4, 2.6, 0.46)
 	var lean := half.y * 1.2
 	for i in range(GLARE_COUNT):
 		var cx := lerpf(-half.x * 0.55, half.x * 0.3, float(i))
@@ -74,12 +78,12 @@ func _draw_glass(half: Vector2) -> void:
 		Vector2(half.x, half.y),
 		Vector2(-half.x, half.y),
 		Vector2(-half.x, -half.y),
-	]), Color(1.8, 2.2, 2.6, 0.75), 1.6, true)
+	]), Color(1.8, 2.2, 2.6, 0.95), 2.0, true)
 	# Specular sheen along the top edge, inset so it stays inside the slab.
 	draw_line(
 		Vector2(-half.x + 3.0, -half.y + 2.0),
 		Vector2(half.x - 3.0, -half.y + 2.0),
-		Color(2.4, 2.6, 2.8, 0.5), 1.4, true)
+		Color(2.4, 2.6, 2.8, 0.7), 1.8, true)
 
 ## A thin dome resting on the platform's surface, squashing and spreading as it
 ## compresses. Drawn as a half-ellipse anchored to the top edge, so the slab

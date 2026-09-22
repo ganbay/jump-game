@@ -114,8 +114,10 @@ func _ready() -> void:
 	_browse = Settings.player_skin
 	_preview_home = preview.position
 	player_slider.value = Settings.player_color_slider
-	platform_slider.value = Settings.platform_color_slider
-	particle_slider.value = Settings.particle_color_slider
+	_hide_zone_driven_colours()
+	_add_palette_toggle()
+	# platform_slider.value = Settings.platform_color_slider
+	# particle_slider.value = Settings.particle_color_slider
 	# set_pressed_no_signal, not button_pressed: assigning the property emits
 	# `toggled`, and the .tscn wires that up before _ready runs -- so seeding
 	# the boxes from Settings would fire both handlers, clicking twice and
@@ -159,6 +161,59 @@ func _announce_new_unlocks() -> void:
 	tw.tween_interval(UNLOCK_ANNOUNCE_TIME)
 	tw.tween_callback(_refresh_lock_state)
 
+## Platform and drift colour are dressed by the zone the run is in (see
+## zone_ambience.gd), so their pickers no longer control anything and are taken
+## off this screen. Hidden here rather than deleted from customization.tscn:
+## the scene keeps every node and every connection, and putting the rows back is
+## deleting this one call.
+##
+## The rows below then close the gap. The screen is a fixed stack of
+## anchor-positioned rows 0.06 apart, so removing two of them mid-stack would
+## otherwise leave two holes and strand RANDOMIZE near the bottom edge.
+func _hide_zone_driven_colours() -> void:
+	for node in [$UI/PlatformColorLabel, $UI/PlatformSlider,
+			$UI/PlatformSwatchAnchor, $UI/ParticleColorLabel, $UI/ParticleSlider]:
+		node.hide()
+	# Anchors, not positions: every row in this screen is placed as a fraction
+	# of screen height so the layout survives the tablet aspect ratios the
+	# project's `expand` stretch allows.
+	_move_row($UI/ParticlesCheck, 0.555)
+	_move_row($UI/ShuffleCheck, 0.615)
+	# 0.675 is left for the palette toggle that replaces the two hidden rows.
+	_move_row($UI/RandomizeButton, 0.735)
+
+## keep_offset passed explicitly rather than assigning anchor_top/anchor_bottom:
+## the property setters recompute offsets so the node stays visually put, which
+## would make this a no-op. keep_offset = true leaves the offsets alone, which
+## is what actually carries the row to the new anchor.
+func _move_row(node: Control, anchor: float) -> void:
+	node.set_anchor(SIDE_TOP, anchor, true)
+	node.set_anchor(SIDE_BOTTOM, anchor, true)
+
+## The one colour control left on this screen, and it takes the place of the two
+## it replaced: not which colour the platforms are -- the zone decides that now
+## -- but how that colour relates to the zone's own. Opposite it on the wheel,
+## or a step around from it.
+##
+## Built by duplicating a CheckButton already in the scene rather than adding a
+## node to customization.tscn, so it inherits that screen's font size and theme
+## without any of it being restated here, and the scene file stays untouched.
+func _add_palette_toggle() -> void:
+	# Properties only. The default duplicate() flags carry signal connections
+	# across too, which would wire this box straight into the shuffle handler.
+	var check: CheckButton = shuffle_check.duplicate(0)
+	check.name = "PaletteCheck"
+	check.text = "PLATFORM CONTRAST"
+	check.set_pressed_no_signal(Settings.platform_complementary)
+	check.toggled.connect(_on_palette_check_toggled)
+	$UI.add_child(check)
+	# After add_child: a Control's anchors need a parent to resolve against.
+	_move_row(check, 0.675)
+
+func _on_palette_check_toggled(pressed: bool) -> void:
+	Audio.play_ui_click()
+	Settings.set_platform_complementary(pressed)
+
 func _apply_visual_settings() -> void:
 	Settings.apply_glow(world_environment.environment)
 	UiOpacity.apply($UI)
@@ -171,7 +226,7 @@ func _apply_visual_settings() -> void:
 	# coins_label.add_theme_color_override("font_color", Settings.background_particle_color)
 	preview.shape = Player.SKIN_SHAPES.get(_browse, PlasmaBlob.Shape.CIRCLE)
 	preview.color = Settings.player_color
-	platform_swatch.color = Settings.platform_color
+	# platform_swatch.color = Settings.platform_color  # zone-driven; row hidden
 	name_label.text = Player.SKIN_NAMES[_browse]
 	_refresh_lock_state()
 	queue_redraw()
@@ -368,11 +423,14 @@ func _on_next_pressed() -> void:
 func _on_player_slider_color_changed(color: Color) -> void:
 	Settings.set_player_color(color, player_slider.value)
 
-func _on_platform_slider_color_changed(color: Color) -> void:
-	Settings.set_platform_color(color, platform_slider.value)
+## Still connected in customization.tscn, but unreachable while the sliders are
+## hidden. Left wired rather than disconnected so restoring the rows is one
+## uncomment in _hide_zone_driven_colours and nothing else.
+func _on_platform_slider_color_changed(_color: Color) -> void:
+	pass  # Settings.set_platform_color(_color, platform_slider.value)
 
-func _on_particle_slider_color_changed(color: Color) -> void:
-	Settings.set_background_particle_color(color, particle_slider.value)
+func _on_particle_slider_color_changed(_color: Color) -> void:
+	pass  # Settings.set_background_particle_color(_color, particle_slider.value)
 
 func _on_trail_check_toggled(pressed: bool) -> void:
 	Audio.play_ui_click()
@@ -403,8 +461,9 @@ func _on_shuffle_check_toggled(pressed: bool) -> void:
 func _on_randomize_pressed() -> void:
 	Audio.play_ui_click()
 	_roll_colour(player_slider, Settings.set_player_color)
-	_roll_colour(platform_slider, Settings.set_platform_color)
-	_roll_colour(particle_slider, Settings.set_background_particle_color)
+	# Platform and drift colour are the zone's now, not the player's.
+	# _roll_colour(platform_slider, Settings.set_platform_color)
+	# _roll_colour(particle_slider, Settings.set_background_particle_color)
 
 ## The slider's handle is moved to the point that produced the colour, not
 ## just the colour applied: the two are stored together precisely so the

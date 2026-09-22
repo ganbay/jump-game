@@ -16,6 +16,24 @@ enum Attr {
 
 const BASE_COLOR := Color(0.3, 1.0, 2.2)
 
+## What a glass body is mixed toward, how far, and what it keeps of its fill.
+##
+## Cold and DARK, which is the opposite of what this did before. The old glass
+## cooled toward white, and that read well only because the platform colour was
+## then the player's saturated pick -- a green slab going pale was an obvious
+## change. Platform colour is a neutral near-white now, tinted per zone (see
+## zone_ambience.gd), so mixing toward white moved it by nothing and glass lost
+## its tell down to alpha alone.
+##
+## Going down and blue instead restores it twice over: the pane is plainly
+## darker than the solid slabs around it, and the decor's rim, glare and sheen
+## -- all drawn bright and near-white -- finally have something to read against.
+## That contrast between a dim body and a bright edge is what says "glass"; two
+## whites on top of each other never could.
+const GLASS_COLOR := Color(0.35, 0.85, 1.25)
+const GLASS_BLEND := 0.62
+const GLASS_ALPHA := 0.3
+
 ## Consts rather than exports so they can be read without holding an instance.
 const SQUISH_BOOST := 1.25
 const SQUISH_PENALTY := 0.5
@@ -113,11 +131,11 @@ func _apply_visual_settings() -> void:
 	if not is_instance_valid(visual):
 		return
 	var col := Settings.platform_color
-	# Glass reads as glass by being see-through: the body gives up most of its
-	# fill and cools towards white, and the decor draws the rim and glare on top.
+	# Glass reads as glass by being see-through and dim, with bright edges the
+	# decor draws on top of it. See GLASS_COLOR.
 	if _glass:
-		col = col.lerp(Color(1.6, 1.9, 2.4), 0.35)
-		col.a = 0.42
+		col = col.lerp(GLASS_COLOR, GLASS_BLEND)
+		col.a = GLASS_ALPHA
 	visual.color = col
 	# RoundedRect.shine stays off here: its highlight is sized for the player's
 	# body and on a slab it paints an off-centre lens taller than the platform.

@@ -11,6 +11,10 @@ const SKIP_ICON := preload("res://assets/icons/arrow_right.svg")
 ## screen takes it -- a retry costs one tap, not one to find the button and a
 ## second to press it. The button stays as the affordance that says so.
 const SKIP_BUTTON_FADE_TIME := 0.2
+## Assigned to the backdrop in code rather than set on the ColorRect in
+## main.tscn: the scene stays a plain ColorRect that renders black on its own,
+## and the gradient is entirely this script's business.
+const BACKDROP_SHADER := preload("res://shaders/zone_backdrop.gdshader")
 
 @onready var player: CharacterBody2D = $Player
 @onready var camera: Camera2D = $Camera2D
@@ -44,6 +48,8 @@ const RESUME_TAP_PADDING := 64.0
 	$UI/PausePanel/MenuButton,
 	$UI/GameOverPanel/RestartButton, $UI/GameOverPanel/GameOverMenuButton,
 	$UI/GameOverPanel/WatchAdButton]
+@onready var background: ColorRect = $BackgroundLayer/Background
+@onready var background_particles: BackgroundParticles = $BackgroundLayer/BackgroundParticles
 @onready var intro: IntroSequence = $IntroSequence
 @onready var spawner: Node2D = $PlatformSpawner
 @onready var zones: ZoneDirector = $ZoneDirector
@@ -245,6 +251,14 @@ var _score_lines: Array[ScoreLine] = []
 ## unreadable smear -- and on an early save the best, the last run and the
 ## average are routinely the same run.
 const SCORE_LINE_CLEARANCE := 44
+## Which zone's backdrop is on screen, so the next multi-zone stage can avoid
+## repeating it. See _apply_zone_ambience.
+var _ambience_zone: int = ZoneAmbience.OPENING
+var _ambience_tween: Tween
+## Whether a zone has been dressed yet this run. The first one is set outright
+## rather than blended -- see _apply_zone_ambience.
+var _ambience_started: bool = false
+var _backdrop: ShaderMaterial
 var _score_base_position: Vector2
 var _streak_base_position: Vector2
 ## The point the counter stays centred on. Its own box is re-fitted around each
@@ -339,6 +353,7 @@ func _ready() -> void:
 	# previous run's skin.
 	Settings.roll_shuffled_skin()
 	_base_glow_bloom = world_environment.environment.glow_bloom
+	_setup_backdrop()
 	_load_high_score()
 	player.landed.connect(_on_player_landed)
 	player.streak_broken.connect(_on_streak_broken)
@@ -966,7 +981,11 @@ func _flash_streak(hold_time: float = STREAK_SHOW_TIME) -> void:
 func _spawn_burst(source: Node) -> void:
 	var burst := preload("res://scenes/landing_burst.tscn").instantiate()
 	if source is Platform:
-		burst.color = Settings.platform_color
+		# Tinted here rather than inherited: the burst is parented to the game
+		# node, not to PlatformSpawner, so the zone modulate that colours every
+		# platform does not reach it. Without this a landing in SQUISH throws a
+		# white spark off a magenta slab.
+		burst.color = Settings.platform_color * _platform_modulate()
 	else:
 		burst.color = BURST_COLOR
 	add_child(burst)
@@ -1281,9 +1300,17 @@ func _end_tap_cue() -> void:
 	_hide_tap_cue()
 
 func _on_zone_changed(stage: int, zone_name: String) -> void:
+	_apply_zone_ambience(stage)
 	if stage == 0:
 		return
 	zone_banner.text = zone_name
+	# Set outright rather than tweened, and safe to do so: the banner is hidden
+	# between zones, so it is never on screen while its colour changes. Set on
+	# every showing, which also means a mid-run visual-settings change -- which
+	# repaints the whole accent group back to the character colour -- costs
+	# nothing more than the next banner putting it right.
+	zone_banner.add_theme_color_override("font_color",
+		ZoneAmbience.tint_toward(UiAccent.color(), _ambience_zone, ZoneAmbience.BANNER_TINT))
 	zone_banner.modulate.a = 0.0
 	zone_banner.pivot_offset = zone_banner.size / 2.0
 	zone_banner.scale = Vector2(0.8, 0.8)
@@ -1295,6 +1322,69 @@ func _on_zone_changed(stage: int, zone_name: String) -> void:
 	tw.tween_interval(ZONE_BANNER_HOLD)
 	tw.tween_property(zone_banner, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(zone_banner.hide)
+
+## The tint the platforms wear in the zone the run is in, on whichever side of
+## the wheel the player picked. Read per zone change rather than cached: a run
+## always starts after the choice was made, so there is nothing to invalidate.
+func _platform_modulate() -> Color:
+	var mode := ZoneAmbience.PaletteMode.COMPLEMENT if Settings.platform_complementary \
+		else ZoneAmbience.PaletteMode.ZONE
+	return ZoneAmbience.tint_modulate(_ambience_zone, ZoneAmbience.PLATFORM_TINT, mode)
+
+## The backdrop starts on the opening gradient, so the first zone change has
+## something to blend away from rather than snapping in from flat black.
+func _setup_backdrop() -> void:
+	_backdrop = ShaderMaterial.new()
+	_backdrop.shader = BACKDROP_SHADER
+	var opening: Dictionary = ZoneAmbience.profile(ZoneAmbience.OPENING)
+	_backdrop.set_shader_parameter("top_color", opening["bg_top"])
+	_backdrop.set_shader_parameter("bottom_color", opening["bg_bottom"])
+	background.material = _backdrop
+
+## Dresses the climb in the backdrop of the zone it has entered. A stage that
+## forces several zones at once wears one of them, chosen per stage -- see
+## ZoneAmbience.pick_zone.
+func _apply_zone_ambience(stage: int) -> void:
+	_ambience_zone = ZoneAmbience.pick_zone(zones.zone_mask(stage), _ambience_zone)
+	var profile := ZoneAmbience.resolved_profile(_ambience_zone)
+	background_particles.blend_to(profile)
+	var platform_tint := _platform_modulate()
+	var player_tint := ZoneAmbience.tint_modulate(_ambience_zone, ZoneAmbience.PLAYER_TINT)
+	# Killed rather than layered: two live tweens on one property fight, and a
+	# stage crossed quickly enough to catch the last one still running would
+	# otherwise leave the backdrop somewhere between three zones.
+	if _ambience_tween != null and _ambience_tween.is_valid():
+		_ambience_tween.kill()
+	# Stage 0 arrives with the run rather than fading in across its first second
+	# and a half. There is nothing on screen to cross-fade from, and
+	# spawner.begin() places the first platforms in this same frame -- they
+	# should be wearing the character's colour when they are placed, not drift
+	# into it while the player is already climbing them.
+	if not _ambience_started:
+		_ambience_started = true
+		_backdrop.set_shader_parameter("top_color", profile["bg_top"])
+		_backdrop.set_shader_parameter("bottom_color", profile["bg_bottom"])
+		spawner.modulate = platform_tint
+		player.modulate = player_tint
+		return
+	_ambience_tween = create_tween()
+	_ambience_tween.tween_property(_backdrop, "shader_parameter/top_color",
+		profile["bg_top"], ZoneAmbience.BLEND_TIME).set_trans(Tween.TRANS_SINE)
+	_ambience_tween.parallel().tween_property(_backdrop, "shader_parameter/bottom_color",
+		profile["bg_bottom"], ZoneAmbience.BLEND_TIME).set_trans(Tween.TRANS_SINE)
+	# The zone bleeds into the things the player is looking at, not just the
+	# scenery behind them. One modulate per group rather than a re-dress of
+	# every platform and every part of the character: parent modulate cascades
+	# to children, so this reaches the decor and the trail for free, and it is a
+	# single tweenable property instead of a per-frame walk.
+	#
+	# Platforms already drive their own modulate.a for the phantom blink and the
+	# death fade. A parent's modulate multiplies with a child's rather than
+	# replacing it, so writing only rgb here leaves those alone.
+	_ambience_tween.parallel().tween_property(spawner, "modulate",
+		platform_tint, ZoneAmbience.BLEND_TIME).set_trans(Tween.TRANS_SINE)
+	_ambience_tween.parallel().tween_property(player, "modulate",
+		player_tint, ZoneAmbience.BLEND_TIME).set_trans(Tween.TRANS_SINE)
 
 func _on_milestone_reached(kind: int) -> void:
 	if kind == ZoneDirector.Milestone.ESCAPE:

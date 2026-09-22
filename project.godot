@@ -34,6 +34,7 @@ Notify="*res://scripts/notifications.gd"
 Missions="*res://scripts/missions.gd"
 Ads="*res://scripts/ads.gd"
 Crash="*res://scripts/crash.gd"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [display]
 
