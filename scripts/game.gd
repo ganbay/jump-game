@@ -235,10 +235,16 @@ var is_game_over: bool = false
 var is_intro: bool = false
 var is_paused: bool = false
 var high_score: int = 0
-## The previous best drawn in the world at the height it was reached, or null
-## once there is nothing left to mark -- a first run, or a record already beaten
-## this run. See _make_best_line().
-var _best_line: BestLine
+## Past scores drawn in the world at the heights they were reached: the record,
+## the previous run and the lifetime average. Entries leave the array as the
+## climb passes them, so an empty array means there is nothing left to mark.
+## See _make_score_lines().
+var _score_lines: Array[ScoreLine] = []
+## Minimum world-pixel spacing between two marks. A caption is ~22px tall and
+## sits 12px above its line, so anything closer than this overlaps into an
+## unreadable smear -- and on an early save the best, the last run and the
+## average are routinely the same run.
+const SCORE_LINE_CLEARANCE := 44
 var _score_base_position: Vector2
 var _streak_base_position: Vector2
 ## The point the counter stays centred on. Its own box is re-fitted around each
@@ -474,7 +480,7 @@ func _on_intro_finished() -> void:
 	Crash.log_message("run_start")
 	_score_origin_y = camera.global_position.y
 	spawner.score_origin_y = _score_origin_y
-	_make_best_line()
+	_make_score_lines()
 	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
 	spawner.begin(player.global_position.y - reach * intro_platform_lead)
 	# Missions.begin_run()  # missions disabled; see missions.gd ENABLED
@@ -691,7 +697,7 @@ func _process(delta: float) -> void:
 		if player.velocity.y < 0.0:
 			_score_origin_y = camera.global_position.y
 			spawner.score_origin_y = _score_origin_y
-			_position_best_line()
+			_position_score_lines()
 		else:
 			_burst_climbing = false  # apex of the launch; the run scores from here
 	max_height = max(max_height, _score_origin_y - camera.global_position.y)
@@ -701,37 +707,71 @@ func _process(delta: float) -> void:
 	if score != _shown_score:
 		_shown_score = score
 		score_label.text = "%d" % score
-		if _best_line != null and score >= high_score:
-			# Nulled here rather than waited on: surpass() frees the node at the
-			# end of its own fade, and nothing should reach for it after this.
-			_best_line.surpass()
-			_best_line = null
-			Audio.vibrate(30)
+		if not _score_lines.is_empty():
+			_pass_score_lines()
 		zones.update(score)
 		# Missions.update_run(_run_summary())  # missions disabled; see missions.gd ENABLED
 	if player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
 
-## The record mark. Nothing to draw on a first run, and the scoring origin is
-## still climbing at this point -- the launch burst is free height, so scoring
-## starts from its apex (see _process) -- which is why the placement is a
-## separate call that _process keeps repeating until the burst tops out.
-func _make_best_line() -> void:
-	if high_score <= 0:
-		return
-	_best_line = BestLine.new()
-	# Behind the platforms and the character, which share the default z: the
-	# mark is part of the world the player climbs through, not something in
-	# front of it.
-	_best_line.z_index = -1
-	add_child(_best_line)
-	_best_line.setup(high_score, get_viewport_rect().size.x)
-	_position_best_line()
+## The past-score marks. Nothing to draw on a first run, and the scoring origin
+## is still climbing at this point -- the launch burst is free height, so
+## scoring starts from its apex (see _process) -- which is why the placement is
+## a separate call that _process keeps repeating until the burst tops out.
+##
+## Added most important first, so _add_score_line drops the lesser of any two
+## marks that would land on top of each other.
+func _make_score_lines() -> void:
+	var view_width := get_viewport_rect().size.x
+	_add_score_line(ScoreLine.Kind.BEST, high_score, view_width)
+	_add_score_line(ScoreLine.Kind.LAST, _last_run_score(), view_width)
+	_add_score_line(ScoreLine.Kind.AVERAGE, int(round(Stats.average_score())), view_width)
+	_position_score_lines()
 
-func _position_best_line() -> void:
-	if _best_line == null:
-		return
-	_best_line.global_position = Vector2(0.0, _score_origin_y - float(high_score) * 10.0)
+func _add_score_line(kind: ScoreLine.Kind, line_score: int, view_width: float) -> void:
+	if line_score <= 0:
+		return  # no run behind this one yet
+	for placed in _score_lines:
+		if absi(placed.score - line_score) * 10 < SCORE_LINE_CLEARANCE:
+			return
+	var line := ScoreLine.new()
+	# Behind the platforms and the character, which share the default z: the
+	# marks are part of the world the player climbs through, not something in
+	# front of it.
+	line.z_index = -1
+	add_child(line)
+	line.setup(kind, line_score, view_width)
+	_score_lines.append(line)
+
+## The score of the run before this one. record_run appends at game over and the
+## scene reloads for a new run, so the last entry in the history is already the
+## previous run by the time a run reads it.
+func _last_run_score() -> int:
+	if Stats.runs.is_empty():
+		return 0
+	return int(Stats.runs.back().get("score", 0))
+
+func _position_score_lines() -> void:
+	for line in _score_lines:
+		line.global_position = Vector2(0.0, _score_origin_y - float(line.score) * 10.0)
+
+## Retires every mark the climb has just passed. Walked backwards because the
+## crossed entries are removed in place, and marks close together can go on the
+## same frame.
+func _pass_score_lines() -> void:
+	for i in range(_score_lines.size() - 1, -1, -1):
+		var line := _score_lines[i]
+		if score < line.score:
+			continue
+		# Removed here rather than waited on: surpass() frees the node at the
+		# end of its own fade, and nothing should reach for it after this.
+		line.surpass()
+		_score_lines.remove_at(i)
+		# Only the record earns a buzz. The average and the last run are passed
+		# early and often, and three taps in the opening seconds of a good climb
+		# would read as a malfunction rather than a beat.
+		if line.kind == ScoreLine.Kind.BEST:
+			Audio.vibrate(30)
 
 func _decay_streak_shake(delta: float) -> void:
 	if _streak_shake <= 0.0:
