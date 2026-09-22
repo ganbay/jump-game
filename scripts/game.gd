@@ -7,9 +7,9 @@ const CONTROLS_TILT_ICON := preload("res://assets/icons/mobile_phone.svg")
 const SOUND_ON_ICON := preload("res://assets/icons/speaker.svg")
 const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
 const SKIP_ICON := preload("res://assets/icons/arrow_right.svg")
-## The first tap during the intro only reveals the skip button; it hides again
-## after this long without another tap, so a stray touch doesn't leave it up.
-const SKIP_BUTTON_HIDE_DELAY := 3.0
+## The skip button is up from the intro's first frame, and a touch anywhere on
+## screen takes it -- a retry costs one tap, not one to find the button and a
+## second to press it. The button stays as the affordance that says so.
 const SKIP_BUTTON_FADE_TIME := 0.2
 
 @onready var player: CharacterBody2D = $Player
@@ -235,6 +235,10 @@ var is_game_over: bool = false
 var is_intro: bool = false
 var is_paused: bool = false
 var high_score: int = 0
+## The previous best drawn in the world at the height it was reached, or null
+## once there is nothing left to mark -- a first run, or a record already beaten
+## this run. See _make_best_line().
+var _best_line: BestLine
 var _score_base_position: Vector2
 var _streak_base_position: Vector2
 ## The point the counter stays centred on. Its own box is re-fitted around each
@@ -278,9 +282,6 @@ var _coin_tween: Tween
 # var _toast_queue: Array[String] = []
 var _streak_fade_tween: Tween
 var _skip_button: Button
-var _skip_hide_timer: Timer
-var _skip_fade: Tween
-var _skip_shown := false
 var _hud_nodes: Array[Control] = []
 var _hud_home: Array[Vector2] = []
 var _death_margin: float = 720.0
@@ -420,46 +421,23 @@ func _make_skip_button() -> void:
 	_skip_button.offset_bottom = 70.0
 	_skip_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_skip_button.self_modulate = UiOpacity.tint(Settings.ui_opacity)
-	_skip_button.visible = false
+	_skip_button.modulate.a = 0.0
+	# Disabled until the fade finishes, which is also the grace period that
+	# stops a stray press arriving with the scene -- the emulated mouse click
+	# that follows the menu's play touch, or a finger still coming off the
+	# screen -- from skipping the intro it just started. _unhandled_input reads
+	# the same flag, so the whole-screen target opens at the same moment.
+	_skip_button.disabled = true
 	_skip_button.pressed.connect(_on_skip_pressed)
 	$UI.add_child(_skip_button)
-	_skip_hide_timer = Timer.new()
-	_skip_hide_timer.one_shot = true
-	_skip_hide_timer.wait_time = SKIP_BUTTON_HIDE_DELAY
-	_skip_hide_timer.timeout.connect(_hide_skip_button)
-	add_child(_skip_hide_timer)
-
-func _show_skip_button() -> void:
-	_skip_hide_timer.start()
-	if _skip_shown:
-		return
-	_skip_shown = true
+	# Bound to the button, so the tween dies with it if a skip frees it mid-fade.
+	# The callback holds the node itself rather than reading the field back --
+	# _remove_skip_button() nulls the field, and a callback that outlived it
+	# would otherwise set a property on nothing.
 	var button := _skip_button
-	var was_visible := button.visible
-	button.visible = true
-	if not was_visible:
-		button.modulate.a = 0.0
-		# Disabled while it fades in: the touch that revealed it is followed by
-		# an emulated mouse click at the same spot, which must not land on it.
-		button.disabled = true
-	_fade_skip_button(1.0, func(): button.disabled = false)
-
-func _hide_skip_button() -> void:
-	if _skip_button == null or not _skip_shown:
-		return
-	_skip_shown = false
-	var button := _skip_button
-	button.disabled = true
-	_fade_skip_button(0.0, func(): button.visible = false)
-
-## Bound to the button, so the tween dies with it if a skip frees it mid-fade,
-## and a new fade replaces one still running in the other direction.
-func _fade_skip_button(alpha: float, done: Callable) -> void:
-	if _skip_fade != null:
-		_skip_fade.kill()
-	_skip_fade = _skip_button.create_tween()
-	_skip_fade.tween_property(_skip_button, "modulate:a", alpha, SKIP_BUTTON_FADE_TIME)
-	_skip_fade.tween_callback(done)
+	var tw := button.create_tween()
+	tw.tween_property(button, "modulate:a", 1.0, SKIP_BUTTON_FADE_TIME)
+	tw.tween_callback(func(): button.disabled = false)
 
 func _on_skip_pressed() -> void:
 	if not is_intro or _skip_button == null:
@@ -474,9 +452,6 @@ func _remove_skip_button() -> void:
 	if _skip_button != null:
 		_skip_button.queue_free()
 		_skip_button = null
-	if _skip_hide_timer != null:
-		_skip_hide_timer.queue_free()
-		_skip_hide_timer = null
 
 func _on_intro_finished() -> void:
 	is_intro = false
@@ -499,6 +474,7 @@ func _on_intro_finished() -> void:
 	Crash.log_message("run_start")
 	_score_origin_y = camera.global_position.y
 	spawner.score_origin_y = _score_origin_y
+	_make_best_line()
 	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
 	spawner.begin(player.global_position.y - reach * intro_platform_lead)
 	# Missions.begin_run()  # missions disabled; see missions.gd ENABLED
@@ -545,16 +521,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if is_intro:
 		# Hardware volume/back buttons arrive as key events on Android; they
 		# shouldn't touch the intro, so keys only count if they're Space/Enter.
-		# A tap never skips on its own -- it only reveals the skip button, and a
-		# second Space/Enter while that's up stands in for pressing it.
+		# Anything else that gets this far is a press on the play area, which is
+		# the skip target in full -- the button is only the label for it. A press
+		# that lands on the button itself is taken by the button and never
+		# reaches here, which comes out at the same place.
 		if event.is_pressed() and not event.is_echo() \
 				and (event is not InputEventKey or event.is_action("ui_accept")):
-			if _skip_button == null:
-				pass  # already skipping
-			elif event is InputEventKey and _skip_shown and not _skip_button.disabled:
+			# Null while a skip is already fast-forwarding; disabled until the
+			# button has faded in -- see _make_skip_button().
+			if _skip_button != null and not _skip_button.disabled:
 				_on_skip_pressed()
-			else:
-				_show_skip_button()
 			get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("ui_cancel") and not is_game_over and not _milestone_open \
@@ -715,6 +691,7 @@ func _process(delta: float) -> void:
 		if player.velocity.y < 0.0:
 			_score_origin_y = camera.global_position.y
 			spawner.score_origin_y = _score_origin_y
+			_position_best_line()
 		else:
 			_burst_climbing = false  # apex of the launch; the run scores from here
 	max_height = max(max_height, _score_origin_y - camera.global_position.y)
@@ -724,10 +701,37 @@ func _process(delta: float) -> void:
 	if score != _shown_score:
 		_shown_score = score
 		score_label.text = "%d" % score
+		if _best_line != null and score >= high_score:
+			# Nulled here rather than waited on: surpass() frees the node at the
+			# end of its own fade, and nothing should reach for it after this.
+			_best_line.surpass()
+			_best_line = null
+			Audio.vibrate(30)
 		zones.update(score)
 		# Missions.update_run(_run_summary())  # missions disabled; see missions.gd ENABLED
 	if player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
+
+## The record mark. Nothing to draw on a first run, and the scoring origin is
+## still climbing at this point -- the launch burst is free height, so scoring
+## starts from its apex (see _process) -- which is why the placement is a
+## separate call that _process keeps repeating until the burst tops out.
+func _make_best_line() -> void:
+	if high_score <= 0:
+		return
+	_best_line = BestLine.new()
+	# Behind the platforms and the character, which share the default z: the
+	# mark is part of the world the player climbs through, not something in
+	# front of it.
+	_best_line.z_index = -1
+	add_child(_best_line)
+	_best_line.setup(high_score, get_viewport_rect().size.x)
+	_position_best_line()
+
+func _position_best_line() -> void:
+	if _best_line == null:
+		return
+	_best_line.global_position = Vector2(0.0, _score_origin_y - float(high_score) * 10.0)
 
 func _decay_streak_shake(delta: float) -> void:
 	if _streak_shake <= 0.0:
