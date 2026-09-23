@@ -184,7 +184,6 @@ offset_left = -320.0
 offset_top = -26.0
 offset_right = 320.0
 offset_bottom = 26.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(1.1, 2, 2.4, 1)
 theme_override_font_sizes/font_size = 30
 text = "TILT TO STEER"
@@ -201,7 +200,6 @@ offset_left = -300.0
 offset_top = -20.0
 offset_right = 300.0
 offset_bottom = 20.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(1.3, 1.3, 1.3, 1)
 theme_override_constants/line_spacing = 4
 theme_override_font_sizes/font_size = 17
@@ -221,7 +219,6 @@ offset_left = -200.0
 offset_top = -30.0
 offset_right = 200.0
 offset_bottom = 30.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(1.1, 2, 2.4, 1)
 theme_override_font_sizes/font_size = 34
 text = "TAP!"
@@ -296,9 +293,9 @@ anchor_left = 0.5
 anchor_top = 0.82
 anchor_right = 0.5
 anchor_bottom = 0.82
-offset_left = -133.0
+offset_left = -202.0
 offset_top = -52.0
-offset_right = -29.0
+offset_right = -98.0
 offset_bottom = 52.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
@@ -313,11 +310,10 @@ anchor_left = 0.5
 anchor_top = 0.82
 anchor_right = 0.5
 anchor_bottom = 0.82
-offset_left = -133.0
+offset_left = -202.0
 offset_top = 54.0
-offset_right = -29.0
+offset_right = -98.0
 offset_bottom = 78.0
-mouse_filter = 2
 theme_override_colors/font_color = Color(1.1, 2, 2.4, 1)
 theme_override_font_sizes/font_size = 15
 text = "TILT"
@@ -337,15 +333,32 @@ icon = ExtResource("13_sound")
 flat = true
 icon_alignment = 1
 
+[node name="ReplayButton" type="Button" parent="UI/PausePanel" unique_id=1516543837]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.82
+anchor_right = 0.5
+anchor_bottom = 0.82
+offset_left = -52.0
+offset_top = -52.0
+offset_right = 52.0
+offset_bottom = 52.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 56
+icon = ExtResource("15_restart")
+flat = true
+icon_alignment = 1
+
 [node name="MenuButton" type="Button" parent="UI/PausePanel" unique_id=1109345400]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.82
 anchor_right = 0.5
 anchor_bottom = 0.82
-offset_left = 29.0
+offset_left = 98.0
 offset_top = -52.0
-offset_right = 133.0
+offset_right = 202.0
 offset_bottom = 52.0
 focus_mode = 0
 theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
@@ -540,9 +553,9 @@ autowrap_mode = 3
 [node name="ContinueButton" type="Button" parent="UI/TutorialPanel" unique_id=2101000009]
 layout_mode = 0
 anchor_left = 0.5
-anchor_top = 0.60
+anchor_top = 0.6
 anchor_right = 0.5
-anchor_bottom = 0.60
+anchor_bottom = 0.6
 offset_left = -130.0
 offset_top = -28.0
 offset_right = 130.0
@@ -634,10 +647,11 @@ text = "COOL."
 [connection signal="gui_input" from="UI/PausePanel/Dim" to="." method="_on_pause_dim_input"]
 [connection signal="pressed" from="UI/PausePanel/ControlsButton" to="." method="_on_controls_pressed"]
 [connection signal="pressed" from="UI/PausePanel/SoundButton" to="." method="_on_sound_pressed"]
+[connection signal="pressed" from="UI/PausePanel/ReplayButton" to="." method="_on_replay_pressed"]
 [connection signal="pressed" from="UI/PausePanel/MenuButton" to="." method="_on_menu_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/RestartButton" to="." method="_on_restart_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/GameOverMenuButton" to="." method="_on_menu_pressed"]
 [connection signal="pressed" from="UI/GameOverPanel/WatchAdButton" to="." method="_on_revive_watch_ad_pressed"]
-[connection signal="pressed" from="UI/MilestonePanel/ContinueButton" to="." method="_on_milestone_continue_pressed"]
 [connection signal="pressed" from="UI/TutorialPanel/ContinueButton" to="." method="_on_tutorial_continue_pressed"]
 [connection signal="pressed" from="UI/TutorialPanel/DismissButton" to="." method="_on_tutorial_dismiss_pressed"]
+[connection signal="pressed" from="UI/MilestonePanel/ContinueButton" to="." method="_on_milestone_continue_pressed"]

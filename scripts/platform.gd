@@ -81,8 +81,13 @@ var _squishy: bool = false
 var _dir: int = 1
 var _min_x: float
 var _max_x: float
+var _home_x: float = 0.0
 var _home_y: float = 0.0
 var _v_phase: float = 0.0
+## The spawner's course_time, which moving platforms are positioned from (see
+## drift_x/bob_y). Starts wherever the course clock stood when this was built.
+var _clock: float = 0.0
+var _motion_set: bool = false
 var _v_rate: float = 0.0
 var _v_amp: float = 0.0
 var _squish_t: float = 0.0
@@ -109,11 +114,14 @@ func _ready() -> void:
 	var vw := get_viewport_rect().size.x
 	_min_x = width / 2.0
 	_max_x = vw - width / 2.0
+	_home_x = position.x
 	_home_y = position.y
 	_v_amp = move_v_distance / 2.0
 	_v_rate = move_v_speed / maxf(_v_amp, 1.0)
-	_v_phase = randf() * TAU
-	_dir = 1 if randf() < 0.5 else -1
+	if not _motion_set:
+		_v_phase = randf() * TAU
+		_dir = 1 if randf() < 0.5 else -1
+	_apply_motion()
 	# Staggered, so a screenful of invisible platforms does not blink in
 	# lockstep -- which would look mechanical and, worse, leave the player with
 	# no visible platform at all for the whole 1.4s gone phase.
@@ -126,6 +134,37 @@ func _ready() -> void:
 
 func has_attr(attr: Attr) -> bool:
 	return attributes & attr != 0
+
+## Called by the spawner before add_child, from the platform's course slot. A
+## platform built without it rolls its own and starts its clock at zero.
+func set_motion(dir: int, v_phase: float, clock: float) -> void:
+	_dir = dir
+	_v_phase = v_phase
+	_clock = clock
+	_motion_set = true
+
+## Where a sideways mover is `t` seconds into the course, bouncing between
+## min_x and max_x. Closed form rather than stepped, so the spawner can answer
+## the same question for a platform that has no node (see slot_position).
+## Unfolds the bounce onto a loop twice the span long: the first half is the
+## trip right, the second the trip back.
+static func drift_x(x0: float, dir: int, min_x: float, max_x: float, speed: float,
+		t: float) -> float:
+	var span := maxf(max_x - min_x, 1.0)
+	var p0 := x0 - min_x if dir > 0 else 2.0 * span - (x0 - min_x)
+	var p := fposmod(p0 + speed * t, 2.0 * span)
+	return min_x + p if p < span else min_x + 2.0 * span - p
+
+## A sine rather than a ping-pong, so the slab eases at both ends instead of
+## snapping direction under the player's feet.
+static func bob_y(home_y: float, phase: float, rate: float, amp: float, t: float) -> float:
+	return home_y + sin(phase + rate * t) * amp
+
+func _apply_motion() -> void:
+	if _move_h:
+		position.x = drift_x(_home_x, _dir, _min_x, _max_x, move_speed, _clock)
+	if _move_v:
+		position.y = bob_y(_home_y, _v_phase, _v_rate, _v_amp, _clock)
 
 func _apply_visual_settings() -> void:
 	if not is_instance_valid(visual):
@@ -151,19 +190,8 @@ func _apply_width() -> void:
 	collision.shape = shape
 
 func _physics_process(delta: float) -> void:
-	if _move_h:
-		position.x += _dir * move_speed * delta
-		if position.x > _max_x:
-			position.x = _max_x
-			_dir = -1
-		elif position.x < _min_x:
-			position.x = _min_x
-			_dir = 1
-	if _move_v:
-		# A sine rather than a ping-pong, so the slab eases at both ends
-		# instead of snapping direction under the player's feet.
-		_v_phase += _v_rate * delta
-		position.y = _home_y + sin(_v_phase) * _v_amp
+	_clock += delta
+	_apply_motion()
 
 ## Squishy platforms breathe on their own, so the attribute is readable before
 ## you touch one, and compress hard when landed on to confirm it. Invisible

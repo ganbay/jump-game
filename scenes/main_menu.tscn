@@ -9,6 +9,8 @@
 [ext_resource type="Texture2D" path="res://assets/icons/help.svg" id="7_guide"]
 [ext_resource type="Texture2D" path="res://assets/icons/speaker.svg" id="8_sound"]
 [ext_resource type="Texture2D" path="res://assets/icons/atom.svg" id="9_science"]
+[ext_resource type="Texture2D" path="res://assets/icons/arrow_left.svg" id="10_left"]
+[ext_resource type="Texture2D" path="res://assets/icons/arrow_right.svg" id="11_right"]
 
 [sub_resource type="Environment" id="Environment_menu"]
 background_mode = 3
@@ -78,6 +80,71 @@ anchor_right = 1.0
 anchor_bottom = 0.87
 offset_bottom = -72.0
 mouse_filter = 2
+
+[node name="ModeLabel" type="Label" parent="UI" groups=["ui_accent"]]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.44
+anchor_right = 0.5
+anchor_bottom = 0.44
+offset_left = -150.0
+offset_top = -30.0
+offset_right = 150.0
+offset_bottom = 30.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(2.3, 2.3, 2.3, 1)
+theme_override_font_sizes/font_size = 44
+text = "CASUAL"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ModeLeftButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.44
+anchor_right = 0.5
+anchor_bottom = 0.44
+offset_left = -250.0
+offset_top = -40.0
+offset_right = -170.0
+offset_bottom = 40.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 40
+icon = ExtResource("10_left")
+flat = true
+icon_alignment = 1
+
+[node name="ModeRightButton" type="Button" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.44
+anchor_right = 0.5
+anchor_bottom = 0.44
+offset_left = 170.0
+offset_top = -40.0
+offset_right = 250.0
+offset_bottom = 40.0
+focus_mode = 0
+theme_override_colors/icon_normal_color = Color(1.5, 1.5, 1.5, 1)
+theme_override_constants/icon_max_width = 40
+icon = ExtResource("11_right")
+flat = true
+icon_alignment = 1
+
+[node name="ModeDots" type="HBoxContainer" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.483
+anchor_right = 0.5
+anchor_bottom = 0.483
+offset_left = -60.0
+offset_top = -5.0
+offset_right = 60.0
+offset_bottom = 5.0
+mouse_filter = 2
+theme_override_constants/separation = 12
+alignment = 1
 
 [node name="TapIcon" type="TextureRect" parent="UI" unique_id=153465056]
 anchors_preset = -1
@@ -211,5 +278,7 @@ icon_alignment = 1
 [connection signal="pressed" from="UI/ScienceButton" to="." method="_on_science_pressed"]
 [connection signal="pressed" from="UI/CustomizeButton" to="." method="_on_customize_pressed"]
 [connection signal="pressed" from="UI/StatisticsButton" to="." method="_on_statistics_pressed"]
+[connection signal="pressed" from="UI/ModeLeftButton" to="." method="_on_mode_left_pressed"]
+[connection signal="pressed" from="UI/ModeRightButton" to="." method="_on_mode_right_pressed"]
 [connection signal="pressed" from="UI/GuideButton" to="." method="_on_guide_pressed"]
 [connection signal="pressed" from="UI/SettingsButton" to="." method="_on_settings_pressed"]

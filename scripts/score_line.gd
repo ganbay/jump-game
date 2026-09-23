@@ -14,7 +14,9 @@ class_name ScoreLine
 ## are static marks on the world that the camera scrolls past. The one piece of
 ## motion is the fade when one is passed (see surpass()).
 
-enum Kind { BEST, LAST, AVERAGE }
+## FINISH is race mode's target line (see race.gd), and the only mark drawn in
+## a race -- the classic marks measure a different game.
+enum Kind { BEST, LAST, AVERAGE, FINISH }
 
 const LABEL_FONT := preload("res://fonts/Chillax-Bold.otf")
 
@@ -39,6 +41,10 @@ const STYLES := {
 	Kind.AVERAGE: {
 		"label": "AVG", "color": Color(1.0, 1.0, 1.1),
 		"dash": 4.0, "gap": 12.0, "thickness": 2.0, "font_size": 18,
+	},
+	Kind.FINISH: {
+		"label": "FINISH", "color": Color(2.2, 2.2, 2.3),
+		"dash": 30.0, "gap": 10.0, "thickness": 4.0, "font_size": 26,
 	},
 }
 

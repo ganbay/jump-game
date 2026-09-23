@@ -45,7 +45,7 @@ const RESUME_TAP_PADDING := 64.0
 @onready var _icon_buttons: Array[Node] = [
 	$UI/PauseButton,
 	$UI/PausePanel/ControlsButton, $UI/PausePanel/SoundButton,
-	$UI/PausePanel/MenuButton,
+	$UI/PausePanel/MenuButton, $UI/PausePanel/ReplayButton,
 	$UI/GameOverPanel/RestartButton, $UI/GameOverPanel/GameOverMenuButton,
 	$UI/GameOverPanel/WatchAdButton]
 @onready var background: ColorRect = $BackgroundLayer/Background
@@ -346,6 +346,39 @@ const REVIVE_SPAWN_LIFT := 40.0
 ## live platform field is in reach of the launch.
 const REVIVE_SAFE_DROP := 240.0
 
+## --- Race mode (see race.gd) ---
+## Both null outside a race, which is what every race branch below keys off.
+var _bot: RaceBot
+var _race_hud: RaceHud
+## Seconds left on the player's fall penalty, or 0 while racing.
+var _respawn_left: float = 0.0
+## The AI wears the hue opposite the character's, at full saturation and a
+## lower peak than the character palette's ~2.4. The character colours are
+## authored to bloom, and bloom pushes toward white -- which, on a pastel
+## complement, left the two looking like the same white blob. Held lower and
+## pure, the AI keeps its hue through the glow.
+const RIVAL_SATURATION := 0.9
+const RIVAL_VALUE := 1.7
+## A near-white character has no hue to oppose, so the AI takes this instead.
+const RIVAL_FALLBACK_HUE := 0.06
+const RIVAL_MIN_SATURATION := 0.25
+const GRANDMASTER_FONT_SIZE := 30
+
+## What the game-over panel's Watch button is currently offering. The panel
+## has one prompt slot and one button, shared by the revive offer (casual,
+## mid-death) and the ticket refill (after a lost race) -- which can never be
+## up at the same time.
+enum AdOffer { REVIVE, TICKET_REFILL }
+var _ad_offer: AdOffer = AdOffer.REVIVE
+## One quiet line on the game-over panel about race tickets: what this run
+## earned, how close the next one is, or what a race cost. It is the whole of
+## how the ticket rules are taught after the race screen's one-time explainer
+## -- a sentence where the player is already looking, never a popup.
+var _ticket_label: Label
+const TICKET_LINE_COLOR := Color(1.0, 1.0, 1.0, 0.8)
+const TICKET_LINE_FONT_SIZE := 18
+const TICKET_OFFER_FONT_SIZE := 30
+
 func _ready() -> void:
 	# First thing in the run: under shuffle this picks the character and emits
 	# visual_settings_changed, which the already-ready Player is listening on,
@@ -363,6 +396,7 @@ func _ready() -> void:
 	# _update_coin_label()  # currency display disabled; uncomment to bring the coin count back
 	# Missions.completed.connect(_on_mission_completed)  # missions disabled; see missions.gd ENABLED
 	game_over_panel.hide()
+	_make_ticket_label()
 	milestone_panel.hide()
 	tutorial_panel.hide()
 	control_hint.hide()
@@ -395,6 +429,9 @@ func _ready() -> void:
 	# coin_row left out: it has its own hidden-currency-display state, which
 	# blanket-setting .visible on everything in this list would undo.
 	_hud_nodes = [score_label, streak_label, pause_button]
+	if Race.active:
+		_setup_race()
+		_hud_nodes.append(_race_hud)
 	for node in _hud_nodes:
 		_hud_home.append(node.position)
 	_update_controls_icon()
@@ -498,6 +535,10 @@ func _on_intro_finished() -> void:
 	_make_score_lines()
 	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
 	spawner.begin(player.global_position.y - reach * intro_platform_lead)
+	if _bot != null:
+		_bot.begin(spawner, player, _death_margin)
+		Analytics.log_event("race_start", {
+			"difficulty": Race.difficulty_name(), "target": Race.target()})
 	# Missions.begin_run()  # missions disabled; see missions.gd ENABLED
 	_drop_in_hud()
 	_show_control_hint()
@@ -726,7 +767,9 @@ func _process(delta: float) -> void:
 			_pass_score_lines()
 		zones.update(score)
 		# Missions.update_run(_run_summary())  # missions disabled; see missions.gd ENABLED
-	if player.global_position.y > camera.global_position.y + _death_margin:
+	if _bot != null:
+		_update_race(delta)
+	elif player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
 
 ## The past-score marks. Nothing to draw on a first run, and the scoring origin
@@ -738,9 +781,12 @@ func _process(delta: float) -> void:
 ## marks that would land on top of each other.
 func _make_score_lines() -> void:
 	var view_width := get_viewport_rect().size.x
-	_add_score_line(ScoreLine.Kind.BEST, high_score, view_width)
-	_add_score_line(ScoreLine.Kind.LAST, _last_run_score(), view_width)
-	_add_score_line(ScoreLine.Kind.AVERAGE, int(round(Stats.average_score())), view_width)
+	if Race.active:
+		_add_score_line(ScoreLine.Kind.FINISH, Race.target(), view_width)
+	else:
+		_add_score_line(ScoreLine.Kind.BEST, high_score, view_width)
+		_add_score_line(ScoreLine.Kind.LAST, _last_run_score(), view_width)
+		_add_score_line(ScoreLine.Kind.AVERAGE, int(round(Stats.average_score())), view_width)
 	_position_score_lines()
 
 func _add_score_line(kind: ScoreLine.Kind, line_score: int, view_width: float) -> void:
@@ -1123,7 +1169,10 @@ func run_speed() -> float:
 ## takes itself away on a timer or as soon as the player starts steering --
 ## whichever comes first.
 func _show_control_hint() -> void:
-	if not Settings.tutorial_hints or is_game_over or is_intro:
+	# Never in a race: race mode unlocks only after ten casual runs, so the
+	# player already knows the controls -- and a prompt over the opening
+	# seconds is a handicap the AI does not carry.
+	if not Settings.tutorial_hints or is_game_over or is_intro or Race.active:
 		return
 	var tilt := Settings.control_scheme == Settings.ControlScheme.TILT
 	control_hint_title.text = "TILT TO STEER" if tilt else "SWIPE TO STEER"
@@ -1195,7 +1244,9 @@ func _on_control_scheme_changed(_scheme: int) -> void:
 func _tutorial_on_landed(boosted: bool) -> void:
 	if boosted:
 		_end_tap_cue()
-	if _boost_hint_shown or not Settings.tutorial_hints or is_game_over:
+	# The tap lesson freezes the run, which has no place mid-race (see
+	# _show_control_hint for why the player does not need it there).
+	if _boost_hint_shown or not Settings.tutorial_hints or is_game_over or Race.active:
 		return
 	_boost_hint_shown = true
 	if boosted:
@@ -1387,6 +1438,10 @@ func _apply_zone_ambience(stage: int) -> void:
 		player_tint, ZoneAmbience.BLEND_TIME).set_trans(Tween.TRANS_SINE)
 
 func _on_milestone_reached(kind: int) -> void:
+	# The escape story is classic mode's, and its panel pauses the tree -- in a
+	# race that would stop the clock on a race the bot is still in.
+	if Race.active:
+		return
 	if kind == ZoneDirector.Milestone.ESCAPE:
 		Stats.mark_escaped()
 		Analytics.log_event("milestone_escape")
@@ -1446,6 +1501,7 @@ func _game_over() -> void:
 ## prompt shown alongside the game-over content until the offer is answered.
 func _offer_revive() -> void:
 	Audio.vibrate(30)
+	_ad_offer = AdOffer.REVIVE
 	_revive_open = true
 	_set_hud_visible(false)
 	get_tree().paused = true
@@ -1459,7 +1515,11 @@ func _on_revive_watch_ad_pressed() -> void:
 	# The ad takes a moment to come up and the button stays on screen under it,
 	# so without this a second tap queues a second request behind the first.
 	watch_ad_button.disabled = true
-	Ads.show_rewarded(_on_revive_ad_rewarded, _on_revive_ad_dismissed)
+	match _ad_offer:
+		AdOffer.REVIVE:
+			Ads.show_rewarded(_on_revive_ad_rewarded, _on_revive_ad_dismissed)
+		AdOffer.TICKET_REFILL:
+			Ads.show_rewarded(_on_ticket_refill_rewarded, _on_ticket_ad_dismissed)
 
 func _on_revive_ad_rewarded() -> void:
 	_revive_used = true
@@ -1538,6 +1598,7 @@ func _finish_game_over() -> void:
 	# Missions.end_run(summary)
 	revive_body_label.hide()
 	watch_ad_button.hide()
+	_show_casual_tickets(Race.award_casual_run(score))
 	_set_hud_visible(false)
 	get_tree().paused = true
 	# When restarting/leaving straight out of a still-open revive offer, the
@@ -1566,7 +1627,36 @@ func _on_restart_pressed() -> void:
 	Audio.play_ui_click()
 	_end_open_revive_offer()
 	get_tree().paused = false
+	_restart_run()
+
+## Another run of the same kind. A race is paid for here, as every race start
+## is -- and with nothing to pay with, the player goes to the race screen,
+## where the ticket explainer and the ad refill are, rather than hitting a
+## silent dead end.
+func _restart_run() -> void:
+	if Race.active and not Race.pay_for_race():
+		Transition.change_scene("res://scenes/race_setup.tscn")
+		return
 	Transition.reload_scene()
+
+## The pause menu's replay: the same run type again from the intro, a race
+## included (Race.active survives the reload). The abandoned run is not
+## recorded, just as leaving through the pause menu's home button records
+## nothing.
+##
+## The run is stopped before the tree unpauses: Transition's fade takes a
+## moment, and a live run left unpaused under it could fall and open the
+## game-over (or revive) flow on its way out.
+func _on_replay_pressed() -> void:
+	if is_game_over:
+		return
+	Audio.play_ui_click()
+	is_game_over = true
+	player.set_physics_process(false)
+	if _bot != null:
+		_bot.stop()
+	get_tree().paused = false
+	_restart_run()
 
 ## Restart/Menu stay visible on the game-over panel even while a revive is
 ## still on offer -- pressing either one there is an implicit decline, so
@@ -1576,3 +1666,211 @@ func _end_open_revive_offer() -> void:
 		return
 	_revive_open = false
 	_finish_game_over()
+
+## --- Race mode -----------------------------------------------------------
+##
+## Same run, same scoring, plus a RaceBot on the same course (see race_bot.gd)
+## and a finish line at Race.target(). A fall is not the end: the player sits
+## out Race.RESPAWN_PENALTY seconds, with the clock and the bot still running,
+## and is dropped back in the way a revive does it. First to the target wins.
+
+func _setup_race() -> void:
+	var rival := _rival_color()
+	_bot = RaceBot.new()
+	_bot.color = rival
+	add_child(_bot)
+	_race_hud = RaceHud.new()
+	_race_hud.player = player
+	_race_hud.bot = _bot
+	_race_hud.camera = camera
+	_race_hud.target = Race.target()
+	_race_hud.player_color = UiAccent.color()
+	$UI.add_child(_race_hud)
+	# Under the panels, so pause and the finish screen cover it.
+	$UI.move_child(_race_hud, pause_button.get_index())
+
+## Opposite the character's colour on the wheel, so the two never blur
+## together -- unless the character is near-white, which has no opposite.
+func _rival_color() -> Color:
+	var c := Settings.player_color
+	var hue := fposmod(c.h + 0.5, 1.0) if c.s >= RIVAL_MIN_SATURATION else RIVAL_FALLBACK_HUE
+	return Color.from_hsv(hue, RIVAL_SATURATION, RIVAL_VALUE)
+
+func _update_race(delta: float) -> void:
+	if _respawn_left > 0.0:
+		_respawn_left -= delta
+		if _respawn_left <= 0.0:
+			_respawn_player()
+	elif player.global_position.y > camera.global_position.y + _death_margin:
+		_begin_player_respawn()
+	_race_hud.player_score = score
+	_race_hud.player_respawn_left = _respawn_left
+	if score >= Race.target():
+		_finish_race(true)
+	elif _bot.score >= Race.target():
+		_finish_race(false)
+
+func _begin_player_respawn() -> void:
+	_respawn_left = Race.RESPAWN_PENALTY
+	player.set_physics_process(false)
+	player.visible = false
+	player.velocity = Vector2.ZERO
+	player.streak = 0
+	# Already paid for by the fall -- the first landing back must not also
+	# flash FAILED for it.
+	_last_streak = 0
+	Audio.set_streak(0)
+	Audio.vibrate(40)
+	_hide_tap_cue()
+
+## _revive_player's drop-in, without the panel and the music around it.
+func _respawn_player() -> void:
+	_respawn_left = 0.0
+	player.global_position = _revive_position()
+	player.velocity = Vector2(0.0, REVIVE_LAUNCH_VELOCITY)
+	player.visible = true
+	player.set_physics_process(true)
+
+## Reuses the game-over panel: the same dim, pop-in and Restart/Menu buttons.
+## Nothing is recorded into Stats or the high score -- those describe classic
+## runs, and a race's score is capped at the target by design.
+func _finish_race(won: bool) -> void:
+	is_game_over = true
+	_bot.stop()
+	_respawn_left = 0.0
+	_race_hud.player_respawn_left = 0.0
+	_dismiss_control_hint()
+	_end_tap_cue()
+	Audio.fade_to_menu_music()
+	Audio.vibrate(60)
+	var best_before := Race.best_time()
+	var new_best := won and Race.record_win(run_time)
+	var refunded := won and Race.refund_race()
+	game_over_title.text = "YOU WIN!" if won else "AI WINS"
+	if won:
+		game_over_title.add_theme_color_override("font_color", UiAccent.color())
+		result_label.text = "TIME %s   %s" % [Stats.format_duration(run_time),
+			"NEW BEST" if new_best else "BEST " + Stats.format_duration(best_before)]
+	else:
+		result_label.text = "YOU %d / %d" % [score, Race.target()]
+	result_label.show()
+	pace_label.text = "%s AI   SPEED %s/s" % [Race.difficulty_name(),
+		Stats.format_speed(run_speed())]
+	pace_label.show()
+	Analytics.log_event("race_end", {
+		"difficulty": Race.difficulty_name(),
+		"target": Race.target(),
+		"won": won,
+		"duration_s": int(run_time),
+	})
+	watch_ad_button.hide()
+	_show_race_tickets(won, refunded)
+	# The revive prompt's slot is free in a race, so the unlock takes it.
+	if won and Race.unlock_grandmaster():
+		revive_body_label.text = "GRANDMASTER UNLOCKED"
+		revive_body_label.add_theme_font_size_override("font_size", GRANDMASTER_FONT_SIZE)
+		revive_body_label.add_theme_color_override("font_color", UiAccent.color())
+		revive_body_label.show()
+		Analytics.log_event("race_grandmaster_unlocked")
+	elif not _offer_ticket_refill():
+		revive_body_label.hide()
+	_set_hud_visible(false)
+	get_tree().paused = true
+	_show_game_over_panel()
+
+## --- Race tickets (see race.gd) -------------------------------------------
+
+func _make_ticket_label() -> void:
+	_ticket_label = Label.new()
+	_ticket_label.anchor_left = 0.5
+	_ticket_label.anchor_right = 0.5
+	_ticket_label.anchor_top = 0.67
+	_ticket_label.anchor_bottom = 0.67
+	_ticket_label.offset_left = -330.0
+	_ticket_label.offset_right = 330.0
+	_ticket_label.offset_top = -16.0
+	_ticket_label.offset_bottom = 16.0
+	_ticket_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ticket_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_ticket_label.add_theme_font_size_override("font_size", TICKET_LINE_FONT_SIZE)
+	_ticket_label.add_theme_color_override("font_color", TICKET_LINE_COLOR)
+	_ticket_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ticket_label.hide()
+	game_over_panel.add_child(_ticket_label)
+
+func _ticket_count() -> String:
+	return "(%d/%d)" % [Race.tickets, Race.TICKET_CAP]
+
+static func _plural(count: int, word: String) -> String:
+	return "%d %s%s" % [count, word, "" if count == 1 else "S"]
+
+## What this casual run did for the player's race tickets -- or, when it did
+## nothing, the score that would have. That second half is how the earning
+## rules are taught: the target is named on the screen right after a run that
+## fell short of it. Before race mode unlocks it counts down to that instead,
+## which is how a new player first hears that races exist.
+func _show_casual_tickets(award: Dictionary) -> void:
+	var gained: int = award["gained"]
+	var text := ""
+	match award["kind"]:
+		"locked":
+			text = "RACE MODE UNLOCKS IN %s" % _plural(award["runs_left"], "RUN")
+		"unlocked":
+			text = "RACE MODE UNLOCKED   +%s" % _plural(gained, "RACE TICKET")
+		"daily":
+			text = "DAILY BONUS   +%s" % _plural(gained, "RACE TICKET")
+		"run":
+			text = "+1 RACE TICKET"
+		"daily_pending":
+			text = "SCORE %s TODAY FOR +%d RACE TICKETS" % [
+				RaceHud._thousands(Race.DAILY_MIN_SCORE), Race.DAILY_TICKETS]
+		"run_pending":
+			text = "SCORE %s FOR +1 RACE TICKET" % RaceHud._thousands(Race.RUN_MIN_SCORE)
+		"full":
+			text = "RACE TICKETS FULL"
+	if award["kind"] != "locked":
+		text += "   " + _ticket_count()
+	_ticket_label.text = text
+	_ticket_label.show()
+
+func _show_race_tickets(won: bool, refunded: bool) -> void:
+	if refunded:
+		_ticket_label.text = "TICKET REFUNDED   " + _ticket_count()
+	elif not Race.can_start():
+		_ticket_label.text = "OUT OF RACE TICKETS   " + _ticket_count()
+	else:
+		_ticket_label.text = "RACE TICKETS " + _ticket_count()
+	_ticket_label.show()
+
+## After a race the player cannot afford to rerun, the refill is offered right
+## there -- the moment a rematch is wanted most. False when there is no ad.
+func _offer_ticket_refill() -> bool:
+	if Race.can_start() or not Race.can_watch_ad() or not Ads.is_rewarded_ready():
+		return false
+	_show_ad_offer(AdOffer.TICKET_REFILL, "+%d RACE TICKETS?" % Race.AD_TICKETS)
+	return true
+
+func _show_ad_offer(offer: AdOffer, prompt: String) -> void:
+	_ad_offer = offer
+	revive_body_label.text = prompt
+	revive_body_label.add_theme_font_size_override("font_size", TICKET_OFFER_FONT_SIZE)
+	revive_body_label.show()
+	watch_ad_button.disabled = false
+	watch_ad_button.show()
+
+func _hide_ad_offer() -> void:
+	revive_body_label.hide()
+	watch_ad_button.hide()
+
+func _on_ticket_refill_rewarded() -> void:
+	var gained := Race.grant_ad_tickets()
+	Analytics.log_event("ticket_ad_refill")
+	_ticket_label.text = "+%s   %s" % [_plural(gained, "RACE TICKET"), _ticket_count()]
+	_hide_ad_offer()
+	Ads.load_rewarded()
+
+## Closed early or failed: the offer goes away (the ad in hand is spent either
+## way) and nothing is granted.
+func _on_ticket_ad_dismissed() -> void:
+	_hide_ad_offer()
+	Ads.load_rewarded()

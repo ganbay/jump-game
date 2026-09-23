@@ -121,6 +121,21 @@ func schedule_daily(id: String, hour: int, minute: int, title: String, body: Str
 		at += 86400
 	_plugin.schedule(id, at, title, body, true)
 
+## Schedules a one-off at `unix`. A time in quiet hours goes to the *next*
+## QUIET_END_HOUR rather than through _out_of_quiet_hours, which can move a
+## late-evening time back to the same day's FALLBACK_HOUR -- fine for a
+## comeback nudge, wrong for "this is ready now", which must never arrive
+## before the thing it announces.
+func schedule_at(id: String, unix: int, title: String, body: String) -> void:
+	if _plugin == null:
+		return
+	var hour: int = Time.get_datetime_dict_from_unix_time(unix + _utc_offset_seconds())["hour"]
+	if hour >= QUIET_START_HOUR:
+		unix = _local_today_at(unix + 86400, QUIET_END_HOUR, 0)
+	elif hour < QUIET_END_HOUR:
+		unix = _local_today_at(unix, QUIET_END_HOUR, 0)
+	_plugin.schedule(id, unix, title, body, false)
+
 func cancel(id: String) -> void:
 	if _plugin != null:
 		_plugin.cancel(id)
