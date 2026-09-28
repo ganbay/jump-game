@@ -15,6 +15,11 @@ extends Node2D
 # 1000 score points = 10000px climbed, since score = height / 10 (see game.gd).
 const DIFFICULTY_STEP_HEIGHT := 10000.0
 
+## Bumped on any change to how a seed becomes a course -- the draw order in
+## _add_slot, the gap/width/attribute tuning, the zone shuffle. Two devices can
+## only share a seed if they agree on this (see docs/seeded-course.md).
+const COURSE_VERSION := 1
+
 ## Headroom above the top of the screen that the spawn frontier keeps. Added to
 ## half the screen height rather than baked into a single distance, so a taller
 ## display gets the same margin instead of building platforms nearly in view.
@@ -46,6 +51,14 @@ const NATURAL_RAMP_HEIGHT := 12000.0
 ## rather than the live nodes (see race_bot.gd and ensure_course()). A few
 ## hundred small objects even on a long climb, so nothing is ever trimmed.
 var course: Array[CourseSlot] = []
+## The seed this course was generated from. The same seed, begun from the same
+## place on the same screen width, lays out the same course to the platform --
+## the base for any race between two devices (see docs/seeded-course.md).
+var course_seed: int = 0
+## The course's own RNG. Never the global one: the race bot, particles and
+## everything else draw from that at their own pace, and any of those draws
+## landing between two platforms would change every platform after it.
+var _rng := RandomNumberGenerator.new()
 ## Seconds of play since begin(). Moving platforms are positioned from this
 ## rather than integrated per node, so where one is at any moment is a pure
 ## function of its slot -- which is what lets the bot land on platforms that
@@ -90,12 +103,13 @@ class CourseSlot:
 	var attributes: int
 	var dir: int
 	var v_phase: float
+	## Where an invisible platform starts its blink, 0..1 of a cycle.
+	var phantom_phase: float
 
 	func has_attr(attr: int) -> bool:
 		return attributes & attr != 0
 
 func _ready() -> void:
-	randomize()
 	player = get_tree().get_first_node_in_group("player")
 	var view := get_viewport_rect().size
 	_screen_width = view.x
@@ -116,7 +130,11 @@ func _ready() -> void:
 ## rather than a batch of them existing before the run has started.
 ##
 ## Also a full reset: the trailer throws the field away and calls this again.
-func begin(from_y: float) -> void:
+##
+## `new_seed` below zero rolls a fresh one; course_seed says which was used.
+func begin(from_y: float, new_seed: int = -1) -> void:
+	course_seed = new_seed if new_seed >= 0 else randi()
+	_rng.seed = course_seed
 	_highest_y = from_y
 	_origin_y = from_y
 	course.clear()
@@ -184,18 +202,31 @@ func _despawn_below_camera() -> void:
 func _difficulty_level() -> int:
 	return int(floor(_climbed() / DIFFICULTY_STEP_HEIGHT))
 
+## Every slot takes exactly the same draws from _rng, in the same order,
+## whether it needs them or not. What a slot *uses* depends on live values --
+## the score origin, which settles a little differently from run to run -- and
+## if that also changed how many draws were taken, a nudge on one platform
+## would reshuffle the whole course above it. This way it stays local.
 func _add_slot() -> void:
+	var gap_roll := _rng.randf()
+	var x_roll := _rng.randf()
+	var dir_roll := _rng.randf()
+	var v_phase_roll := _rng.randf()
+	var axis_roll := _rng.randf()
+	var natural_roll := _rng.randf()
+	var phantom_roll := _rng.randf()
 	var level := _difficulty_level()
 	var cur_min_gap := minf(min_gap + gap_step * level, min_gap_cap)
 	var cur_max_gap := minf(max_gap + gap_step * level, max_gap_cap)
-	_highest_y -= randf_range(cur_min_gap, cur_max_gap)
+	_highest_y -= lerpf(cur_min_gap, cur_max_gap, gap_roll)
 	var slot := CourseSlot.new()
-	slot.x = randf_range(edge_margin, _screen_width - edge_margin)
+	slot.x = lerpf(edge_margin, _screen_width - edge_margin, x_roll)
 	slot.y = _highest_y
-	slot.attributes = _pick_attributes()
+	slot.attributes = _pick_attributes(axis_roll, natural_roll)
 	slot.width = maxf(platform_width - width_step * level, platform_width_min)
-	slot.dir = 1 if randf() < 0.5 else -1
-	slot.v_phase = randf() * TAU
+	slot.dir = 1 if dir_roll < 0.5 else -1
+	slot.v_phase = v_phase_roll * TAU
+	slot.phantom_phase = phantom_roll
 	course.append(slot)
 
 func _build(slot: CourseSlot) -> void:
@@ -203,23 +234,24 @@ func _build(slot: CourseSlot) -> void:
 	plat.position = Vector2(slot.x, slot.y)
 	plat.attributes = slot.attributes
 	plat.width = slot.width
-	plat.set_motion(slot.dir, slot.v_phase, course_time)
+	plat.set_motion(slot.dir, slot.v_phase, course_time, slot.phantom_phase)
 	add_child(plat)
 	_live.append(plat)
 
-func _pick_attributes() -> int:
+func _pick_attributes(axis_roll: float, natural_roll: float) -> int:
 	var score := _frontier_score()
 	if score < 1000:
 		return 0
-	var forced := zones.attrs_for_score(score) if zones != null else 0
-	return forced | _roll_natural()
+	var forced := zones.attrs_for_score(score, axis_roll) if zones != null else 0
+	return forced | _roll_natural(natural_roll)
 
-func _roll_natural() -> int:
+## `roll` is 0..1 from the course RNG.
+func _roll_natural(roll: float) -> int:
 	var t := clampf(_climbed() / NATURAL_RAMP_HEIGHT, 0.0, 1.0)
 	var total := 0.0
 	for i in range(NATURAL_ATTRS.size()):
 		total += lerpf(NATURAL_WEIGHTS_START[i], NATURAL_WEIGHTS_END[i], t)
-	var r := randf() * total
+	var r := roll * total
 	for i in range(NATURAL_ATTRS.size()):
 		r -= lerpf(NATURAL_WEIGHTS_START[i], NATURAL_WEIGHTS_END[i], t)
 		if r <= 0.0:

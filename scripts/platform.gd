@@ -92,6 +92,7 @@ var _v_rate: float = 0.0
 var _v_amp: float = 0.0
 var _squish_t: float = 0.0
 var _phantom_t: float = 0.0
+var _phantom_set: bool = false
 var _impact: float = 0.0
 var _impact_vel: float = 0.0
 var _broken: bool = false
@@ -124,8 +125,11 @@ func _ready() -> void:
 	_apply_motion()
 	# Staggered, so a screenful of invisible platforms does not blink in
 	# lockstep -- which would look mechanical and, worse, leave the player with
-	# no visible platform at all for the whole 1.4s gone phase.
-	_phantom_t = randf() * PHANTOM_CYCLE
+	# no visible platform at all for the whole 1.4s gone phase. The spawner
+	# hands the stagger over from the course seed (see set_motion); this roll
+	# is only for a platform built outside it.
+	if not _phantom_set:
+		_phantom_t = randf() * PHANTOM_CYCLE
 	# Only moving platforms have anything to do per physics tick, and only
 	# squishy or invisible ones animate; the rest would just pay call overhead
 	# every frame.
@@ -137,11 +141,17 @@ func has_attr(attr: Attr) -> bool:
 
 ## Called by the spawner before add_child, from the platform's course slot. A
 ## platform built without it rolls its own and starts its clock at zero.
-func set_motion(dir: int, v_phase: float, clock: float) -> void:
+## `phantom_phase` (0..1, from the course seed) pins where an invisible
+## platform is in its blink as a function of course time, so every racer on
+## the same seed sees it gone at the same moment. Negative leaves it random.
+func set_motion(dir: int, v_phase: float, clock: float, phantom_phase: float = -1.0) -> void:
 	_dir = dir
 	_v_phase = v_phase
 	_clock = clock
 	_motion_set = true
+	if phantom_phase >= 0.0:
+		_phantom_t = fposmod(phantom_phase * PHANTOM_CYCLE + clock, PHANTOM_CYCLE)
+		_phantom_set = true
 
 ## Where a sideways mover is `t` seconds into the course, bouncing between
 ## min_x and max_x. Closed form rather than stepped, so the spawner can answer

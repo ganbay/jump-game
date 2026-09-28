@@ -98,6 +98,11 @@ var _last_daily: String = ""
 ## Unix time the last ad refill was granted. Wall-clock, since the cooldown
 ## has to survive the app closing -- see ad_cooldown_left for the clock guard.
 var _last_ad_unix: int = 0
+## The course the next race is laid out from, or -1 for a fresh roll each
+## race (the bot races). Set by whatever sets up a shared race -- the planned
+## LAN/online modes -- so every racer climbs the same platforms. Never saved:
+## a shared seed belongs to one session. See docs/seeded-course.md.
+var course_seed: int = -1
 ## Whether the race in progress took a ticket, and so has one to refund.
 var _paid: bool = false
 

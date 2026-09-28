@@ -537,7 +537,13 @@ func _on_intro_finished() -> void:
 	spawner.score_origin_y = _score_origin_y
 	_make_score_lines()
 	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
-	spawner.begin(player.global_position.y - reach * intro_platform_lead)
+	# One seed lays out the whole course -- platforms and zone order alike. A
+	# race set up to share a course (Race.course_seed) uses its seed; every
+	# other run rolls its own. Logged so a reported course can be replayed.
+	var course_seed := Race.course_seed if Race.active and Race.course_seed >= 0 else randi()
+	zones.reseed(course_seed)
+	spawner.begin(player.global_position.y - reach * intro_platform_lead, course_seed)
+	Crash.set_custom_value("course_seed", course_seed)
 	if _bot != null:
 		_bot.begin(spawner, player, _death_margin)
 		Analytics.log_event("race_start", {

@@ -36,6 +36,16 @@ var _stage: int = -1
 var _fired: int = 0
 
 func _ready() -> void:
+	reseed(randi())
+
+## Rebuilds the stage order from `course_seed`, so two runs on the same seed
+## meet the zones in the same order. game.gd calls this with the run's seed
+## before the spawner begins; _ready's roll only covers anything built
+## without one (the trailer).
+func reseed(course_seed: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = course_seed
+	_stages.clear()
 	_stages.append(0)
 	for size in range(1, ZONE_COUNT + 1):
 		var combos: Array[int] = []
@@ -44,8 +54,13 @@ func _ready() -> void:
 				combos.append(mask)
 		# Shuffled within each block, so which single zone comes first (and
 		# which pair follows the singles) differs from run to run, while the
-		# one-then-two-then-three ramp stays fixed.
-		combos.shuffle()
+		# one-then-two-then-three ramp stays fixed. Fisher-Yates by hand:
+		# Array.shuffle() only draws from the global RNG.
+		for i in range(combos.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var held := combos[i]
+			combos[i] = combos[j]
+			combos[j] = held
 		_stages.append_array(combos)
 
 ## Driven from game.gd with the run's live score.
@@ -64,12 +79,14 @@ func stage_for_score(score: int) -> int:
 	return mini(int(score / ZONE_LENGTH), TRUE_END_STAGE)
 
 ## The attributes this stretch of the climb forces onto a platform. Rolled per
-## platform rather than per stage, because the moving zone picks an axis.
-func attrs_for_score(score: int) -> int:
+## platform rather than per stage, because the moving zone picks an axis --
+## from `axis_roll` (0..1), which the spawner draws from the course seed for
+## every platform whether it is used or not (see platform_spawner.gd).
+func attrs_for_score(score: int, axis_roll: float) -> int:
 	var mask := _stages[clampi(stage_for_score(score), 0, _stages.size() - 1)]
 	var attrs := 0
 	if mask & (1 << Zone.MOVING):
-		attrs |= Platform.Attr.MOVE_V if randf() < 0.5 else Platform.Attr.MOVE_H
+		attrs |= Platform.Attr.MOVE_V if axis_roll < 0.5 else Platform.Attr.MOVE_H
 	if mask & (1 << Zone.GLASS):
 		attrs |= Platform.Attr.GLASS
 	if mask & (1 << Zone.INVISIBLE):
