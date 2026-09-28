@@ -112,12 +112,14 @@ func schedule_comeback() -> void:
 
 ## Schedules `body` to fire at the next occurrence of hour:minute local time and
 ## every day after, replacing any pending notification with the same id.
-func schedule_daily(id: String, hour: int, minute: int, title: String, body: String) -> void:
+## `skip_today` starts it from tomorrow even when today's time is still ahead.
+func schedule_daily(id: String, hour: int, minute: int, title: String, body: String,
+		skip_today: bool = false) -> void:
 	if _plugin == null:
 		return
 	var now := int(Time.get_unix_time_from_system())
 	var at := _local_today_at(now, hour, minute)
-	if at <= now:
+	if at <= now or skip_today:
 		at += 86400
 	_plugin.schedule(id, at, title, body, true)
 

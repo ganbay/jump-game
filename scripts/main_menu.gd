@@ -15,6 +15,12 @@ extends Node2D
 ## Until Race.is_unlocked(), RACE can still be swiped to -- so the player
 ## learns it exists -- but shows a padlock in place of the play glyph and a
 ## count of casual runs left, and a tap only shakes it.
+##
+## Two things about races are told here, since the menu is where the player
+## lands between sessions: a line under the prompt while the day's free
+## tickets are waiting (see Race.daily_available), and a popup for each race
+## AI opened since the last visit (see Race.claim_new_unlocks), one at a time,
+## tap to dismiss.
 
 ## The mute toggle swaps its glyph rather than tinting one, so the state reads
 ## at a glance instead of asking the player to remember which shade means off.
@@ -39,6 +45,14 @@ const MODE_SLIDE := 70.0
 const MODE_SLIDE_TIME := 0.2
 const DOT_SIZE := 10.0
 const DOT_IDLE := Color(1.0, 1.0, 1.0, 0.3)
+const DAILY_FONT_SIZE := 20
+const POPUP_DIM := Color(0.0, 0.0, 0.0, 0.85)
+const POPUP_FONT_SIZE := 34
+const POPUP_HINT_COLOR := Color(1.0, 1.0, 1.0, 0.6)
+## Taps within this long of a popup appearing are ignored, so a tap already on
+## its way -- or the emulated mouse copy of the one that closed the previous
+## popup -- cannot dismiss it unread.
+const POPUP_GUARD_MS := 350
 
 ## The zone the menu last wore. Static because the menu is freed and rebuilt on
 ## every return to it, and a per-instance var could not remember what the last
@@ -86,6 +100,11 @@ var _dots: Array[Panel] = []
 ## The accent tinted toward this visit's zone -- what the title, the mode name
 ## and the live mode dot are drawn in. Set in _apply_visual_settings.
 var _zone_accent: Color = Color.WHITE
+var _daily_label: Label
+## Difficulties still waiting to be announced, and the popup now showing.
+var _unlock_queue: Array[int] = []
+var _popup: Control
+var _popup_shown_ms: int = 0
 
 func _ready() -> void:
 	_mode = Mode.RACE if Race.menu_on_race else Mode.CASUAL
@@ -96,6 +115,7 @@ func _ready() -> void:
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mode_dots.add_child(dot)
 		_dots.append(dot)
+	_make_daily_label()
 	# Before _apply_visual_settings, which tints the title from _zone.
 	_roll_backdrop()
 	_apply_visual_settings()
@@ -110,6 +130,93 @@ func _ready() -> void:
 	# _leaving is only ever cleared by actually leaving, so a scene that fails
 	# to load would otherwise strand the menu with every button dead.
 	Transition.scene_change_failed.connect(_on_scene_change_failed)
+	_unlock_queue = Race.claim_new_unlocks()
+	_show_next_unlock()
+
+## Under the tap prompt, in the accent: only there while the day's grant is
+## waiting, so its presence is the news.
+func _make_daily_label() -> void:
+	_daily_label = Label.new()
+	_daily_label.anchor_left = 0.5
+	_daily_label.anchor_right = 0.5
+	_daily_label.anchor_top = 0.68
+	_daily_label.anchor_bottom = 0.68
+	_daily_label.offset_left = -300.0
+	_daily_label.offset_right = 300.0
+	_daily_label.offset_top = -16.0
+	_daily_label.offset_bottom = 16.0
+	_daily_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_daily_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_daily_label.add_theme_font_size_override("font_size", DAILY_FONT_SIZE)
+	_daily_label.add_to_group(UiAccent.GROUP)
+	_daily_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_daily_label.text = "PLAY CASUAL MODE TO GET %d TICKETS!" % Race.DAILY_TICKETS
+	_daily_label.visible = Race.daily_available()
+	$UI.add_child(_daily_label)
+
+## --- Unlock popups ---------------------------------------------------------
+
+func _show_next_unlock() -> void:
+	if _unlock_queue.is_empty():
+		return
+	var difficulty: int = _unlock_queue.pop_front()
+	_popup = Control.new()
+	_popup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	$UI.add_child(_popup)
+	# Stops every press, so nothing under the popup -- buttons or the play
+	# zone -- is reachable until it is gone.
+	var dim := ColorRect.new()
+	dim.color = POPUP_DIM
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.gui_input.connect(_on_popup_input)
+	_popup.add_child(dim)
+	var box := VBoxContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.anchor_left = 0.5
+	box.anchor_right = 0.5
+	box.anchor_top = 0.5
+	box.anchor_bottom = 0.5
+	box.offset_left = -320.0
+	box.offset_right = 320.0
+	box.offset_top = -90.0
+	box.offset_bottom = 90.0
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 26)
+	_popup.add_child(box)
+	var title := Label.new()
+	title.text = "%s MODE UNLOCKED!" % Race.DIFFICULTY_NAMES[difficulty]
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	title.add_theme_font_size_override("font_size", POPUP_FONT_SIZE)
+	box.add_child(title)
+	UiPlate.title(title)
+	var hint := Label.new()
+	hint.text = "TAP TO CONTINUE"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 18)
+	hint.add_theme_color_override("font_color", POPUP_HINT_COLOR)
+	box.add_child(hint)
+	_popup_shown_ms = Time.get_ticks_msec()
+	_popup.modulate.a = 0.0
+	title.pivot_offset = title.get_combined_minimum_size() / 2.0
+	title.scale = Vector2(0.6, 0.6)
+	var tw := create_tween().set_parallel()
+	tw.tween_property(_popup, "modulate:a", 1.0, 0.2)
+	tw.tween_property(title, "scale", Vector2.ONE, 0.35) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	Audio.vibrate(40)
+
+func _on_popup_input(event: InputEvent) -> void:
+	if event.is_pressed() and (event is InputEventMouseButton or event is InputEventScreenTouch):
+		_dismiss_popup()
+
+func _dismiss_popup() -> void:
+	if _popup == null or Time.get_ticks_msec() - _popup_shown_ms < POPUP_GUARD_MS:
+		return
+	Audio.play_ui_click()
+	_popup.queue_free()
+	_popup = null
+	_show_next_unlock()
 
 ## The menu wears one of the zones' skies, re-rolled on every load -- so the
 ## screen a run ends on is never the screen the next one starts from, and the
@@ -231,6 +338,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	# copy is enough to play, but a swipe seen twice would switch mode twice
 	# and land right back where it started.
 	if event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
+	# Touches on a popup never get here (its dim takes them); keys do, and
+	# only the accept key does anything -- it closes the popup.
+	if _popup != null:
+		if event is InputEventKey and event.is_pressed() and event.is_action("ui_accept"):
+			_dismiss_popup()
 		return
 	if event is InputEventKey and event.is_pressed():
 		if event.is_action("ui_left"):

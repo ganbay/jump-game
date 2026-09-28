@@ -378,6 +378,9 @@ var _ticket_label: Label
 const TICKET_LINE_COLOR := Color(1.0, 1.0, 1.0, 0.8)
 const TICKET_LINE_FONT_SIZE := 18
 const TICKET_OFFER_FONT_SIZE := 30
+## The daily grant is the one ticket line worth celebrating, so it is set
+## larger and in the accent rather than as the usual quiet note.
+const TICKET_GRANT_FONT_SIZE := 24
 
 func _ready() -> void:
 	# First thing in the run: under shuffle this picks the character and emits
@@ -1821,15 +1824,17 @@ func _show_casual_tickets(award: Dictionary) -> void:
 			text = "DAILY BONUS   +%s" % _plural(gained, "RACE TICKET")
 		"run":
 			text = "+1 RACE TICKET"
-		"daily_pending":
-			text = "SCORE %s TODAY FOR +%d RACE TICKETS" % [
-				RaceHud._thousands(Race.DAILY_MIN_SCORE), Race.DAILY_TICKETS]
 		"run_pending":
 			text = "SCORE %s FOR +1 RACE TICKET" % RaceHud._thousands(Race.RUN_MIN_SCORE)
 		"full":
 			text = "RACE TICKETS FULL"
 	if award["kind"] != "locked":
 		text += "   " + _ticket_count()
+	var grant: bool = award["kind"] in ["unlocked", "daily"] and gained > 0
+	_ticket_label.add_theme_font_size_override("font_size",
+		TICKET_GRANT_FONT_SIZE if grant else TICKET_LINE_FONT_SIZE)
+	_ticket_label.add_theme_color_override("font_color",
+		UiAccent.color() if grant else TICKET_LINE_COLOR)
 	_ticket_label.text = text
 	_ticket_label.show()
 

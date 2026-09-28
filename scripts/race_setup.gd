@@ -14,6 +14,10 @@ extends Node2D
 ## buttons and no reading, opened from the counter, or from START when the
 ## race picked cannot be afforded. The score targets that earn tickets are
 ## taught on the casual game-over screen instead, right after the run.
+##
+## An AI not yet opened by casual score (see Race.is_difficulty_unlocked) is
+## still listed, faded and padlocked, and a tap on it names the score that
+## opens it instead of picking it.
 
 const SECTION_FONT_SIZE := 20
 const OPTION_FONT_SIZE := 26
@@ -27,6 +31,8 @@ const AD_READY_TEXT := "WATCH AD   +5 TICKETS"
 ## button every second.
 const AD_BUTTON_MIN_WIDTH := 440.0
 const COOLDOWN_ALPHA := 0.55
+const LOCK_ICON := preload("res://assets/icons/lock.svg")
+const LOCKED_ALPHA := 0.4
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var options: VBoxContainer = $UI/Options
@@ -76,6 +82,11 @@ func _build() -> void:
 	for i in range(Race.available_difficulties()):
 		var button := _add_option(options, Race.DIFFICULTY_NAMES[i])
 		button.pressed.connect(_on_difficulty_pressed.bind(i))
+		if not Race.is_difficulty_unlocked(i):
+			button.icon = LOCK_ICON
+			button.add_theme_constant_override("icon_max_width", 28)
+			button.add_theme_constant_override("h_separation", 12)
+			button.modulate.a = LOCKED_ALPHA
 		_difficulty_buttons.append(button)
 
 	_add_gap()
@@ -334,6 +345,11 @@ func _outline(fill: Color) -> StyleBoxFlat:
 	return box
 
 func _on_difficulty_pressed(index: int) -> void:
+	if not Race.is_difficulty_unlocked(index):
+		Audio.vibrate(30)
+		_best_label.text = "SCORE %s IN CASUAL TO UNLOCK" % RaceHud._thousands(
+			Race.unlock_score(index))
+		return
 	Audio.play_ui_click()
 	_difficulty = index
 	_refresh()
