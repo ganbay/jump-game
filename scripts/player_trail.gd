@@ -24,6 +24,9 @@ class_name PlayerTrail
 @export var min_emit_speed: float = 40.0
 
 var color: Color = Color.WHITE
+## From the owner's origin to where the trail leaves it. Zero on the player,
+## whose origin is its body; a ghost's origin is its feet.
+var emit_offset: Vector2 = Vector2.ZERO
 ## Fragments are drawn as this silhouette (see PlasmaBlob.Shape) instead of a
 ## plain circle, so a shape skin sheds little copies of its own body. CIRCLE
 ## draws exactly as before -- the round PLASMA skin is unaffected.
@@ -178,13 +181,14 @@ func _process(delta: float) -> void:
 func _should_emit() -> bool:
 	return _player != null and _player_velocity().length() >= min_emit_speed
 
+## Any owner with a `velocity` -- the player, or a LAN ghost (net_rival.gd).
 func _player_velocity() -> Vector2:
-	return _player.velocity if _player is CharacterBody2D else Vector2.ZERO
+	return _player.velocity if "velocity" in _player else Vector2.ZERO
 
 func _emit() -> void:
 	var i := _next
 	_next = (_next + 1) % max_fragments
-	_pos[i] = _player.global_position + Vector2(
+	_pos[i] = _player.global_position + emit_offset + Vector2(
 		randf_range(-spread, spread), randf_range(-spread, spread))
 	_vel[i] = _player_velocity() * inherit_velocity + Vector2(
 		randf_range(-scatter, scatter), randf_range(-scatter, scatter))

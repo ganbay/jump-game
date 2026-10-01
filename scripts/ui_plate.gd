@@ -99,6 +99,36 @@ static func quiet(button: Button) -> void:
 		button.add_theme_color_override(state, QUIET_TEXT)
 	_fit(button)
 
+## One choice in a row of options (the race and LAN screens' AI and distance
+## rows). The picked one is a solid accent plate with black text -- the same
+## look as the plated titles -- and the rest are the same plate emptied out:
+## just its accent outline, over nothing. Filled vs. outlined in one colour
+## reads as a single control with one choice made.
+static func option(button: Button, picked: bool) -> void:
+	var accent := UiAccent.color()
+	var rest := _option_plate(accent, picked, Color(0.0, 0.0, 0.0, 0.0))
+	# A faint fill under the outline while held, so a tap still shows.
+	var held := _option_plate(accent, picked, QUIET_FILL_HELD)
+	var text := TITLE_TEXT if picked else accent
+	for state in ["normal", "focus", "disabled"]:
+		button.add_theme_stylebox_override(state, rest)
+	for state in ["hover", "pressed"]:
+		button.add_theme_stylebox_override(state, held)
+	for state in ["font_color", "font_hover_color", "font_pressed_color",
+			"font_focus_color", "font_disabled_color"]:
+		button.add_theme_color_override(state, text)
+
+static func _option_plate(accent: Color, picked: bool, empty_fill: Color) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.set_corner_radius_all(QUIET_CORNER)
+	if picked:
+		box.bg_color = accent
+	else:
+		box.bg_color = empty_fill
+		box.border_color = accent
+		box.set_border_width_all(ACTION_BORDER)
+	return box
+
 static func _plate(fill: Color, corner: int, pad_x: float, pad_y: float) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = fill

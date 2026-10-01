@@ -112,9 +112,9 @@ func _ready() -> void:
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 	_apply_width()
 	_apply_visual_settings()
-	var vw := get_viewport_rect().size.x
-	_min_x = width / 2.0
-	_max_x = vw - width / 2.0
+	var right := drift_left + drift_width if drift_width > 0.0 else get_viewport_rect().size.x
+	_min_x = drift_left + width / 2.0
+	_max_x = right - width / 2.0
 	_home_x = position.x
 	_home_y = position.y
 	_v_amp = move_v_distance / 2.0
@@ -144,6 +144,11 @@ func has_attr(attr: Attr) -> bool:
 ## `phantom_phase` (0..1, from the course seed) pins where an invisible
 ## platform is in its blink as a function of course time, so every racer on
 ## the same seed sees it gone at the same moment. Negative leaves it random.
+## The stretch a sideways mover bounces across: the whole screen unless the
+## spawner says otherwise (a shared race's centred course band).
+var drift_left: float = 0.0
+var drift_width: float = 0.0
+
 func set_motion(dir: int, v_phase: float, clock: float, phantom_phase: float = -1.0) -> void:
 	_dir = dir
 	_v_phase = v_phase

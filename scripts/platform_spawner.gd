@@ -18,7 +18,13 @@ const DIFFICULTY_STEP_HEIGHT := 10000.0
 ## Bumped on any change to how a seed becomes a course -- the draw order in
 ## _add_slot, the gap/width/attribute tuning, the zone shuffle. Two devices can
 ## only share a seed if they agree on this (see docs/seeded-course.md).
-const COURSE_VERSION := 1
+const COURSE_VERSION := 2
+
+## The course's width in a shared race, whatever the screen: every portrait
+## phone is exactly this wide under the `expand` stretch, so phones race on the
+## same course they always had, and anything wider (a tablet, a landscape
+## window) centres it with margins either side. See use_shared_width().
+const SHARED_WIDTH := 720.0
 
 ## Headroom above the top of the screen that the spawn frontier keeps. Added to
 ## half the screen height rather than baked into a single distance, so a taller
@@ -69,9 +75,11 @@ var _highest_y: float = 100.0
 ## Index into `course` of the next slot to build a node for.
 var _next_node: int = 0
 var player: Node2D
-## Set by game.gd. Platform attributes are chosen from the score a platform
-## will be worth when reached, which has to be measured from the same origin
-## the HUD counts from or zones would drift out of step with their banners.
+## Set by game.gd, once, before begin(). Platform attributes are chosen from the
+## score a platform will be worth when reached, which has to be measured from
+## the same origin the HUD counts from or zones would drift out of step with
+## their banners. It is a prediction made at hand-off, not a live reading, so
+## it -- and every zone boundary -- is the same on every device.
 var score_origin_y: float = 0.0
 var zones: ZoneDirector
 ## Spawned platforms in the order they were created, i.e. sorted from lowest
@@ -82,6 +90,10 @@ var _half_screen_height: float = 640.0
 ## the base 720x1280 is only a floor: height grows on a tall phone and width
 ## grows on a tablet, so neither can be a constant.
 var _screen_width: float = 720.0
+## The band of x the course is laid out across: the whole screen, unless
+## use_shared_width() has narrowed it.
+var course_left: float = 0.0
+var course_width: float = 720.0
 var _spawn_lookahead: float = 1000.0
 ## Where this run started. Difficulty is measured as distance climbed from here,
 ## not from world zero -- the intro hands over thousands of pixels up, so an
@@ -113,6 +125,7 @@ func _ready() -> void:
 	player = get_tree().get_first_node_in_group("player")
 	var view := get_viewport_rect().size
 	_screen_width = view.x
+	course_width = view.x
 	_half_screen_height = view.y / 2.0
 	_spawn_lookahead = _half_screen_height + SPAWN_MARGIN
 	if platform_scene != null:
@@ -124,6 +137,13 @@ func _ready() -> void:
 	# Held until the intro finishes; game.gd calls begin().
 	set_process(false)
 	set_physics_process(false)
+
+## Lays the course out across SHARED_WIDTH, centred, instead of the full
+## screen -- so phones of different widths build the same course from a seed.
+## Called before begin().
+func use_shared_width() -> void:
+	course_width = minf(SHARED_WIDTH, _screen_width)
+	course_left = (_screen_width - course_width) / 2.0
 
 ## Starts generating from `from_y` upward. game.gd seeds this above the top of
 ## the screen so the first platform is built off-camera and scrolls into view,
@@ -178,7 +198,8 @@ func slot_position(slot: CourseSlot, time: float) -> Vector2:
 	var pos := Vector2(slot.x, slot.y)
 	if slot.has_attr(Platform.Attr.MOVE_H):
 		var half := slot.width / 2.0
-		pos.x = Platform.drift_x(slot.x, slot.dir, half, _screen_width - half, _h_speed, time)
+		pos.x = Platform.drift_x(slot.x, slot.dir, course_left + half,
+			course_left + course_width - half, _h_speed, time)
 	if slot.has_attr(Platform.Attr.MOVE_V):
 		pos.y = Platform.bob_y(slot.y, slot.v_phase, _v_speed / maxf(_v_amp, 1.0), _v_amp, time)
 	return pos
@@ -220,7 +241,7 @@ func _add_slot() -> void:
 	var cur_max_gap := minf(max_gap + gap_step * level, max_gap_cap)
 	_highest_y -= lerpf(cur_min_gap, cur_max_gap, gap_roll)
 	var slot := CourseSlot.new()
-	slot.x = lerpf(edge_margin, _screen_width - edge_margin, x_roll)
+	slot.x = course_left + lerpf(edge_margin, course_width - edge_margin, x_roll)
 	slot.y = _highest_y
 	slot.attributes = _pick_attributes(axis_roll, natural_roll)
 	slot.width = maxf(platform_width - width_step * level, platform_width_min)
@@ -229,11 +250,30 @@ func _add_slot() -> void:
 	slot.phantom_phase = phantom_roll
 	course.append(slot)
 
+## A fingerprint of the first `count` slots, for two devices to compare before
+## a shared race: equal hashes, same course. Positions are taken from where the
+## course began (and from the left of its band) and rounded to a hundredth of a pixel, so float noise far below
+## anything visible does not read as a different course. Generates the slots
+## first if the course is not that long yet.
+func course_hash(count: int) -> int:
+	while course.size() < count:
+		_add_slot()
+	var parts := PackedStringArray([str(COURSE_VERSION)])
+	for i in range(count):
+		var slot := course[i]
+		parts.append("%d,%d,%d,%d,%d,%d,%d" % [
+			roundi((slot.x - course_left) * 100.0), roundi((slot.y - _origin_y) * 100.0),
+			roundi(slot.width * 100.0), slot.attributes, slot.dir,
+			roundi(slot.v_phase * 1000.0), roundi(slot.phantom_phase * 1000.0)])
+	return "|".join(parts).hash()
+
 func _build(slot: CourseSlot) -> void:
 	var plat: Platform = platform_scene.instantiate()
 	plat.position = Vector2(slot.x, slot.y)
 	plat.attributes = slot.attributes
 	plat.width = slot.width
+	plat.drift_left = course_left
+	plat.drift_width = course_width
 	plat.set_motion(slot.dir, slot.v_phase, course_time, slot.phantom_phase)
 	add_child(plat)
 	_live.append(plat)

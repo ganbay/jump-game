@@ -462,11 +462,17 @@ func _physics_process(delta: float) -> void:
 	if velocity.y > 0.0:
 		_check_landing(prev_feet_y, feet.global_position.y)
 
+## The stretch of x the screen wraps across: the whole screen, unless game.gd
+## narrows it to a shared race's centred course band.
+var wrap_left: float = 0.0
+var wrap_width: float = 0.0
+
 func _wrap_screen() -> void:
-	if global_position.x < 0.0:
-		global_position.x = _viewport_width
-	elif global_position.x > _viewport_width:
-		global_position.x = 0.0
+	var right := wrap_left + wrap_width if wrap_width > 0.0 else _viewport_width
+	if global_position.x < wrap_left:
+		global_position.x = right
+	elif global_position.x > right:
+		global_position.x = wrap_left
 
 func _check_landing(prev_y: float, new_y: float) -> void:
 	var band := FEET_HALF_HEIGHT + PLATFORM_HALF_HEIGHT

@@ -1,4 +1,4 @@
-extends Node2D
+extends Rival
 class_name RaceBot
 
 ## The rival in race mode: a ghost that climbs the same course as the player,
@@ -62,24 +62,7 @@ const REVIVE_LAUNCH_VELOCITY := -1500.0
 const REVIVE_SPAWN_LIFT := 40.0
 const REVIVE_SAFE_DROP := 240.0
 
-## Translucent enough to read as a ghost, solid enough to keep its colour.
-const GHOST_ALPHA := 0.75
-## The character's bands with the white-hot core toned down: that core is what
-## makes every skin read as a white dot at a glance, so on the AI it is kept
-## faint and the rival colour carries the body.
-const GHOST_CORE_WHITE := Color(0.35, 0.35, 0.3)
-const LABEL_FONT := preload("res://fonts/Chillax-Bold.otf")
-const LABEL_SIZE := 18
-const LABEL_LIFT := 52.0
-## Off-screen margin inside which the body is still drawn.
-const DRAW_MARGIN := 120.0
-
-var velocity: Vector2 = Vector2.ZERO
 var streak: int = 0
-var score: int = 0
-## Seconds left sitting out a fall, or 0 while racing.
-var respawn_left: float = 0.0
-var color: Color = Color.WHITE
 
 var _spawner: Node2D
 var _active: bool = false
@@ -101,8 +84,6 @@ var _target: int = -1
 var _last_slot: int = -1
 var _claimed: Dictionary = {}
 var _broken: Dictionary = {}
-var _squash: float = 0.0
-var _squash_vel: float = 0.0
 
 # Copied off the Player in begin().
 var _gravity: float
@@ -121,19 +102,9 @@ var _wind_speed_mult: float
 var _wind_launch_mult: float
 var _wind_left: float = 0.0
 
-var _visual: PlasmaBlob
-
 func _ready() -> void:
-	z_index = 9
-	modulate.a = GHOST_ALPHA
-	_visual = PlasmaBlob.new()
-	var bands: Array = PlasmaBlob.CHARACTER_BANDS.duplicate(true)
-	bands[bands.size() - 1]["white"] = GHOST_CORE_WHITE
-	_visual.bands = bands
-	add_child(_visual)
-	visible = false
+	super()
 	set_physics_process(false)
-	set_process(false)
 
 ## Starts the bot on the player's own launch, from the same point at the same
 ## speed, so the two leave the intro side by side.
@@ -162,20 +133,13 @@ func begin(spawner: Node2D, player: Player, death_margin: float) -> void:
 	global_position = player.feet.global_position
 	velocity = player.velocity
 	_best_y = global_position.y
-	_visual.color = color
-	_visual.shape = _rival_shape()
+	show_ghost(_rival_shape())
 	_active = true
-	visible = true
 	set_physics_process(true)
-	set_process(true)
-	queue_redraw()
 
 func stop() -> void:
 	_active = false
 	set_physics_process(false)
-
-func is_respawning() -> bool:
-	return respawn_left > 0.0
 
 ## A silhouette unlike the player's, even at 18px with the plasma churning
 ## its edge: a five-point star is spiky where every other skin is round or
@@ -377,8 +341,7 @@ func _land(index: int, pos: Vector2) -> void:
 		_enter_wind()
 	_last_slot = index
 	_target = -1
-	_squash = 1.3 if boosted else 1.0
-	_squash_vel = 0.0
+	squash(1.3 if boosted else 1.0)
 
 ## Even odds when on pace, climbing toward certain the further behind it is.
 func _flare_odds() -> float:
@@ -428,29 +391,3 @@ func _respawn() -> void:
 	global_position = spot
 	velocity = Vector2(0.0, REVIVE_LAUNCH_VELOCITY)
 	visible = true
-
-# --- Visuals --------------------------------------------------------------
-
-## Visual-only. The body is only drawn while near the screen: PlasmaBlob
-## redraws every frame, and the bot spends most of a race out of view.
-func _process(delta: float) -> void:
-	var cam := get_viewport().get_camera_2d()
-	if cam != null:
-		var half_h := get_viewport_rect().size.y / 2.0
-		var dy := global_position.y - cam.global_position.y
-		_visual.visible = absf(dy) < half_h + DRAW_MARGIN
-	if not _visual.visible:
-		return
-	var d := minf(delta, 0.05)
-	_squash_vel += (-150.0 * _squash - 7.0 * _squash_vel) * d
-	_squash += _squash_vel * d
-	var stretch := clampf(absf(velocity.y) * 0.00022, 0.0, 0.34)
-	_visual.scale = Vector2(
-		maxf(1.0 + _squash * 0.55 - stretch * 0.5, 0.2),
-		maxf(1.0 - _squash * 0.55 + stretch, 0.2))
-
-func _draw() -> void:
-	var text := "AI"
-	var extents := LABEL_FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, LABEL_SIZE)
-	draw_string(LABEL_FONT, Vector2(-extents.x / 2.0, -LABEL_LIFT), text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1.0, LABEL_SIZE, color)

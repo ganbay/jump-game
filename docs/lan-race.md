@@ -7,8 +7,60 @@ player, and sends its position to the others, who draw it as a ghost.
 Racers never interact, so no real netcode is needed. Lag only moves a
 ghost a few pixels.
 
-Status: **planned, not started.** Prerequisite (seeded course, COURSE_VERSION 1)
-is done.
+Status: **built, not yet play-tested on phones.** Tasks 0–8 are all in, MVP and
+full version. A headless test with two to eight copies of the game on one PC
+(`127.0.0.1`) passes the whole flow: handshake, ready, synced start, ghost
+states, course-hash check, finish, closing time, results, rematch flags,
+discovery, a mid-race quit (DNF), a late joiner turned away, and the host
+leaving.
+
+### What was built
+
+| Piece | Where |
+|---|---|
+| Session, lobby state, clock sync, start, state relay, finish order, discovery, backgrounding | `scripts/lan_race.gd` (autoload `LanRace`) |
+| Lobby screen: host / rooms nearby / join by address, then the room | `scripts/lan_lobby.gd`, `scenes/lan_lobby.tscn` |
+| Ghost played back from the network, 100 ms behind, with extrapolation | `scripts/net_rival.gd` (`NetRival extends Rival`) |
+| Shared ghost visual for the bot and network rivals | `scripts/rival.gd` |
+| Race flow: countdown at the hand-off, no pause, waiting panel, placings | `game.gd`, the "LAN race" section |
+| Entry point: "RACE FRIENDS ON WI-FI" under START on the race screen | `race_setup.gd` |
+| Hold at the hand-off without the intro | `IntroSequence.place_at_handoff` |
+| Distance that doesn't touch the bot race's saved pick | `Race.shared_target` |
+| Android multicast lock for discovery | JetletNotify plugin (`acquireMulticastLock` / `releaseMulticastLock`); the AAR's manifest adds `CHANGE_WIFI_MULTICAST_STATE` |
+
+### Decisions taken
+
+- **Entry point:** a quiet button on the race screen. The race screen is
+  already gated behind race mode unlocking.
+- **Room size: 8** (`LanRace.MAX_PLAYERS`). The network isn't the limit: the
+  host relays about 15 × n² small packets a second, ~80 KB/s at 8. The limits
+  are phone hotspots (many cap at 8–10 devices) and how much the HUD can show.
+  For 8 players: the lobby lists players in two columns, the HUD shows at most
+  2 off-screen tags per edge (closest first) plus a "+N MORE" line, and the
+  results list switches to a smaller font past 4 racers. Checked headless with
+  8 instances.
+- **Names:** typed in the lobby (`Settings.player_name`, saved). Capitals,
+  digits and `- _ .`, at most 12 characters. Leaving it empty shows P1–P8 by
+  join order. The host keeps names unique by adding the slot ("ALEX 2").
+- **Looks:** each ghost wears its player's own customization: skin shape,
+  exact colour, full plasma core, and their trail if they have it on. Only a
+  light see-through effect (`Rival.GHOST_ALPHA`) marks it as a ghost. The
+  profile is re-sent once the run rolls a shuffled skin.
+- **Nothing counts.** No tickets, unlocks, best times or stats. The race is
+  logged to Analytics only (`lan_race_start`, `lan_race_end`).
+- **Screen width:** every LAN race is laid out on a fixed 720 px band
+  (`PlatformSpawner.SHARED_WIDTH`, the width of every portrait phone), centred
+  on the screen. Platforms bounce inside it, the player wraps at its edges,
+  and anything outside it is dimmed. Ghost positions are sent relative to the
+  band. So phones, tablets and a landscape desktop window all race the same
+  course (checked: same `course_hash` at 720, 1280 and 2275 px). Casual and
+  bot runs still use the full screen.
+- **Home button = leave the room.** It's a DNF mid-race. The replay button on
+  the results panel goes back to the room for a rematch, with a new seed every
+  race.
+- **Pause** opens the panel over a race that keeps going. Replay is hidden.
+- **Backgrounding mid-race = DNF.** In the lobby, ENet's ~10 s timeout drops a
+  phone that has gone quiet.
 
 ## Scope
 
@@ -22,7 +74,7 @@ is done.
 
 **Full version (after MVP is play-tested)**
 
-- Up to 4 players.
+- Up to 8 players (was 4; raised after the MVP).
 - Rematch button that keeps the lobby together, with a new seed each time.
 - Auto-discovery: rooms appear in a list, so nobody types an IP.
 - Handling a host leaving, the app being backgrounded, and joining
@@ -70,13 +122,16 @@ are sent often and a lost one doesn't matter. Reliable ones must arrive.
 
 | Message | Direction | Mode | Payload |
 |---|---|---|---|
-| `hello` | joiner → host | reliable | game version, `COURSE_VERSION`, name, colour |
+| `hello` | joiner → host | reliable | protocol, `COURSE_VERSION`, game version, name, colour, skin shape, trail |
 | `welcome` / `reject(reason)` | host → joiner | reliable | peer list / "version mismatch", "race in progress", "full" |
 | `lobby` | host → all | reliable | peers + ready flags, target distance |
 | `set_ready(bool)` | any → host | reliable | |
+| `set_profile(name, colour, shape, trail)` | any → host | reliable | on a name edit, and from the run once shuffle has rolled the skin |
+| `ping` / `pong` | joiner ↔ host | unreliable | clock offset, see *Clock* |
 | `start(seed, target, start_at_ms)` | host → all | reliable | countdown ends at host clock + offset (see *Clock*) |
-| `course_check(hash)` | all → host | reliable | hash of the first N slots, sent after generating. A mismatch aborts with a message |
-| `state(t, y, score, flags)` | any → all | **unreliable, ~15 Hz** | flags: respawning, streak tier, facing |
+| `course_hash(hash)` | all → host | reliable | `course_hash(200)`, sent at GO. A mismatch aborts with a message |
+| `closing(at_ms)` | host → all | reliable | the first finisher is in; the rest have 30 s |
+| `state(t, x, y, score, flags)` | any → all | **unreliable, ~15 Hz** | flags: respawning, streak tier, facing. x is needed too, or the ghost can't be drawn |
 | `finished(time)` | any → host | reliable | |
 | `result(order)` | host → all | reliable | ids in finishing order + times, DNF last |
 
@@ -113,7 +168,7 @@ known velocity for up to 250 ms, then holds still.
 | 5 | `game.gd` LAN branch: start on countdown, spawn NetRivals, send state, report finish, placing results screen, no tickets | M | 1, 3, 4 |
 | 6 | Menu entry: a third mode on the menu's mode picker ("LAN") or a button on the race screen | S | 2 |
 | 7 | Edge cases: backgrounding (`NOTIFICATION_APPLICATION_PAUSED` → DNF or short grace), host leaves, back button, join during countdown | M | 5 |
-| 8 | *Full version:* rematch, 4 players, UDP-broadcast discovery (+ Android multicast lock in `addons/jetlet_notify`-style plugin) | M | MVP |
+| 8 | *Full version:* rematch, 8 players, UDP-broadcast discovery (+ Android multicast lock in `addons/jetlet_notify`-style plugin) | M | MVP |
 
 **Total:** roughly 1,200–1,800 lines. MVP = tasks 0–6, about 60% of it. Around
 1–2 weeks of calendar time at a relaxed pace, most of it testing and edge
@@ -151,7 +206,6 @@ cases.
 
 ## Open decisions
 
-- Where the entry point lives: menu mode picker vs a button on the race screen.
-- Player names: typed, device name, or "P1/P2" plus character colour.
+- Entry point and names: decided (see *Decisions taken*).
 - Whether LAN wins should ever count toward anything (an achievement,
-  statistics screen entries).
+  statistics screen entries). Currently nothing does.

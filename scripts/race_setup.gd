@@ -18,6 +18,9 @@ extends Node2D
 ## An AI not yet opened by casual score (see Race.is_difficulty_unlocked) is
 ## still listed, faded and padlocked, and a tap on it names the score that
 ## opens it instead of picking it.
+##
+## Racing friends instead of the AI (lan_lobby.tscn) is one quiet button at
+## the bottom: it is free and has its own screen, so it needs no more here.
 
 const SECTION_FONT_SIZE := 20
 const OPTION_FONT_SIZE := 26
@@ -113,6 +116,15 @@ func _build() -> void:
 	UiPlate.action(_start_button)
 	IconPop.attach([_start_button])
 	_cost_label = _add_note("")
+	_add_gap()
+	var lan_button := Button.new()
+	lan_button.text = "RACE FRIENDS ON WI-FI"
+	lan_button.focus_mode = Control.FOCUS_NONE
+	lan_button.add_theme_font_size_override("font_size", 24)
+	lan_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	lan_button.pressed.connect(_on_lan_pressed)
+	options.add_child(lan_button)
+	UiPlate.quiet(lan_button)
 	_build_ticket_button()
 	_build_info_panel()
 
@@ -291,15 +303,11 @@ func _add_option(parent: Control, text: String) -> Button:
 	parent.add_child(button)
 	return button
 
-## The picked option is a solid accent plate with black text -- the same look
-## as the game's plated titles -- and the rest are the same plate emptied out:
-## just its accent outline, over nothing. Filled vs. outlined in one colour
-## reads as a single control with one choice made.
 func _refresh() -> void:
 	for i in range(_difficulty_buttons.size()):
-		_style_option(_difficulty_buttons[i], i == _difficulty)
+		UiPlate.option(_difficulty_buttons[i], i == _difficulty)
 	for i in range(_target_buttons.size()):
-		_style_option(_target_buttons[i], i == _target_index)
+		UiPlate.option(_target_buttons[i], i == _target_index)
 	if _best_label != null:
 		var best := Race.best_time(_difficulty, _target_index)
 		_best_label.text = ("BEST TIME %s" % Stats.format_duration(best) if best > 0.0
@@ -318,31 +326,6 @@ func _refresh() -> void:
 		if _start_button.text != start_text:
 			_start_button.text = start_text
 			UiPlate.action(_start_button)
-
-func _style_option(button: Button, picked: bool) -> void:
-	var accent := UiAccent.color()
-	var rest := _plate(accent) if picked else _outline(Color(0.0, 0.0, 0.0, 0.0))
-	# A faint fill under the outline while held, so a tap still shows.
-	var held := _plate(accent) if picked else _outline(UiPlate.QUIET_FILL_HELD)
-	var text := UiPlate.TITLE_TEXT if picked else accent
-	for state in ["normal", "focus", "disabled"]:
-		button.add_theme_stylebox_override(state, rest)
-	for state in ["hover", "pressed"]:
-		button.add_theme_stylebox_override(state, held)
-	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		button.add_theme_color_override(state, text)
-
-func _plate(fill: Color) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = fill
-	box.set_corner_radius_all(UiPlate.QUIET_CORNER)
-	return box
-
-func _outline(fill: Color) -> StyleBoxFlat:
-	var box := _plate(fill)
-	box.border_color = UiAccent.color()
-	box.set_border_width_all(UiPlate.ACTION_BORDER)
-	return box
 
 func _on_difficulty_pressed(index: int) -> void:
 	if not Race.is_difficulty_unlocked(index):
@@ -371,6 +354,13 @@ func _on_start_pressed() -> void:
 	Race.pay_for_race()
 	Race.active = true
 	Transition.change_scene("res://scenes/main.tscn")
+
+func _on_lan_pressed() -> void:
+	if _leaving:
+		return
+	_leaving = true
+	Audio.play_ui_click()
+	Transition.change_scene("res://scenes/lan_lobby.tscn")
 
 func _on_back_pressed() -> void:
 	if _leaving:

@@ -103,6 +103,10 @@ var _last_ad_unix: int = 0
 ## LAN/online modes -- so every racer climbs the same platforms. Never saved:
 ## a shared seed belongs to one session. See docs/seeded-course.md.
 var course_seed: int = -1
+## The distance a shared race (LAN) runs to, or 0 to use target_index. Kept
+## apart from target_index so a LAN race never changes, or saves over, the
+## distance picked for bot races.
+var shared_target: int = 0
 ## Whether the race in progress took a ticket, and so has one to refund.
 var _paid: bool = false
 
@@ -147,7 +151,7 @@ func runs_to_unlock() -> int:
 	return maxi(UNLOCK_RUNS - Stats.games_played, 0)
 
 func target() -> int:
-	return TARGETS[target_index]
+	return shared_target if shared_target > 0 else TARGETS[target_index]
 
 func pace() -> float:
 	if difficulty == Difficulty.GRANDMASTER and target_index == 0:

@@ -870,7 +870,6 @@ func _on_run_started(game: Node, config: Dictionary) -> void:
 	# is the whole of "start deep in a run": the number on screen, the zone the
 	# spawner thinks it is building, and the height the run is scored against
 	# all come off this one value.
-	game._burst_climbing = false
 	game._score_origin_y = game.camera.global_position.y + float(config["score"]) * 10.0
 	game.max_height = float(config["score"]) * 10.0
 	spawner.score_origin_y = game._score_origin_y

@@ -2,7 +2,9 @@ package com.eternalsky.jetletnotify;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 
 import org.godotengine.godot.Godot;
@@ -13,10 +15,18 @@ import org.godotengine.godot.plugin.UsedByGodot;
 import java.util.Collections;
 import java.util.Set;
 
-/** The GDScript-facing surface: Engine.get_singleton("JetletNotify"). */
+/**
+ * The GDScript-facing surface: Engine.get_singleton("JetletNotify").
+ *
+ * Mostly local notifications; also the Wi-Fi multicast lock the LAN race
+ * lobby holds while it listens for rooms (scripts/lan_race.gd), since this is
+ * the game's one native plugin.
+ */
 public class JetletNotifyPlugin extends GodotPlugin {
     private static final int PERMISSION_REQUEST = 0x4A4E; // "JN"
     private static final SignalInfo PERMISSION_RESULT = new SignalInfo("permission_result", Boolean.class);
+
+    private WifiManager.MulticastLock multicastLock;
 
     public JetletNotifyPlugin(Godot godot) {
         super(godot);
@@ -68,6 +78,31 @@ public class JetletNotifyPlugin extends GodotPlugin {
         }
         activity.runOnUiThread(() -> activity.requestPermissions(
                 new String[] {Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_REQUEST));
+    }
+
+    /**
+     * Many phones drop broadcast packets in Wi-Fi power save unless an app
+     * holds this, which is how LAN rooms announce themselves. Idempotent.
+     */
+    @UsedByGodot
+    public void acquireMulticastLock() {
+        if (multicastLock == null) {
+            WifiManager wifi = (WifiManager) getContext().getApplicationContext()
+                    .getSystemService(Context.WIFI_SERVICE);
+            if (wifi == null) {
+                return;
+            }
+            multicastLock = wifi.createMulticastLock("jetlet-lan");
+            multicastLock.setReferenceCounted(false);
+        }
+        multicastLock.acquire();
+    }
+
+    @UsedByGodot
+    public void releaseMulticastLock() {
+        if (multicastLock != null && multicastLock.isHeld()) {
+            multicastLock.release();
+        }
     }
 
     @Override

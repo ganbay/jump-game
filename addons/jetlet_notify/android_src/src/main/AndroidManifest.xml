@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Alarms do not survive a reboot; BootReceiver re-arms them. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- LAN race room discovery: see JetletNotifyPlugin.acquireMulticastLock. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <application>
         <meta-data

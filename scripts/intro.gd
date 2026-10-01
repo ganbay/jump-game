@@ -203,6 +203,20 @@ func _drive_player(to: Vector2) -> void:
 		_player.velocity = (to - previous) / dt
 
 func _finish() -> void:
+	_settle()
+	finished.emit()
+	queue_free()
+
+## Straight to the hand-off without the cinematic, and without `finished`:
+## the character and camera are left exactly where a played intro leaves them,
+## and the caller decides when the run begins. A LAN race holds here through
+## its countdown, so every phone starts from the same state at the same moment.
+func place_at_handoff(camera: Camera2D, player: CharacterBody2D) -> void:
+	begin(camera, player)
+	_settle()
+	queue_free()
+
+func _settle() -> void:
 	_running = false
 	set_process(false)
 	visible = false
@@ -213,8 +227,6 @@ func _finish() -> void:
 	# Handed over still travelling, at exactly the speed the flight ended on.
 	_player.velocity = Vector2(0.0, -cruise_speed)
 	_player.visible = true
-	finished.emit()
-	queue_free()
 
 func _draw() -> void:
 	_draw_eruption()

@@ -283,9 +283,9 @@ var _last_streak: int = 0
 ## bloom instead of a hardcoded number.
 var _base_glow_bloom: float = 0.0
 ## Height gained on the launch burst is free, so scoring is measured from where
-## that burst tops out rather than from the launch point.
+## that burst tops out rather than from the launch point. Predicted at hand-off
+## (see _launch_apex_y) rather than read off the camera when it gets there.
 var _score_origin_y: float = 0.0
-var _burst_climbing: bool = false
 const SHAKE_SMOOTHING := 0.45
 ## Lerping toward a fresh random target each frame low-passes it, so the
 ## excursion actually reached averages ~0.39x the target amplitude -- the
@@ -347,7 +347,8 @@ const REVIVE_SPAWN_LIFT := 40.0
 const REVIVE_SAFE_DROP := 240.0
 
 ## --- Race mode (see race.gd) ---
-## Both null outside a race, which is what every race branch below keys off.
+## _race_hud is null outside a race, which is what every race branch below
+## keys off; _bot is set only in a race against the AI.
 var _bot: RaceBot
 var _race_hud: RaceHud
 ## Seconds left on the player's fall penalty, or 0 while racing.
@@ -432,9 +433,13 @@ func _ready() -> void:
 	# coin_row left out: it has its own hidden-currency-display state, which
 	# blanket-setting .visible on everything in this list would undo.
 	_hud_nodes = [score_label, streak_label, pause_button]
+	_lan = Race.active and LanRace.in_race()
 	if Race.active:
 		_setup_race()
 		_hud_nodes.append(_race_hud)
+	if _lan:
+		_setup_lan()
+		_use_shared_width()
 	for node in _hud_nodes:
 		_hud_home.append(node.position)
 	_update_controls_icon()
@@ -458,6 +463,10 @@ func _start_intro() -> void:
 	# The skip tap must not also register as a jump, so the player simply does
 	# not see input until the intro hands control back.
 	player.set_process_unhandled_input(false)
+	if _lan:
+		intro.place_at_handoff(camera, player)
+		_make_lan_countdown()
+		return
 	intro.finished.connect(_on_intro_finished)
 	intro.begin(camera, player)
 	_make_skip_button()
@@ -527,13 +536,12 @@ func _on_intro_finished() -> void:
 	# Covers the edge case of dying before ever landing once -- a revive then
 	# has nowhere else safe to fall back to but this hand-off point.
 	_last_safe_position = player.global_position
-	_burst_climbing = true
 	# Warm up the revive ad from the first frame of the run, so the offer at
 	# the end of it has something ready to show.
 	Ads.load_rewarded()
 	Analytics.log_event("run_start")
 	Crash.log_message("run_start")
-	_score_origin_y = camera.global_position.y
+	_score_origin_y = _launch_apex_y()
 	spawner.score_origin_y = _score_origin_y
 	_make_score_lines()
 	var reach: float = (player.velocity.y * player.velocity.y) / (2.0 * player.gravity)
@@ -544,6 +552,13 @@ func _on_intro_finished() -> void:
 	zones.reseed(course_seed)
 	spawner.begin(player.global_position.y - reach * intro_platform_lead, course_seed)
 	Crash.set_custom_value("course_seed", course_seed)
+	if _lan:
+		# GO can come late on a slow phone (the scene still loading); the
+		# movers and phantoms still keep time with everyone else's.
+		spawner.course_time = maxf(LanRace.race_clock(), 0.0)
+		LanRace.report_course_hash(spawner.course_hash(LanRace.COURSE_CHECK_SLOTS))
+		Analytics.log_event("lan_race_start", {
+			"players": LanRace.peers.size(), "target": Race.target()})
 	if _bot != null:
 		_bot.begin(spawner, player, _death_margin)
 		Analytics.log_event("race_start", {
@@ -551,6 +566,24 @@ func _on_intro_finished() -> void:
 	# Missions.begin_run()  # missions disabled; see missions.gd ENABLED
 	_drop_in_hud()
 	_show_control_hint()
+
+## Where the hand-off launch will top out: player.gd's own integration (velocity
+## first, then position, once per physics tick) stepped forward until it turns
+## over. Watching the camera get there instead gave an origin that depended on
+## which frames happened to be drawn, so two devices on one seed disagreed
+## about where the score -- and the zones the spawner builds from it -- began.
+## This comes out the same everywhere, and within a pixel of where the camera
+## actually stops.
+func _launch_apex_y() -> float:
+	var dt := 1.0 / float(Engine.physics_ticks_per_second)
+	var y := player.global_position.y
+	var vy := player.velocity.y
+	var apex := y
+	while vy < 0.0:
+		vy += player.gravity * dt
+		y += vy * dt
+		apex = minf(apex, y)
+	return apex
 
 ## Slides the HUD down into place instead of switching it on. Each element is
 ## parked above its home position and staggered, so it reads as arriving.
@@ -652,9 +685,13 @@ func _resume_tap_rect() -> Rect2:
 	rect.end = Vector2(rect.end.x, maxf(rect.end.y, caption_bottom))
 	return rect
 
+## In a LAN race the panel opens over a race that keeps going: the race is
+## shared, and one phone's clock stopping would put it out of step with the
+## rest. The music stays up for the same reason -- nothing has stopped.
 func _toggle_pause() -> void:
 	is_paused = not is_paused
-	get_tree().paused = is_paused
+	if not _lan:
+		get_tree().paused = is_paused
 	_set_hud_visible(not is_paused)
 	if is_paused:
 		# Both hints sit in the UI layer above the run, not in _hud_nodes (the
@@ -663,10 +700,12 @@ func _toggle_pause() -> void:
 		# should not be burning away behind the pause panel either.
 		_dismiss_control_hint()
 		_hide_tap_cue()
-		Audio.fade_to_menu_music()
+		if not _lan:
+			Audio.fade_to_menu_music()
 		_show_pause_panel()
 	else:
-		Audio.fade_to_gameplay_music()
+		if not _lan:
+			Audio.fade_to_gameplay_music()
 		_hide_pause_panel()
 		if _control_hint_pending:
 			_control_hint_pending = false
@@ -726,8 +765,11 @@ func _update_sound_icon() -> void:
 
 ## Also used by PausePanel/MenuButton, where a revive is never open, so the
 ## check below is a no-op there.
+## In a LAN race it also leaves the room -- a DNF if the race is still on.
 func _on_menu_pressed() -> void:
 	Audio.play_ui_click()
+	if _lan:
+		LanRace.leave()
 	_end_open_revive_offer()
 	get_tree().paused = false
 	Transition.change_scene("res://scenes/main_menu.tscn")
@@ -752,19 +794,14 @@ func _process(delta: float) -> void:
 	# Ahead of the early return: the launch out of the star happens while the
 	# intro still owns the camera, and that is the shake most worth seeing.
 	_apply_camera_shake()
+	if _lan:
+		_update_lan_screens()
 	if is_game_over or is_intro:
 		return
 	_update_control_hint(delta)
 	_update_tap_cue()
 	run_time += delta
 	camera.global_position.y = min(camera.global_position.y, player.global_position.y)
-	if _burst_climbing:
-		if player.velocity.y < 0.0:
-			_score_origin_y = camera.global_position.y
-			spawner.score_origin_y = _score_origin_y
-			_position_score_lines()
-		else:
-			_burst_climbing = false  # apex of the launch; the run scores from here
 	max_height = max(max_height, _score_origin_y - camera.global_position.y)
 	score = int(max_height / 10.0)
 	# Assigning Label.text re-shapes the text server run even when the string is
@@ -776,15 +813,13 @@ func _process(delta: float) -> void:
 			_pass_score_lines()
 		zones.update(score)
 		# Missions.update_run(_run_summary())  # missions disabled; see missions.gd ENABLED
-	if _bot != null:
+	if _race_hud != null:
 		_update_race(delta)
 	elif player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
 
-## The past-score marks. Nothing to draw on a first run, and the scoring origin
-## is still climbing at this point -- the launch burst is free height, so
-## scoring starts from its apex (see _process) -- which is why the placement is
-## a separate call that _process keeps repeating until the burst tops out.
+## The past-score marks. Nothing to draw on a first run. Placed against the
+## launch apex, which is already known at hand-off (see _launch_apex_y).
 ##
 ## Added most important first, so _add_score_line drops the lesser of any two
 ## marks that would land on top of each other.
@@ -1634,6 +1669,11 @@ func _show_game_over_panel() -> void:
 
 func _on_restart_pressed() -> void:
 	Audio.play_ui_click()
+	if _lan:
+		# The rematch: back to the room, which is still together.
+		get_tree().paused = false
+		Transition.change_scene("res://scenes/lan_lobby.tscn")
+		return
 	_end_open_revive_offer()
 	get_tree().paused = false
 	_restart_run()
@@ -1684,13 +1724,15 @@ func _end_open_revive_offer() -> void:
 ## and is dropped back in the way a revive does it. First to the target wins.
 
 func _setup_race() -> void:
-	var rival := _rival_color()
-	_bot = RaceBot.new()
-	_bot.color = rival
-	add_child(_bot)
 	_race_hud = RaceHud.new()
 	_race_hud.player = player
-	_race_hud.bot = _bot
+	if _lan:
+		_make_net_rivals()
+	else:
+		_bot = RaceBot.new()
+		_bot.color = _rival_color()
+		add_child(_bot)
+		_race_hud.rivals = [_bot]
 	_race_hud.camera = camera
 	_race_hud.target = Race.target()
 	_race_hud.player_color = UiAccent.color()
@@ -1714,9 +1756,16 @@ func _update_race(delta: float) -> void:
 		_begin_player_respawn()
 	_race_hud.player_score = score
 	_race_hud.player_respawn_left = _respawn_left
+	if _lan:
+		_race_hud.closing_left = LanRace.closing_left()
+		var flags := LanRace.FLAG_RESPAWNING if _respawn_left > 0.0 else 0
+		LanRace.send_state(player.feet.global_position - _course_offset(), score, flags, delta)
 	if score >= Race.target():
-		_finish_race(true)
-	elif _bot.score >= Race.target():
+		if _lan:
+			_finish_lan(true)
+		else:
+			_finish_race(true)
+	elif _bot != null and _bot.score >= Race.target():
 		_finish_race(false)
 
 func _begin_player_respawn() -> void:
@@ -1786,6 +1835,288 @@ func _finish_race(won: bool) -> void:
 	_set_hud_visible(false)
 	get_tree().paused = true
 	_show_game_over_panel()
+
+## --- LAN race (see lan_race.gd) ------------------------------------------
+##
+## The bot race's rules -- same course, finish line, fall penalty -- against
+## other phones' ghosts instead of the AI. Each ghost wears its player's own
+## customization (skin, colour, trail) and name. What changes:
+## - No intro. Every phone holds at the hand-off through a 3-2-1 that ends at
+##   the same moment everywhere, so the courses' clocks line up.
+## - No pausing. The pause panel opens over a race that keeps going.
+## - Finishing does not end the screen: the player waits, the ghosts still
+##   climbing behind the panel, until the host sends the placings -- once
+##   everyone is in, or the closing time runs out.
+## - No tickets, no unlocks, no best times. Nothing is recorded.
+
+const LAN_COUNTDOWN_FONT_SIZE := 140
+const LAN_GO_HOLD := 0.5
+const LAN_STANDINGS_FONT_SIZE := 24
+## Past this many racers the standings drop to the smaller size, so eight
+## lines still clear the buttons under them.
+const LAN_STANDINGS_ROOMY := 4
+const LAN_STANDINGS_FONT_SIZE_CROWDED := 19
+const LAN_MARGIN_COLOR := Color(0.0, 0.0, 0.0, 0.7)
+
+enum LanStage { RACING, WAITING, DONE }
+
+var _lan: bool = false
+var _lan_stage: LanStage = LanStage.RACING
+var _net_rivals: Dictionary = {}
+var _lan_countdown: Label
+var _lan_standings: Label
+
+func _setup_lan() -> void:
+	LanRace.rival_state.connect(_on_lan_rival_state)
+	LanRace.peers_changed.connect(_on_lan_peers_changed)
+	LanRace.results_ready.connect(_on_lan_results)
+	LanRace.session_ended.connect(_on_lan_session_ended)
+	LanRace.race_aborted.connect(_on_lan_aborted)
+	LanRace.forfeited.connect(_on_lan_forfeited)
+	# Restarting a shared race is not this phone's call.
+	$UI/PausePanel/ReplayButton.hide()
+	_make_lan_standings()
+	# The run has just rolled its skin (shuffle), which the lobby never saw.
+	LanRace.send_profile()
+
+## Every phone races a SHARED_WIDTH course, centred, whatever its own width
+## (see PlatformSpawner.use_shared_width). The player wraps at the band's
+## edges rather than the screen's, and anything outside it is dimmed so those
+## edges can be seen.
+func _use_shared_width() -> void:
+	spawner.use_shared_width()
+	player.wrap_left = spawner.course_left
+	player.wrap_width = spawner.course_width
+	if spawner.course_left < 1.0:
+		return
+	for side in [0.0, 1.0]:
+		var margin := ColorRect.new()
+		margin.color = LAN_MARGIN_COLOR
+		margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		margin.anchor_left = side
+		margin.anchor_right = side
+		margin.anchor_bottom = 1.0
+		margin.offset_left = -spawner.course_left if side > 0.0 else 0.0
+		margin.offset_right = 0.0 if side > 0.0 else spawner.course_left
+		# First in the UI layer: over the world, under every readout and panel.
+		$UI.add_child(margin)
+		$UI.move_child(margin, 0)
+
+## Ghost positions travel relative to the course band, so a wide screen and
+## a narrow one place them on the same platforms.
+func _course_offset() -> Vector2:
+	return Vector2(spawner.course_left, 0.0)
+
+func _make_net_rivals() -> void:
+	for id in LanRace.peers:
+		if id == LanRace.my_id():
+			continue
+		var info: Dictionary = LanRace.peers[id]
+		var rival := NetRival.new()
+		rival.setup(id, info)
+		add_child(rival)
+		rival.begin(info, player.feet.position.y)
+		_net_rivals[id] = rival
+	_sync_hud_rivals()
+
+func _sync_hud_rivals() -> void:
+	var rivals: Array[Rival] = []
+	for rival in _net_rivals.values():
+		rivals.append(rival)
+	_race_hud.rivals = rivals
+
+func _on_lan_rival_state(id: int, t: float, pos: Vector2, rival_score: int, flags: int) -> void:
+	var rival: NetRival = _net_rivals.get(id)
+	if rival != null:
+		rival.push_state(t, pos + _course_offset(), rival_score, flags)
+
+## A racer who left takes their ghost with them; one whose profile changed
+## (see LanRace.send_profile) is re-dressed.
+func _on_lan_peers_changed() -> void:
+	for id in _net_rivals.keys():
+		var rival: NetRival = _net_rivals[id]
+		if LanRace.peers.has(id):
+			rival.restyle(LanRace.peers[id])
+		else:
+			_net_rivals.erase(id)
+			rival.queue_free()
+	_sync_hud_rivals()
+
+func _make_lan_countdown() -> void:
+	_lan_countdown = Label.new()
+	_lan_countdown.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_lan_countdown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lan_countdown.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_lan_countdown.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lan_countdown.add_theme_font_size_override("font_size", LAN_COUNTDOWN_FONT_SIZE)
+	_lan_countdown.add_theme_color_override("font_color", UiAccent.color())
+	$UI.add_child(_lan_countdown)
+
+## The standings, under the time on the game-over panel. Built here rather than
+## in main.tscn since only a LAN race has any.
+func _make_lan_standings() -> void:
+	_lan_standings = Label.new()
+	_lan_standings.anchor_left = 0.5
+	_lan_standings.anchor_right = 0.5
+	# In the pace line's slot and below it: the pace line is hidden whenever
+	# the standings show.
+	_lan_standings.anchor_top = 0.48
+	_lan_standings.anchor_bottom = 0.48
+	_lan_standings.offset_left = -240.0
+	_lan_standings.offset_right = 240.0
+	_lan_standings.offset_bottom = 260.0
+	_lan_standings.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lan_standings.hide()
+	game_over_panel.add_child(_lan_standings)
+
+## Runs every frame of a LAN race, ahead of _process's early return: the
+## countdown happens while is_intro holds, and the waiting line while
+## is_game_over does.
+func _update_lan_screens() -> void:
+	if is_intro and _lan_countdown != null and not is_game_over:
+		var left := -LanRace.race_clock()
+		if left <= 0.0:
+			_lan_go()
+			return
+		var text := str(ceili(left)) if left <= 3.0 else ""
+		if _lan_countdown.text != text:
+			_lan_countdown.text = text
+			if text != "":
+				Audio.play_ui_click()
+	elif _lan_stage == LanStage.WAITING:
+		var closing := LanRace.closing_left()
+		var text := ("WAITING FOR THE OTHERS" if closing < 0.0
+			else "RACE CLOSES IN %d" % ceili(closing))
+		if pace_label.text != text:
+			pace_label.text = text
+
+func _lan_go() -> void:
+	_lan_countdown.text = "GO!"
+	Audio.vibrate(40)
+	var label := _lan_countdown
+	_lan_countdown = null
+	var tw := label.create_tween()
+	tw.tween_interval(LAN_GO_HOLD)
+	tw.tween_property(label, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(label.queue_free)
+	_on_intro_finished()
+
+## Over the line (`finished`), or out of it without crossing: dropped out by
+## backgrounding, or caught by the closing time.
+func _finish_lan(finished: bool) -> void:
+	if is_game_over:
+		return
+	is_game_over = true
+	_lan_stage = LanStage.WAITING
+	# Out before GO (backgrounded, or the race called off): no GO after it.
+	if _lan_countdown != null:
+		_lan_countdown.queue_free()
+		_lan_countdown = null
+	player.set_physics_process(false)
+	player.set_process_unhandled_input(false)
+	_respawn_left = 0.0
+	_race_hud.player_respawn_left = 0.0
+	_dismiss_control_hint()
+	_end_tap_cue()
+	if is_paused:
+		is_paused = false
+		_hide_pause_panel()
+	Audio.vibrate(60)
+	var time := LanRace.race_clock()
+	if finished:
+		# At once rather than on the next tick, so the ghost on the other
+		# phones crosses the line too.
+		LanRace.send_state(player.feet.global_position - _course_offset(), score,
+			LanRace.FLAG_FINISHED, 0.0, true)
+		LanRace.report_finish(time)
+		game_over_title.text = "FINISHED!"
+		game_over_title.add_theme_color_override("font_color", UiAccent.color())
+		result_label.text = "TIME %s" % _race_time(time)
+	else:
+		game_over_title.text = "OUT OF THE RACE"
+		result_label.text = "YOU %d / %d" % [score, Race.target()]
+	result_label.show()
+	pace_label.show()
+	_update_lan_screens()
+	_lan_standings.hide()
+	restart_button.hide()
+	revive_body_label.hide()
+	watch_ad_button.hide()
+	_ticket_label.hide()
+	_set_hud_visible(false)
+	_show_game_over_panel()
+
+func _on_lan_forfeited() -> void:
+	_finish_lan(false)
+
+func _on_lan_results() -> void:
+	_finish_lan(false)  # still climbing when the race closed; a no-op otherwise
+	_lan_stage = LanStage.DONE
+	var me := LanRace.my_id()
+	var lines := PackedStringArray()
+	var placing := -1
+	var my_time := LanRace.DNF
+	for i in range(LanRace.results.size()):
+		var entry: Dictionary = LanRace.results[i]
+		var time: float = entry["time"]
+		var mine: bool = entry["id"] == me
+		if mine:
+			placing = i
+			my_time = time
+		lines.append("%s  %s%s   %s" % [
+			_ordinal(i + 1) if time >= 0.0 else "DNF", entry["name"],
+			" (YOU)" if mine else "", _race_time(time) if time >= 0.0 else "-"])
+	if my_time >= 0.0:
+		game_over_title.text = "%s PLACE%s" % [_ordinal(placing + 1), "!" if placing == 0 else ""]
+		game_over_title.add_theme_color_override("font_color",
+			UiAccent.color() if placing == 0 else Color(1.4, 1.4, 1.4))
+	else:
+		game_over_title.text = "DID NOT FINISH"
+	var crowded := lines.size() > LAN_STANDINGS_ROOMY
+	_lan_standings.add_theme_font_size_override("font_size",
+		LAN_STANDINGS_FONT_SIZE_CROWDED if crowded else LAN_STANDINGS_FONT_SIZE)
+	_lan_standings.add_theme_constant_override("line_spacing", 4 if crowded else 8)
+	_lan_standings.text = "\n".join(lines)
+	_lan_standings.show()
+	pace_label.hide()
+	restart_button.show()
+	Analytics.log_event("lan_race_end", {
+		"players": LanRace.results.size(), "target": Race.target(),
+		"placing": placing + 1 if my_time >= 0.0 else 0})
+
+func _on_lan_aborted(reason: String) -> void:
+	_show_lan_end("RACE CALLED OFF", reason, true)
+
+## The room is gone (the host left, or this phone lost it). Leaving by the
+## home button comes through here too, with no reason, and needs nothing.
+func _on_lan_session_ended(reason: String) -> void:
+	if reason != "":
+		_show_lan_end("RACE OVER", reason, false)
+
+func _show_lan_end(title: String, reason: String, can_return: bool) -> void:
+	_finish_lan(false)
+	_lan_stage = LanStage.DONE
+	game_over_title.text = title
+	game_over_title.add_theme_color_override("font_color", Color(1, 0.3, 0.4, 1))
+	result_label.text = reason
+	pace_label.hide()
+	_lan_standings.hide()
+	restart_button.visible = can_return
+
+static func _ordinal(place: int) -> String:
+	match place:
+		1:
+			return "1ST"
+		2:
+			return "2ND"
+		3:
+			return "3RD"
+	return "%dTH" % place
+
+## Tenths, unlike Stats.format_duration: LAN races are decided by them.
+func _race_time(seconds: float) -> String:
+	var t := maxf(seconds, 0.0)
+	return "%d:%04.1f" % [int(t / 60.0), fmod(t, 60.0)]
 
 ## --- Race tickets (see race.gd) -------------------------------------------
 

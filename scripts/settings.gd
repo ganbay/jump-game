@@ -79,6 +79,9 @@ var player_skin: Player.SkinType = Player.SkinType.PLASMA
 ## on whatever the last run happened to roll.
 var shuffle_skin: bool = false
 var trail_enabled: bool = true
+## What other players see in a LAN race (see lan_race.gd). Empty until the
+## player sets one; the room then calls them by their slot, P1-P8.
+var player_name: String = ""
 var sound_muted: bool = false
 var score_align: ScoreAlign = ScoreAlign.LEFT
 var haptics_enabled: bool = true
@@ -134,6 +137,7 @@ func _ready() -> void:
 		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.PLASMA) as Player.SkinType
 		shuffle_skin = cfg.get_value("visual", "shuffle_skin", false)
 		trail_enabled = cfg.get_value("visual", "trail_enabled", true)
+		player_name = clean_player_name(str(cfg.get_value("profile", "name", "")))
 		# The toggle used to mute only the music bus; a save from that era carries
 		# its choice over to the mute that now covers everything.
 		sound_muted = cfg.get_value("audio", "sound_muted",
@@ -257,6 +261,23 @@ func set_trail_enabled(value: bool) -> void:
 	_save()
 	visual_settings_changed.emit()
 
+func set_player_name(value: String) -> void:
+	player_name = clean_player_name(value)
+	_save()
+
+const PLAYER_NAME_MAX := 12
+const PLAYER_NAME_CHARS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -_."
+
+## Capitals, digits and a little punctuation, at most PLAYER_NAME_MAX long:
+## what the game's font has glyphs for and what fits a HUD tag. Applied to
+## names arriving from other phones too, not only to what is typed here.
+static func clean_player_name(raw: String) -> String:
+	var out := ""
+	for c in raw.to_upper():
+		if PLAYER_NAME_CHARS.contains(c) and not (c == " " and out.ends_with(" ")):
+			out += c
+	return out.strip_edges().left(PLAYER_NAME_MAX).strip_edges()
+
 func set_sound_muted(value: bool) -> void:
 	if value == sound_muted:
 		return
@@ -310,6 +331,7 @@ func _save() -> void:
 	cfg.set_value("visual", "player_skin", player_skin)
 	cfg.set_value("visual", "shuffle_skin", shuffle_skin)
 	cfg.set_value("visual", "trail_enabled", trail_enabled)
+	cfg.set_value("profile", "name", player_name)
 	cfg.set_value("audio", "sound_muted", sound_muted)
 	cfg.set_value("audio", "haptics_enabled", haptics_enabled)
 	cfg.set_value("gameplay", "tutorial_hints", tutorial_hints)

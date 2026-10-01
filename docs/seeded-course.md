@@ -54,7 +54,8 @@ from a seed.
 
 **Known gaps (for the multiplayer work)**
 
-1. **Screen width.** x is laid out as a fraction of the viewport width
+1. **Screen width.** *Closed for shared races (LAN): they use a fixed
+   720-wide band, centred; see `PlatformSpawner.use_shared_width`.* x is laid out as a fraction of the viewport width
    (`lerpf(edge_margin, width - edge_margin, x_roll)`). Under the `expand`
    stretch, portrait phones are all 720 wide, so phone vs phone matches.
    Tablets and wider aspect ratios get a wider screen, which scales the layout
@@ -78,6 +79,34 @@ from a seed.
    exchange a hash of the first N slots at race start and log any mismatch.
 5. **Not seeded, and doesn't need to be:** the race bot's decisions, particles,
    screen shake. They don't affect the course.
+
+### 2026-10-01 — fixed score origin, course hash (COURSE_VERSION 2)
+
+**Done**
+
+- **Gap 2 closed.** The score origin is no longer read off the camera as the
+  launch burst tops out. `game.gd:_launch_apex_y()` steps player.gd's own
+  integration forward from the hand-off state and predicts the apex, once,
+  at hand-off. The HUD score, the score lines, the bot's score and the
+  spawner's zone membership all measure from that one value, so it's the
+  same on every device. (`_burst_climbing` is gone. The trailer no longer
+  sets it.)
+- `PlatformSpawner.course_hash(n)`: a fingerprint of the first n slots,
+  relative to the course origin and rounded to 1/100 px. Generates the slots
+  if they don't exist yet.
+- COURSE_VERSION bumped to 2, since zone boundaries now come from a different
+  origin.
+
+**Verified** (headless): same seed gives the same `course_hash(2000)`, and a
+different seed gives a different one.
+
+**Gap 3 closed in the LAN work:** every phone holds at the hand-off
+(`IntroSequence.place_at_handoff`) through a countdown ending at a shared
+clock time, and `spawner.course_time` is set from that clock at GO.
+(Originally:) It only makes sense
+alongside the lobby countdown that defines the shared start moment. The
+hand-off state itself (position, velocity, origin) is already identical on
+every device, since the intro ends on a closed-form position.
 
 ## Next steps
 
