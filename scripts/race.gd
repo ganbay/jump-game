@@ -82,6 +82,9 @@ var active: bool = false
 ## Whether the menu's mode picker was last left on RACE rather than CASUAL,
 ## so the menu reopens on the mode the player was using.
 var menu_on_race: bool = false
+## Whether the player has opened LAN racing yet. Until they have, the race
+## screen flags its button NEW.
+var lan_seen: bool = false
 var difficulty: Difficulty = Difficulty.NOVICE
 var target_index: int = 0
 var grandmaster_unlocked: bool = false
@@ -121,6 +124,7 @@ func _ready() -> void:
 			0, Difficulty.size() - 1) as Difficulty
 		target_index = clampi(cfg.get_value("race", "target_index", 0), 0, TARGETS.size() - 1)
 		menu_on_race = cfg.get_value("menu", "on_race", false)
+		lan_seen = cfg.get_value("menu", "lan_seen", false)
 		tickets = cfg.get_value("tickets", "count", 0)
 		_starter_granted = cfg.get_value("tickets", "starter_granted", false)
 		_last_daily = cfg.get_value("tickets", "last_daily", "")
@@ -235,6 +239,14 @@ func set_menu_on_race(on_race: bool) -> void:
 	menu_on_race = on_race
 	var cfg := _load()
 	cfg.set_value("menu", "on_race", on_race)
+	cfg.save(SAVE_PATH)
+
+func mark_lan_seen() -> void:
+	if lan_seen:
+		return
+	lan_seen = true
+	var cfg := _load()
+	cfg.set_value("menu", "lan_seen", true)
 	cfg.save(SAVE_PATH)
 
 ## Fastest winning time for this bot and distance, or 0.0 if never won.
