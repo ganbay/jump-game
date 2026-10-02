@@ -15,8 +15,13 @@ const KEEP_SAMPLES := 8
 ## Falling, then rising this fast a frame later, is a bounce off a platform --
 ## which is all a landing looks like from here.
 const BOUNCE_SPEED := 200.0
+const ITEM_FLAGS := LanRace.FLAG_SHIELDED | LanRace.FLAG_STUNNED | LanRace.FLAG_REVERSED
 
 var peer_id: int = 0
+## The latest state flags (LanRace.FLAG_*): over the line, and any race item
+## running on them, drawn on the ghost (see _draw).
+var flags: int = 0
+var finished: bool = false
 
 ## [t, pos, score, flags], oldest first, t on LanRace.race_clock().
 var _samples: Array = []
@@ -63,19 +68,23 @@ func _read_profile(info: Dictionary) -> void:
 	label = str(info.get("name", "?"))
 	color = info.get("color", Color.WHITE)
 
-func push_state(t: float, pos: Vector2, new_score: int, flags: int) -> void:
+func push_state(t: float, pos: Vector2, new_score: int, new_flags: int) -> void:
 	if not _samples.is_empty() and t <= float(_samples.back()[0]):
 		return
 	if _samples.is_empty():
 		global_position = pos  # no streak across the screen from the origin
-	_samples.append([t, pos, new_score, flags])
+	_samples.append([t, pos, new_score, new_flags])
 	if _samples.size() > KEEP_SAMPLES:
 		_samples.pop_front()
 	# The latest score, not the played-back one: the rail and the tags should
 	# not trail a tenth of a second behind what is known.
 	score = new_score
-	var respawning := flags & LanRace.FLAG_RESPAWNING != 0
+	var respawning := new_flags & LanRace.FLAG_RESPAWNING != 0
 	respawn_left = 1.0 if respawning else 0.0
+	finished = finished or new_flags & LanRace.FLAG_FINISHED != 0
+	if new_flags != flags:
+		flags = new_flags
+		queue_redraw()
 
 func _process(delta: float) -> void:
 	if not _samples.is_empty():
@@ -87,7 +96,22 @@ func _process(delta: float) -> void:
 			squash(1.0)
 		_prev_vy = velocity.y
 		visible = not is_respawning()
+	if flags & ITEM_FLAGS != 0:
+		queue_redraw()
 	super(delta)
+
+## A burst of brightness: this racer just threw something at the player.
+func flash() -> void:
+	var tw := create_tween()
+	modulate = Color(2.5, 2.5, 2.5, 1.0)
+	tw.tween_property(self, "modulate", Color(1.0, 1.0, 1.0, GHOST_ALPHA), 0.7)
+
+## Origin is the feet; the body sits about a radius above them.
+func _draw() -> void:
+	super()
+	RaceItems.draw_status(self, Vector2(0.0, -18.0),
+		flags & LanRace.FLAG_SHIELDED != 0, flags & LanRace.FLAG_STUNNED != 0,
+		flags & LanRace.FLAG_REVERSED != 0, Time.get_ticks_msec() / 1000.0)
 
 func _position_at(t: float) -> Vector2:
 	var first: Array = _samples[0]

@@ -440,6 +440,9 @@ func _ready() -> void:
 	if _lan:
 		_setup_lan()
 		_use_shared_width()
+		if LanRace.items_on:
+			_make_items()
+			_hud_nodes.append(_item_button)
 	for node in _hud_nodes:
 		_hud_home.append(node.position)
 	_update_controls_icon()
@@ -452,7 +455,12 @@ func _ready() -> void:
 	# scheme -- so a swap re-shows it rather than leaving the player with a
 	# line about the controls they just stopped using.
 	Settings.control_scheme_changed.connect(_on_control_scheme_changed)
-	Audio.play_music()
+	if _lan:
+		# The host's pick, cued off the shared clock, so a room full of phones
+		# plays one song in step rather than a clash of them.
+		Audio.play_music(LanRace.music_set, LanRace.race_clock() + LanRace.START_LEAD_MS / 1000.0)
+	else:
+		Audio.play_music()
 	_start_intro()
 
 ## Runs before every run, including a restart, since both paths re-enter _ready.
@@ -464,7 +472,12 @@ func _start_intro() -> void:
 	# not see input until the intro hands control back.
 	player.set_process_unhandled_input(false)
 	if _lan:
-		intro.place_at_handoff(camera, player)
+		# On the shared clock, so the intro reaches the hand-off at GO on every
+		# phone; the 3-2-1 plays over its last three seconds. No skip button:
+		# skipping would only mean waiting at the hand-off.
+		var length := intro.total_time()
+		intro.finished.connect(_lan_go)
+		intro.begin(camera, player, func(): return LanRace.race_clock() + length)
 		_make_lan_countdown()
 		return
 	intro.finished.connect(_on_intro_finished)
@@ -510,7 +523,8 @@ func _make_skip_button() -> void:
 	tw.tween_callback(func(): button.disabled = false)
 
 func _on_skip_pressed() -> void:
-	if not is_intro or _skip_button == null:
+	# A LAN intro is the countdown, on everyone's clock: never skippable.
+	if not is_intro or _skip_button == null or _lan:
 		return
 	Audio.play_ui_click()
 	_remove_skip_button()
@@ -556,6 +570,8 @@ func _on_intro_finished() -> void:
 		# GO can come late on a slow phone (the scene still loading); the
 		# movers and phantoms still keep time with everyone else's.
 		spawner.course_time = maxf(LanRace.race_clock(), 0.0)
+		if _items != null:
+			_items.begin(_score_origin_y, Race.target(), spawner.course_left, spawner.course_width)
 		LanRace.report_course_hash(spawner.course_hash(LanRace.COURSE_CHECK_SLOTS))
 		Analytics.log_event("lan_race_start", {
 			"players": LanRace.peers.size(), "target": Race.target()})
@@ -1755,10 +1771,14 @@ func _update_race(delta: float) -> void:
 	elif player.global_position.y > camera.global_position.y + _death_margin:
 		_begin_player_respawn()
 	_race_hud.player_score = score
+	if _items != null:
+		_items.player_score = score
 	_race_hud.player_respawn_left = _respawn_left
 	if _lan:
 		_race_hud.closing_left = LanRace.closing_left()
 		var flags := LanRace.FLAG_RESPAWNING if _respawn_left > 0.0 else 0
+		if _items != null:
+			flags |= _items.status_flags()
 		LanRace.send_state(player.feet.global_position - _course_offset(), score, flags, delta)
 	if score >= Race.target():
 		if _lan:
@@ -1841,8 +1861,10 @@ func _finish_race(won: bool) -> void:
 ## The bot race's rules -- same course, finish line, fall penalty -- against
 ## other phones' ghosts instead of the AI. Each ghost wears its player's own
 ## customization (skin, colour, trail) and name. What changes:
-## - No intro. Every phone holds at the hand-off through a 3-2-1 that ends at
-##   the same moment everywhere, so the courses' clocks line up.
+## - The intro runs on the shared clock, with a 3-2-1 over its end, so it hands
+##   off at the same moment everywhere and the courses' clocks line up.
+## - Everyone hears the same song, in step (LanRace.music_set).
+## - Item boxes, unless the host switched them off (docs/lan-items.md).
 ## - No pausing. The pause panel opens over a race that keeps going.
 ## - Finishing does not end the screen: the player waits, the ghosts still
 ##   climbing behind the panel, until the host sends the placings -- once
@@ -1865,6 +1887,22 @@ var _lan_stage: LanStage = LanStage.RACING
 var _net_rivals: Dictionary = {}
 var _lan_countdown: Label
 var _lan_standings: Label
+## Item boxes, when the host left them on (see race_items.gd).
+var _items: RaceItems
+var _item_button: ItemButton
+
+func _make_items() -> void:
+	_items = RaceItems.new()
+	_items.player = player
+	_items.camera = camera
+	_items.rivals = _race_hud.rivals
+	add_child(_items)
+	_item_button = ItemButton.new()
+	_item_button.items = _items
+	_item_button.camera = camera
+	$UI.add_child(_item_button)
+	# Under the panels, like the race HUD: pause and the finish screen cover it.
+	$UI.move_child(_item_button, pause_button.get_index())
 
 func _setup_lan() -> void:
 	LanRace.rival_state.connect(_on_lan_rival_state)
@@ -1924,6 +1962,8 @@ func _sync_hud_rivals() -> void:
 	for rival in _net_rivals.values():
 		rivals.append(rival)
 	_race_hud.rivals = rivals
+	if _items != null:
+		_items.rivals = rivals
 
 func _on_lan_rival_state(id: int, t: float, pos: Vector2, rival_score: int, flags: int) -> void:
 	var rival: NetRival = _net_rivals.get(id)
@@ -1975,8 +2015,8 @@ func _make_lan_standings() -> void:
 func _update_lan_screens() -> void:
 	if is_intro and _lan_countdown != null and not is_game_over:
 		var left := -LanRace.race_clock()
+		# GO itself is the intro's `finished` (see _start_intro).
 		if left <= 0.0:
-			_lan_go()
 			return
 		var text := str(ceili(left)) if left <= 3.0 else ""
 		if _lan_countdown.text != text:
@@ -2014,6 +2054,8 @@ func _finish_lan(finished: bool) -> void:
 		_lan_countdown = null
 	player.set_physics_process(false)
 	player.set_process_unhandled_input(false)
+	if _items != null:
+		_items.stop()
 	_respawn_left = 0.0
 	_race_hud.player_respawn_left = 0.0
 	_dismiss_control_hint()

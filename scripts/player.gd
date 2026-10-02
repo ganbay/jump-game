@@ -117,6 +117,18 @@ const SKIN_SHAPES := {
 @export var solar_wind_launch_mult: float = 2.0
 
 var streak: int = 0
+## Race items (see race_items.gd). While `rocket_left` runs the character
+## climbs at `rocket_speed` and gravity waits; landings this many times count
+## as perfectly timed, whatever the timing (Spring Shoes).
+var rocket_left: float = 0.0
+var rocket_speed: float = 0.0
+var auto_boosts: int = 0
+## How much harder those landings launch than a timed boost.
+var auto_boost_mult: float = 1.0
+## Attacks from other racers' items: no steering at all while `stun_left`
+## runs (Comet), left and right swapped while `reverse_left` does (Reverse).
+var stun_left: float = 0.0
+var reverse_left: float = 0.0
 var last_press_ms: int = -999999
 ## The press before `last_press_ms`. A timed landing has to come from one
 ## deliberate tap, so the window must hold exactly one press. Every press
@@ -423,7 +435,16 @@ func _streak_fall_multiplier() -> float:
 	var extra := maxi(streak - streak_fall_cap, 0)
 	return pow(streak_fall_step, capped) * pow(streak_fall_step_late, extra)
 
+## Straight up at `speed` px/s for `duration`, then the jump coasts out on
+## ordinary gravity from there.
+func start_rocket(duration: float, speed: float) -> void:
+	rocket_left = duration
+	rocket_speed = speed
+
 func _physics_process(delta: float) -> void:
+	if rocket_left > 0.0:
+		rocket_left -= delta
+		velocity.y = -rocket_speed
 	# Only the descent gets sped up by streak -- applying it during the rise too
 	# would cut the jump's apex short and strand normal jumps short of the next
 	# platform.
@@ -431,11 +452,16 @@ func _physics_process(delta: float) -> void:
 	velocity.y += g * delta
 
 	var speed := move_speed
-	var key_axis := Input.get_axis("ui_left", "ui_right")
-	if key_axis != 0.0:
+	stun_left = maxf(stun_left - delta, 0.0)
+	reverse_left = maxf(reverse_left - delta, 0.0)
+	var steer := -1.0 if reverse_left > 0.0 else 1.0
+	var key_axis := Input.get_axis("ui_left", "ui_right") * steer
+	if stun_left > 0.0:
+		velocity.x = move_toward(velocity.x, 0.0, move_speed * 4.0 * delta)
+	elif key_axis != 0.0:
 		velocity.x = move_toward(velocity.x, key_axis * speed, key_accel * delta)
 	elif Settings.control_scheme == Settings.ControlScheme.TILT:
-		var tilt := Input.get_accelerometer().x * (-1.0 if invert_tilt else 1.0)
+		var tilt := Input.get_accelerometer().x * (-1.0 if invert_tilt else 1.0) * steer
 		if absf(tilt) < tilt_deadzone:
 			velocity.x = move_toward(velocity.x, 0.0, move_speed * 4.0 * delta)
 		else:
@@ -449,7 +475,7 @@ func _physics_process(delta: float) -> void:
 		# clamping to it is what made a quick flick cover far less ground than
 		# a slow drag of the same length. The only limit is a sanity guard of
 		# one viewport width per tick, which a real finger cannot exceed.
-		var drag_step := _steer_dx * drag_sensitivity * Settings.touch_sensitivity
+		var drag_step := _steer_dx * drag_sensitivity * Settings.touch_sensitivity * steer
 		velocity.x = clampf(drag_step, -_viewport_width, _viewport_width) / delta
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, move_speed * 4.0 * delta)
@@ -533,6 +559,12 @@ func _land_on(area: Node) -> void:
 	# answered below even when a finger is left down across the landing.
 	var mashed := _mashed()
 	var is_timed := in_window and single_tap and not mashed
+	# Spent only on a platform that still has its boost, so a spring is never
+	# wasted on a landing that could not have been boosted anyway.
+	var sprung := auto_boosts > 0 and not _boost_spent(area)
+	if sprung:
+		is_timed = true
+		auto_boosts -= 1
 	_descent_presses.clear()
 	# The boost belongs to the platform, not to "wasn't the last one I touched":
 	# a mistimed landing spends nothing, so the next streak can start right here.
@@ -555,6 +587,8 @@ func _land_on(area: Node) -> void:
 	_last_land_ms = now
 	_last_land_boosted = boosted
 	velocity.y = _boosted_jump_velocity() if boosted else jump_velocity
+	if sprung and boosted:
+		velocity.y *= auto_boost_mult
 	_play_squash(boosted)
 	Audio.set_streak(streak)
 	if area.has_method("on_landed"):

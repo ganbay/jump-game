@@ -273,8 +273,12 @@ func can_start(for_difficulty: int = difficulty) -> bool:
 	return tickets >= race_cost(for_difficulty)
 
 ## Charges for the race about to start. False, and nothing charged, when the
-## player cannot afford it.
+## player cannot afford it. A LAN race is free: it never comes through here
+## (the lobby starts it), and this makes sure no rematch path charges either.
 func pay_for_race() -> bool:
+	if LanRace.in_race():
+		_paid = false
+		return true
 	if not can_start():
 		return false
 	var cost := race_cost()

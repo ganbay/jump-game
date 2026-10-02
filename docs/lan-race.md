@@ -22,9 +22,10 @@ leaving.
 | Lobby screen: host / rooms nearby / join by address, then the room | `scripts/lan_lobby.gd`, `scenes/lan_lobby.tscn` |
 | Ghost played back from the network, 100 ms behind, with extrapolation | `scripts/net_rival.gd` (`NetRival extends Rival`) |
 | Shared ghost visual for the bot and network rivals | `scripts/rival.gd` |
-| Race flow: countdown at the hand-off, no pause, waiting panel, placings | `game.gd`, the "LAN race" section |
+| Race flow: intro on the shared clock with a 3-2-1 over its end, no pause, waiting panel, placings | `game.gd`, the "LAN race" section |
 | Entry point: "RACE FRIENDS ON WI-FI" under START on the race screen | `race_setup.gd` |
-| Hold at the hand-off without the intro | `IntroSequence.place_at_handoff` |
+| Intro driven by the race clock, so it ends at GO everywhere | `IntroSequence.begin(..., clock)` |
+| Same song on every phone, in step | `LanRace.music_set`, `Audio.play_music(set, from)` |
 | Distance that doesn't touch the bot race's saved pick | `Race.shared_target` |
 | Android multicast lock for discovery | JetletNotify plugin (`acquireMulticastLock` / `releaseMulticastLock`); the AAR's manifest adds `CHANGE_WIFI_MULTICAST_STATE` |
 
@@ -124,12 +125,14 @@ are sent often and a lost one doesn't matter. Reliable ones must arrive.
 |---|---|---|---|
 | `hello` | joiner → host | reliable | protocol, `COURSE_VERSION`, game version, name, colour, skin shape, trail |
 | `welcome` / `reject(reason)` | host → joiner | reliable | peer list / "version mismatch", "race in progress", "full" |
-| `lobby` | host → all | reliable | peers + ready flags, target distance |
+| `lobby` | host → all | reliable | peers + ready flags, target distance, item boxes on/off |
 | `set_ready(bool)` | any → host | reliable | |
 | `set_profile(name, colour, shape, trail)` | any → host | reliable | on a name edit, and from the run once shuffle has rolled the skin |
 | `ping` / `pong` | joiner ↔ host | unreliable | clock offset, see *Clock* |
-| `start(seed, target, start_at_ms)` | host → all | reliable | countdown ends at host clock + offset (see *Clock*) |
+| `start(seed, target, start_at_ms, song, items)` | host → all | reliable | countdown ends at host clock + offset (see *Clock*); `song` indexes `Audio.MUSIC_SETS`; `items` see lan-items.md |
 | `course_hash(hash)` | all → host | reliable | `course_hash(200)`, sent at GO. A mismatch aborts with a message |
+| `attack_request(kind, targets)` → `attacked(from, kind)` | attacker → host → targets | reliable | race items, see lan-items.md; the host drops it for anyone finished |
+| `attack_report(from, kind, blocked)` → `attack_outcome(...)` | victim → host → all | reliable | for the feed and the attacker's "HIT SAM!" |
 | `closing(at_ms)` | host → all | reliable | the first finisher is in; the rest have 30 s |
 | `state(t, x, y, score, flags)` | any → all | **unreliable, ~15 Hz** | flags: respawning, streak tier, facing. x is needed too, or the ghost can't be drawn |
 | `finished(time)` | any → host | reliable | |

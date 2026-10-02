@@ -30,6 +30,10 @@ signal closing_started
 signal results_ready
 ## This phone dropped out of the race in progress (backgrounded, or quit).
 signal forfeited
+## A race item (RaceItems.Item) thrown at this phone by `from`.
+signal attacked(from: int, kind: int)
+## How an attack went, for everyone: `victim` blocked it or took it.
+signal attack_outcome(from: int, victim: int, kind: int, blocked: bool)
 
 enum Role { NONE, HOST, CLIENT }
 enum Phase { LOBBY, RACING }
@@ -43,11 +47,12 @@ const DISCOVERY_PORT := 47821
 const MAX_PLAYERS := 8
 ## Bumped on any change to the messages below. Checked in the handshake along
 ## with the course version and the app version.
-const PROTOCOL := 4
+const PROTOCOL := 7
 const STATE_INTERVAL := 1.0 / 15.0
 ## From the host pressing START to GO: the start message, the scene change and
-## a readable 3-2-1 all fit inside it.
-const START_LEAD_MS := 4500
+## the whole intro (IntroSequence.total_time, with the 3-2-1 over its end) all
+## fit inside it. Also the music's cue: the song starts this long before GO.
+const START_LEAD_MS := 6000
 ## How long the field has to finish once the first racer is home.
 const FINISH_GRACE_MS := 30000
 ## A typed address that never answers. ENet's own give-up is far slower.
@@ -67,6 +72,10 @@ const ROOM_TTL_MS := 3500
 const COURSE_CHECK_SLOTS := 200
 const FLAG_RESPAWNING := 1
 const FLAG_FINISHED := 2
+## Race item states (see race_items.gd), so the others can see them on the ghost.
+const FLAG_SHIELDED := 4
+const FLAG_STUNNED := 8
+const FLAG_REVERSED := 16
 ## A result's time when the racer did not finish.
 const DNF := -1.0
 
@@ -80,8 +89,13 @@ var phase: Phase = Phase.LOBBY
 ##   color, shape, trail          their character, as their own run dresses it
 var peers: Dictionary = {}
 var target_index: int = 0
+## Item boxes in the race (see race_items.gd). The host's switch.
+var items_on: bool = true
 ## Local clock (Time.get_ticks_msec) of GO.
 var start_at_ms: int = 0
+## Which of Audio.MUSIC_SETS the race plays. The host's pick, so every phone
+## plays the same song.
+var music_set: int = 0
 ## Local clock the race closes at, or 0 while nobody has finished.
 var closing_at_ms: int = 0
 ## The last race's finishing order: [{id, name, color, time}], DNF last.
@@ -254,6 +268,12 @@ func set_target(index: int) -> void:
 	target_index = clampi(index, 0, Race.TARGETS.size() - 1)
 	_send_lobby()
 
+func set_items(on: bool) -> void:
+	if role != Role.HOST or phase != Phase.LOBBY:
+		return
+	items_on = on
+	_send_lobby()
+
 ## Re-sends this phone's name and character. The lobby calls it when the name
 ## is edited, and game.gd once the run has rolled its skin, which on shuffle
 ## differs from what the lobby saw.
@@ -272,13 +292,14 @@ func start_race() -> void:
 		return
 	var course_seed := randi() % 0x7fffffff
 	var at := Time.get_ticks_msec() + START_LEAD_MS
+	var song := Audio.pick_music_set()
 	_racers = peers.duplicate(true)
 	_finish_times.clear()
 	_hashes.clear()
 	for id in peers:
 		if id != 1:
-			_start.rpc_id(id, course_seed, target_index, at)
-	_start(course_seed, target_index, at)
+			_start.rpc_id(id, course_seed, target_index, at, song, items_on)
+	_start(course_seed, target_index, at, song, items_on)
 
 # --- Racing ---------------------------------------------------------------
 
@@ -316,6 +337,29 @@ func report_course_hash(hash: int) -> void:
 		_store_hash(1, hash)
 	else:
 		_course_hash.rpc_id(1, hash)
+
+# --- Race items (docs/lan-items.md) --------------------------------------
+#
+# The attacker names its targets from the scores it has; the host checks the
+# race is on and each target still racing, and passes it on. The target's own
+# phone decides the outcome -- shield or hit -- and applies it to its own
+# player, then reports back so everyone can see who got whom.
+
+func send_attack(kind: int, targets: Array) -> void:
+	if not in_race():
+		return
+	if role == Role.HOST:
+		_relay_attack(1, kind, targets)
+	else:
+		_attack_request.rpc_id(1, kind, targets)
+
+func report_attack(from: int, kind: int, blocked: bool) -> void:
+	if not in_race():
+		return
+	if role == Role.HOST:
+		_send_outcome(from, 1, kind, blocked)
+	else:
+		_attack_report.rpc_id(1, from, kind, blocked)
 
 # --- Discovery ------------------------------------------------------------
 
@@ -448,9 +492,10 @@ func _rejected(reason: String) -> void:
 	leave(reason)
 
 @rpc("authority", "call_remote", "reliable")
-func _lobby(new_peers: Dictionary, new_target: int) -> void:
+func _lobby(new_peers: Dictionary, new_target: int, new_items: bool) -> void:
 	peers = new_peers
 	target_index = new_target
+	items_on = new_items
 	peers_changed.emit()
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -501,8 +546,11 @@ func _pong(client_ms: int, host_ms: int) -> void:
 	_clock_offset = best[1]
 
 @rpc("authority", "call_remote", "reliable")
-func _start(course_seed: int, new_target: int, host_at_ms: int) -> void:
+func _start(course_seed: int, new_target: int, host_at_ms: int, song: int,
+		items: bool) -> void:
 	phase = Phase.RACING
+	music_set = song
+	items_on = items
 	target_index = clampi(new_target, 0, Race.TARGETS.size() - 1)
 	start_at_ms = host_at_ms - _clock_offset
 	closing_at_ms = 0
@@ -530,6 +578,26 @@ func _course_hash(hash: int) -> void:
 	if role == Role.HOST:
 		_store_hash(multiplayer.get_remote_sender_id(), hash)
 
+@rpc("any_peer", "call_remote", "reliable")
+func _attack_request(kind: int, targets: Array) -> void:
+	if role == Role.HOST:
+		_relay_attack(multiplayer.get_remote_sender_id(), kind, targets)
+
+@rpc("authority", "call_remote", "reliable")
+func _attacked(from: int, kind: int) -> void:
+	if in_race():
+		attacked.emit(from, kind)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _attack_report(from: int, kind: int, blocked: bool) -> void:
+	if role == Role.HOST:
+		_send_outcome(from, multiplayer.get_remote_sender_id(), kind, blocked)
+
+@rpc("authority", "call_remote", "reliable")
+func _attack_outcome(from: int, victim: int, kind: int, blocked: bool) -> void:
+	if in_race():
+		attack_outcome.emit(from, victim, kind, blocked)
+
 @rpc("authority", "call_remote", "reliable")
 func _closing(host_at_ms: int) -> void:
 	closing_at_ms = host_at_ms - _clock_offset
@@ -556,8 +624,8 @@ func _aborted(reason: String) -> void:
 func _send_lobby() -> void:
 	for id in peers:
 		if id != 1:
-			_lobby.rpc_id(id, peers, target_index)
-	_lobby(peers, target_index)
+			_lobby.rpc_id(id, peers, target_index, items_on)
+	_lobby(peers, target_index, items_on)
 
 func _record_finish(id: int, time: float) -> void:
 	if phase != Phase.RACING or not _racers.has(id) or _finish_times.has(id):
@@ -620,6 +688,24 @@ func _abort(reason: String) -> void:
 			_aborted.rpc_id(id, reason)
 	_aborted(reason)
 	_send_lobby()
+
+func _relay_attack(from: int, kind: int, targets: Array) -> void:
+	if phase != Phase.RACING or not items_on or not _racers.has(from):
+		return
+	for target in targets:
+		var id := int(target)
+		if id == from or not peers.has(id) or _finish_times.has(id):
+			continue
+		if id == 1:
+			_attacked(from, kind)
+		else:
+			_attacked.rpc_id(id, from, kind)
+
+func _send_outcome(from: int, victim: int, kind: int, blocked: bool) -> void:
+	for id in peers:
+		if id != 1:
+			_attack_outcome.rpc_id(id, from, victim, kind, blocked)
+	_attack_outcome(from, victim, kind, blocked)
 
 func _free_slot() -> int:
 	var taken := []

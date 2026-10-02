@@ -79,6 +79,10 @@ signal finished
 
 var _t: float = 0.0
 var _running: bool = false
+## Where `_t` comes from when set: a LAN race drives every phone's intro off
+## the shared race clock, so they all reach the hand-off at GO together. Unset,
+## the intro keeps its own time.
+var _clock: Callable
 var _camera: Camera2D
 var _player: CharacterBody2D
 var _sun: PlasmaBlob
@@ -99,8 +103,12 @@ func _ready() -> void:
 func total_time() -> float:
 	return sun_time + flare_time + zoom_time
 
-func begin(camera: Camera2D, player: CharacterBody2D) -> void:
+## `clock`, if given, returns the intro's time in seconds and replaces its own
+## (see `_clock`). Below zero holds on the opening frame; a phone that arrives
+## late joins the flight already under way, where the others have got to.
+func begin(camera: Camera2D, player: CharacterBody2D, clock: Callable = Callable()) -> void:
 	_camera = camera
+	_clock = clock
 	_player = player
 	_play_pos = player.global_position
 	_play_camera = camera.global_position
@@ -120,11 +128,11 @@ func begin(camera: Camera2D, player: CharacterBody2D) -> void:
 	_sun.global_position = Vector2(_play_pos.x, sun_surface_y + sun_radius * 2.0)
 
 	_player.global_position = _launch  # so the first frame reports zero velocity
-	_t = 0.0
+	_t = _clock_time() if _clock.is_valid() else 0.0
 	_running = true
 	visible = true
 	set_process(true)
-	_apply(0.0)
+	_apply(_t)
 
 ## Fast-forwards through the rest of the cinematic instead of cutting straight
 ## to the end state -- _apply(t) already supports evaluating any moment
@@ -140,11 +148,14 @@ func skip() -> void:
 	tw.tween_callback(_finish)
 
 func _process(delta: float) -> void:
-	_t += delta
+	_t = _clock_time() if _clock.is_valid() else _t + delta
 	if _t >= total_time():
 		_finish()
 		return
 	_apply(_t)
+
+func _clock_time() -> float:
+	return clampf(_clock.call(), 0.0, total_time())
 
 ## Distance travelled from the launch point by time `t`. Closed form, so the
 ## trajectory is frame-rate independent and a skip lands exactly where a full
@@ -205,15 +216,6 @@ func _drive_player(to: Vector2) -> void:
 func _finish() -> void:
 	_settle()
 	finished.emit()
-	queue_free()
-
-## Straight to the hand-off without the cinematic, and without `finished`:
-## the character and camera are left exactly where a played intro leaves them,
-## and the caller decides when the run begins. A LAN race holds here through
-## its countdown, so every phone starts from the same state at the same moment.
-func place_at_handoff(camera: Camera2D, player: CharacterBody2D) -> void:
-	begin(camera, player)
-	_settle()
 	queue_free()
 
 func _settle() -> void:

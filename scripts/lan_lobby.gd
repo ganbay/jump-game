@@ -55,6 +55,7 @@ var _name_edit: LineEdit
 var _join_button: Button
 var _players_box: GridContainer
 var _target_buttons: Array[Button] = []
+var _items_button: Button
 ## START on the host, READY on everyone else.
 var _go_button: Button
 var _room_note: Label
@@ -85,6 +86,7 @@ func _show_view(view: View) -> void:
 		child.queue_free()
 	_action_buttons.clear()
 	_target_buttons.clear()
+	_items_button = null
 	_rooms_box = null
 	_address_edit = null
 	_name_edit = null
@@ -184,6 +186,10 @@ func _build_room() -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_target_pressed.bind(i))
 		_target_buttons.append(button)
+	# Straight under the distance, without a heading of its own: a full room
+	# has to fit above the back button on a 1280-tall screen.
+	_items_button = _add_option(options, "")
+	_items_button.pressed.connect(_on_items_pressed)
 	_add_gap()
 	_go_button = _add_action("")
 	_go_button.pressed.connect(_on_go_pressed)
@@ -202,6 +208,8 @@ func _refresh_room() -> void:
 	var host := LanRace.is_host()
 	for i in range(_target_buttons.size()):
 		_target_buttons[i].disabled = not host
+	_items_button.disabled = not host
+	_items_button.text = "ITEM BOXES: ON" if LanRace.items_on else "ITEM BOXES: OFF"
 	var go_text: String
 	if host:
 		if LanRace.peers.size() < 2:
@@ -337,6 +345,12 @@ func _on_target_pressed(index: int) -> void:
 	Audio.play_ui_click()
 	LanRace.set_target(index)
 
+func _on_items_pressed() -> void:
+	if not LanRace.is_host():
+		return
+	Audio.play_ui_click()
+	LanRace.set_items(not LanRace.items_on)
+
 func _on_go_pressed() -> void:
 	Audio.play_ui_click()
 	if LanRace.is_host():
@@ -384,6 +398,8 @@ func _restyle_buttons() -> void:
 		UiPlate.action(button)
 	for i in range(_target_buttons.size()):
 		UiPlate.option(_target_buttons[i], i == LanRace.target_index)
+	if _items_button != null:
+		UiPlate.option(_items_button, LanRace.items_on)
 	if _join_button != null:
 		UiPlate.option(_join_button, false)
 	for edit in [_address_edit, _name_edit]:

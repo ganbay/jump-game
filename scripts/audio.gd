@@ -109,19 +109,26 @@ func play_menu_music() -> void:
 		_menu_player.volume_db = 0.0
 		_menu_player.play(0.0)
 
-## Rolls a random lead+drum set for this run (never the previous run's set)
-## and (re)starts it fresh with a fade-in, even if a previous run's set is
-## still playing.
-func play_music() -> void:
-	if _menu_player.playing:
-		_menu_player.stop()
-	_stop_gameplay_music()
-	# Roll among the other sets only, so back-to-back runs never repeat a song.
+## A random index into MUSIC_SETS, never the previous run's set, so
+## back-to-back runs never repeat a song.
+func pick_music_set() -> int:
 	var set_idx := randi() % MUSIC_SETS.size()
 	if _last_set_idx >= 0 and MUSIC_SETS.size() > 1:
 		set_idx = randi() % (MUSIC_SETS.size() - 1)
 		if set_idx >= _last_set_idx:
 			set_idx += 1
+	return set_idx
+
+## (Re)starts a lead+drum set fresh with a fade-in, even if a previous run's
+## set is still playing: `set_idx`, or a roll of pick_music_set() if -1.
+## `from` is where in the song to start, in seconds, wrapped to its length -- a
+## LAN race cues every phone to the same spot (see game.gd).
+func play_music(set_idx: int = -1, from: float = 0.0) -> void:
+	if _menu_player.playing:
+		_menu_player.stop()
+	_stop_gameplay_music()
+	if set_idx < 0 or set_idx >= MUSIC_SETS.size():
+		set_idx = pick_music_set()
 	_last_set_idx = set_idx
 	var music_set: Dictionary = MUSIC_SETS[set_idx]
 	_lead_player.stream = music_set["lead"]
@@ -129,7 +136,8 @@ func play_music() -> void:
 	_bar_length = 60.0 / music_set["bpm"] * 4.0
 	_streak_tier = 0
 	_lead_player.volume_db = LAYER_SILENT_DB
-	_lead_player.play(0.0)
+	var length: float = _lead_player.stream.get_length()
+	_lead_player.play(fposmod(from, length) if length > 0.0 else 0.0)
 	_fade_layer(_lead_player, linear_to_db(LEAD_START_VOLUME), MUSIC_INTRO_FADE_TIME)
 
 ## Ducks the gameplay layers out and brings the ambient menu track in

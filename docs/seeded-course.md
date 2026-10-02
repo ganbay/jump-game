@@ -100,9 +100,8 @@ from a seed.
 **Verified** (headless): same seed gives the same `course_hash(2000)`, and a
 different seed gives a different one.
 
-**Gap 3 closed in the LAN work:** every phone holds at the hand-off
-(`IntroSequence.place_at_handoff`) through a countdown ending at a shared
-clock time, and `spawner.course_time` is set from that clock at GO.
+**Gap 3 closed in the LAN work:** every phone plays the intro off a shared
+clock (`IntroSequence.begin(..., clock)`) so it reaches the hand-off at GO, and `spawner.course_time` is set from that clock at GO.
 (Originally:) It only makes sense
 alongside the lobby countdown that defines the shared start moment. The
 hand-off state itself (position, velocity, origin) is already identical on
