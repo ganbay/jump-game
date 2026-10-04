@@ -37,6 +37,8 @@ Crash="*res://scripts/crash.gd"
 Race="*res://scripts/race.gd"
 LanRace="*res://scripts/lan_race.gd"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+PlayGames="*res://scripts/play_games.gd"
+GodotPlayGameServices="*uid://brb677dfpunhk"
 
 [display]
 
@@ -52,7 +54,7 @@ movie_writer/movie_file="/home/ganbay/Godot/jump/screen_recording.avi"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/admob/plugin.cfg", "res://addons/godot_ai/plugin.cfg", "res://addons/godotx_firebase/plugin.cfg", "res://addons/jetlet_notify/plugin.cfg")
+enabled=PackedStringArray("res://addons/GodotPlayGameServices/plugin.cfg", "res://addons/admob/plugin.cfg", "res://addons/godot_ai/plugin.cfg", "res://addons/godotx_firebase/plugin.cfg", "res://addons/jetlet_notify/plugin.cfg")
 
 [gui]
 

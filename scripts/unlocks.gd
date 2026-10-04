@@ -10,6 +10,9 @@ extends Node
 ## the moment; that may come back later). Every complex-tier skin instead gates
 ## on something the player did, read straight off Stats.
 
+## Emitted after every write to disk, so PlayGames can mirror it to the cloud.
+signal saved
+
 const SAVE_PATH := "user://unlocks.cfg"
 
 const SKIN_PREFIX := "skin:"
@@ -159,3 +162,30 @@ func _save() -> void:
 	cfg.set_value("unlocks", "ads_watched", ads_watched)
 	cfg.set_value("unlocks", "version", SAVE_VERSION)
 	cfg.save(SAVE_PATH)
+	saved.emit()
+
+## --- Cloud save (see play_games.gd) ----------------------------------------
+
+func cloud_state() -> Dictionary:
+	return {
+		"owned": _owned.keys(),
+		"ads_watched": ads_watched,
+		"version": SAVE_VERSION,
+	}
+
+## Folds a cloud copy into this device's: everything owned on either side is
+## owned, and ad progress is whichever got further. A copy written by an older
+## version goes through the same revocations _migrate() applies to a local
+## save, so a since-gated skin cannot come back in through the cloud.
+func merge_cloud(state: Dictionary) -> void:
+	var revoked: Dictionary = {}
+	for version in range(int(state.get("version", 0)) + 1, SAVE_VERSION + 1):
+		for id in REVOKED_AT_VERSION.get(version, []):
+			revoked[id] = true
+	var cloud_owned: Variant = state.get("owned")
+	if cloud_owned is Array:
+		for id in cloud_owned:
+			if id is String and not revoked.has(id):
+				_owned[id] = true
+	ads_watched = maxi(ads_watched, int(state.get("ads_watched", 0)))
+	_save()

@@ -29,6 +29,7 @@ const SOUND_OFF_ICON := preload("res://assets/icons/speaker_mute.svg")
 const BACKDROP_SHADER := preload("res://shaders/zone_backdrop.gdshader")
 const PLAY_ICON := preload("res://assets/icons/play.svg")
 const LOCK_ICON := preload("res://assets/icons/lock.svg")
+const TROPHY_ICON := preload("res://assets/icons/trophy.svg")
 ## A locked mode's name keeps its colour but fades back, so it reads as
 ## "there, but not yet" rather than as missing.
 const LOCKED_ALPHA := 0.4
@@ -116,6 +117,7 @@ func _ready() -> void:
 		mode_dots.add_child(dot)
 		_dots.append(dot)
 	_make_daily_label()
+	_make_leaderboard_button()
 	# Before _apply_visual_settings, which tints the title from _zone.
 	_roll_backdrop()
 	_apply_visual_settings()
@@ -153,6 +155,29 @@ func _make_daily_label() -> void:
 	_daily_label.text = "PLAY CASUAL MODE TO GET %d TICKETS!" % Race.DAILY_TICKETS
 	_daily_label.visible = Race.daily_available()
 	$UI.add_child(_daily_label)
+
+## Under the science button, and only on a build that can open Play's
+## leaderboards at all -- on desktop it would be an icon that does nothing.
+## A copy of the science button so it wears the same styling; made here, before
+## IconPop.attach and the accent walk in _ready, so it gets both.
+func _make_leaderboard_button() -> void:
+	if not PlayGames.is_available():
+		return
+	var science: Button = $UI/ScienceButton
+	var gap := science.offset_bottom - science.offset_top + 16.0
+	# Groups only: the copy must not inherit the science button's pressed handler.
+	var button: Button = science.duplicate(Node.DUPLICATE_GROUPS)
+	button.name = "LeaderboardButton"
+	button.icon = TROPHY_ICON
+	button.offset_top += gap
+	button.offset_bottom += gap
+	button.pressed.connect(_on_leaderboard_pressed)
+	$UI.add_child(button)
+	_icon_buttons.append(button)
+
+func _on_leaderboard_pressed() -> void:
+	Audio.play_ui_click()
+	PlayGames.show_leaderboards()
 
 ## --- Unlock popups ---------------------------------------------------------
 

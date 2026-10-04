@@ -1639,6 +1639,7 @@ func _finish_game_over() -> void:
 		high_score = score
 		_save_high_score()
 	Stats.record_run(score, run_max_streak, run_coins, run_time)
+	PlayGames.submit_run(score)
 	Analytics.log_event("run_end", {
 		"score": score,
 		"max_streak": run_max_streak,
@@ -1824,6 +1825,8 @@ func _finish_race(won: bool) -> void:
 	var best_before := Race.best_time()
 	var new_best := won and Race.record_win(run_time)
 	var refunded := won and Race.refund_race()
+	if won:
+		PlayGames.submit_race_speed(Race.target_index, run_speed())
 	game_over_title.text = "YOU WIN!" if won else "AI WINS"
 	if won:
 		game_over_title.add_theme_color_override("font_color", UiAccent.color())

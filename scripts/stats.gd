@@ -1,5 +1,8 @@
 extends Node
 
+## Emitted after every write to disk, so PlayGames can mirror it to the cloud.
+signal saved
+
 const SAVE_PATH := "user://stats.cfg"
 ## Kept chronological (not a leaderboard) so the stats screen can bucket it by
 ## day/week/month -- capped so the save file doesn't grow forever.
@@ -153,3 +156,43 @@ func _save() -> void:
 	cfg.set_value("stats", "tutorial_seen", tutorial_seen)
 	cfg.set_value("stats", "rated_game", rated_game)
 	cfg.save(SAVE_PATH)
+	saved.emit()
+
+## --- Cloud save (see play_games.gd) ----------------------------------------
+
+func cloud_state() -> Dictionary:
+	return {
+		"runs": runs,
+		"games_played": games_played,
+		"total_score": total_score,
+		"best_streak_ever": best_streak_ever,
+		"total_time": total_time,
+		"best_speed": best_speed,
+		"coins": coins,
+		"escaped": escaped,
+		"true_ending": true_ending,
+		"tutorial_seen": tutorial_seen,
+		"rated_game": rated_game,
+	}
+
+## Folds a cloud copy into this device's. The running totals cannot be added
+## together -- most of the time the cloud copy *is* this device's own earlier
+## save -- so they are taken whole from whichever side has played more, along
+## with the run history and balance that belong to them. Records and
+## milestones are simply never lost: the better of the two, and any flag
+## either side has set.
+func merge_cloud(state: Dictionary) -> void:
+	if int(state.get("games_played", 0)) > games_played:
+		var cloud_runs: Variant = state.get("runs")
+		runs = cloud_runs if cloud_runs is Array else []
+		games_played = int(state.get("games_played", 0))
+		total_score = int(state.get("total_score", 0))
+		total_time = float(state.get("total_time", 0.0))
+		coins = int(state.get("coins", 0))
+	best_streak_ever = maxi(best_streak_ever, int(state.get("best_streak_ever", 0)))
+	best_speed = maxf(best_speed, float(state.get("best_speed", 0.0)))
+	escaped = escaped or bool(state.get("escaped", false))
+	true_ending = true_ending or bool(state.get("true_ending", false))
+	tutorial_seen = tutorial_seen or bool(state.get("tutorial_seen", false))
+	rated_game = rated_game or bool(state.get("rated_game", false))
+	_save()
