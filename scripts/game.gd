@@ -348,8 +348,28 @@ const REVIVE_SAFE_DROP := 240.0
 
 ## --- Race mode (see race.gd) ---
 ## _race_hud is null outside a race, which is what every race branch below
-## keys off; _bot is set only in a race against the AI.
+## keys off; _bots is filled only in a race against the AI, and _bot is the
+## first of them (the only one, in a race of two).
 var _bot: RaceBot
+var _bots: Array[RaceBot] = []
+## How many of them are over the line: the player's place is one past it.
+var _bots_finished: int = 0
+## --- Race report (see race_history.gd) ---
+## What this phone's own racer did, kept as the race runs; the rivals keep
+## theirs (Rival.falls and the rest). Who is in front is sampled every
+## LEAD_SAMPLE_EVERY seconds, and a racer's share of the samples is the share
+## of the race it led.
+const LEAD_SAMPLE_EVERY := 0.5
+var _falls: int = 0
+var _best_streak: int = 0
+var _lead_wait: float = 0.0
+var _lead_samples: int = 0
+var _my_led: int = 0
+## The finished race's record, once there is one, and the button that opens it.
+var _report: Dictionary = {}
+var _details_button: Button
+## What the bots of a field are called. A lone bot is just "AI".
+const BOT_NAMES := ["NOVA", "VEGA", "ORION", "LYRA", "RIGEL", "ALTAIR", "SIRIUS"]
 var _race_hud: RaceHud
 ## Seconds left on the player's fall penalty, or 0 while racing.
 var _respawn_left: float = 0.0
@@ -439,7 +459,7 @@ func _ready() -> void:
 		_hud_nodes.append(_race_hud)
 	if _bot != null and Race.items_on:
 		_make_items()
-		_items.bot = _bot
+		_items.bots = _bots
 		_hud_nodes.append(_item_button)
 	if _lan:
 		_setup_lan()
@@ -580,11 +600,13 @@ func _on_intro_finished() -> void:
 		Analytics.log_event("lan_race_start", {
 			"players": LanRace.peers.size(), "target": Race.target()})
 	if _bot != null:
-		_bot.begin(spawner, player, _death_margin)
+		for bot in _bots:
+			bot.begin(spawner, player, _death_margin)
 		if _items != null:
 			_items.begin(_score_origin_y, Race.target(), spawner.course_left, spawner.course_width)
 		Analytics.log_event("race_start", {
-			"difficulty": Race.difficulty_name(), "target": Race.target()})
+			"difficulty": Race.difficulty_name(), "target": Race.target(),
+			"racers": _bots.size() + 1})
 	# Missions.begin_run()  # missions disabled; see missions.gd ENABLED
 	_drop_in_hud()
 	_show_control_hint()
@@ -1725,8 +1747,8 @@ func _on_replay_pressed() -> void:
 	Audio.play_ui_click()
 	is_game_over = true
 	player.set_physics_process(false)
-	if _bot != null:
-		_bot.stop()
+	for bot in _bots:
+		bot.stop()
 	get_tree().paused = false
 	_restart_run()
 
@@ -1745,6 +1767,10 @@ func _end_open_revive_offer() -> void:
 ## and a finish line at Race.target(). A fall is not the end: the player sits
 ## out Race.RESPAWN_PENALTY seconds, with the clock and the bot still running,
 ## and is dropped back in the way a revive does it. First to the target wins.
+##
+## With a field (Race.bot_count() > 1) the race runs on past the first bot
+## home: it ends when the player crosses, placed by how many bots got there
+## first, or once every bot has and there is no place left to race for.
 
 func _setup_race() -> void:
 	_race_hud = RaceHud.new()
@@ -1752,10 +1778,7 @@ func _setup_race() -> void:
 	if _lan:
 		_make_net_rivals()
 	else:
-		_bot = RaceBot.new()
-		_bot.color = _rival_color()
-		add_child(_bot)
-		_race_hud.rivals = [_bot]
+		_make_bots()
 	_race_hud.camera = camera
 	_race_hud.target = Race.target()
 	_race_hud.player_color = UiAccent.color()
@@ -1763,11 +1786,44 @@ func _setup_race() -> void:
 	# Under the panels, so pause and the finish screen cover it.
 	$UI.move_child(_race_hud, pause_button.get_index())
 
-## Opposite the character's colour on the wheel, so the two never blur
-## together -- unless the character is near-white, which has no opposite.
-func _rival_color() -> Color:
+## One bot, as ever, or a field of them: each with its own name, colour and
+## silhouette, and its own way of climbing (RaceBot.set_persona). Which name
+## turns out quick is dealt afresh every race.
+func _make_bots() -> void:
+	var count := Race.bot_count()
+	var names := BOT_NAMES.duplicate()
+	names.shuffle()
+	var pace_ranks := range(count)
+	pace_ranks.shuffle()
+	# Any silhouette but the player's own.
+	var mine: PlasmaBlob.Shape = Player.SKIN_SHAPES.get(
+		Settings.active_player_skin(), PlasmaBlob.Shape.CIRCLE)
+	var shapes := range(PlasmaBlob.Shape.size()).filter(func(s: int): return s != mine)
+	shapes.shuffle()
+	var rivals: Array[Rival] = []
+	for i in range(count):
+		var bot := RaceBot.new()
+		bot.bot_id = RaceItems.BOT_ID - i
+		bot.color = _rival_color(i, count)
+		if count > 1:
+			bot.label = names[i % names.size()]
+			bot.shape = shapes[i % shapes.size()]
+			bot.set_persona(i, count, pace_ranks[i])
+			bot.field = _bots
+		add_child(bot)
+		_bots.append(bot)
+		rivals.append(bot)
+	_bot = _bots[0]
+	_race_hud.rivals = rivals
+
+## Rival `index` of `count`, spaced evenly round the colour wheel from the
+## character's own colour -- so a lone rival is its opposite, and the two
+## never blur together. A near-white character has no hue to space from, and
+## the wheel is laid out so a lone rival lands on the fallback instead.
+func _rival_color(index: int = 0, count: int = 1) -> Color:
 	var c := Settings.player_color
-	var hue := fposmod(c.h + 0.5, 1.0) if c.s >= RIVAL_MIN_SATURATION else RIVAL_FALLBACK_HUE
+	var from := c.h if c.s >= RIVAL_MIN_SATURATION else RIVAL_FALLBACK_HUE - 0.5
+	var hue := fposmod(from + float(index + 1) / float(count + 1), 1.0)
 	return Color.from_hsv(hue, RIVAL_SATURATION, RIVAL_VALUE)
 
 func _update_race(delta: float) -> void:
@@ -1781,9 +1837,13 @@ func _update_race(delta: float) -> void:
 	if _items != null:
 		_items.player_score = score
 	_race_hud.player_respawn_left = _respawn_left
+	_best_streak = maxi(_best_streak, player.streak)
+	_sample_lead(delta)
 	if _lan:
 		_race_hud.closing_left = LanRace.closing_left()
-		var flags := LanRace.FLAG_RESPAWNING if _respawn_left > 0.0 else 0
+		var flags := _streak_bits()
+		if _respawn_left > 0.0:
+			flags |= LanRace.FLAG_RESPAWNING
 		if _items != null:
 			flags |= _items.status_flags()
 		LanRace.send_state(player.feet.global_position - _course_offset(), score, flags, delta)
@@ -1792,15 +1852,96 @@ func _update_race(delta: float) -> void:
 			_finish_lan(true)
 		else:
 			_finish_race(true)
-	elif _bot != null and _bot.score >= Race.target():
+	elif _bot != null:
+		_check_bot_finishes()
+
+## Who is in front right now, a tie going to this phone. Nobody is until
+## somebody has scored: off the launch they are all level on nothing.
+func _sample_lead(delta: float) -> void:
+	_lead_wait -= delta
+	if _lead_wait > 0.0:
+		return
+	_lead_wait = LEAD_SAMPLE_EVERY
+	var front: Rival = null
+	var best := score
+	for rival in _race_hud.rivals:
+		if is_instance_valid(rival) and rival.score > best:
+			best = rival.score
+			front = rival
+	if best <= 0:
+		return
+	_lead_samples += 1
+	if front == null:
+		_my_led += 1
+	else:
+		front.led_samples += 1
+
+## This phone's longest streak, in the spare bits of the LAN state flags.
+func _streak_bits() -> int:
+	return mini(_best_streak, LanRace.STREAK_MAX) << LanRace.STREAK_SHIFT
+
+## One racer's line of the report. `id` is what the item feed knows them by.
+func _report_line(racer_name: String, color: Color, me: bool, time: float, racer_score: int,
+		falls: int, streak: int, led: int, id: int) -> Dictionary:
+	return RaceHistory.racer(racer_name, color, me, time, racer_score, falls, streak,
+		float(led) / float(maxi(_lead_samples, 1)),
+		_items.tally_of(id) if _items != null else [0, 0, 0])
+
+## Files the race under `mode` and puts the button for it on the finish screen.
+func _save_report(mode: String, racers: Array) -> void:
+	RaceHistory.sort_racers(racers)
+	_report = {
+		"when": int(Time.get_unix_time_from_system()), "mode": mode,
+		"target": Race.target(), "items": _items != null, "racers": racers,
+	}
+	if mode == RaceHistory.MODE_AI:
+		_report["difficulty"] = Race.difficulty_name()
+	RaceHistory.add(_report)
+	if _details_button == null:
+		_details_button = Button.new()
+		_details_button.text = "RACE DETAILS"
+		_details_button.flat = true
+		_details_button.focus_mode = Control.FOCUS_NONE
+		_details_button.add_theme_font_size_override("font_size", 24)
+		_details_button.add_theme_color_override("font_color", UiAccent.color())
+		# Under Restart and Menu, the one stretch of the panel nothing else uses.
+		_details_button.anchor_left = 0.5
+		_details_button.anchor_right = 0.5
+		_details_button.anchor_top = 0.855
+		_details_button.anchor_bottom = 0.855
+		_details_button.offset_left = -170.0
+		_details_button.offset_right = 170.0
+		_details_button.offset_top = -30.0
+		_details_button.offset_bottom = 30.0
+		_details_button.pressed.connect(_on_details_pressed)
+		game_over_panel.add_child(_details_button)
+	_details_button.show()
+
+func _on_details_pressed() -> void:
+	Audio.play_ui_click()
+	RaceReport.open(game_over_panel, _report)
+
+func _check_bot_finishes() -> void:
+	for bot in _bots:
+		if bot.finished or bot.score < Race.target():
+			continue
+		_bots_finished += 1
+		bot.finish_time = run_time
+		if _bots.size() > 1:
+			bot.finish()
+			_race_hud.announce("%s FINISHED %s" % [bot.label, _ordinal(_bots_finished)], bot.color)
+	if _bots_finished >= _bots.size():
 		_finish_race(false)
 
 func _begin_player_respawn() -> void:
+	_falls += 1
 	_respawn_left = Race.RESPAWN_PENALTY
 	player.set_physics_process(false)
 	player.visible = false
 	player.velocity = Vector2.ZERO
 	player.streak = 0
+	# The penalty is the price of the fall; a stun does not outlast it.
+	player.stun_left = 0.0
 	# Already paid for by the fall -- the first landing back must not also
 	# flash FAILED for it.
 	_last_streak = 0
@@ -1819,9 +1960,22 @@ func _respawn_player() -> void:
 ## Reuses the game-over panel: the same dim, pop-in and Restart/Menu buttons.
 ## Nothing is recorded into Stats or the high score -- those describe classic
 ## runs, and a race's score is capped at the target by design.
-func _finish_race(won: bool) -> void:
+##
+## `crossed` is whether the player reached the finish. Winning is crossing it
+## before every bot.
+func _finish_race(crossed: bool) -> void:
 	is_game_over = true
-	_bot.stop()
+	for bot in _bots:
+		bot.stop()
+	var place := _bots_finished + 1
+	var won := crossed and place == 1
+	var field := _bots.size() > 1
+	var lines: Array = [_report_line("YOU", UiAccent.color(), true,
+		run_time if crossed else -1.0, score, _falls, _best_streak, _my_led, LanRace.my_id())]
+	for bot in _bots:
+		lines.append(_report_line(bot.label, bot.color, false, bot.finish_time, bot.score,
+			bot.falls, bot.best_streak, bot.led_samples, bot.bot_id))
+	_save_report(RaceHistory.MODE_AI, lines)
 	# A race with item boxes sets no record of any kind (see Race.items_on).
 	var counts := _items == null
 	if _items != null:
@@ -1838,7 +1992,10 @@ func _finish_race(won: bool) -> void:
 	if won and counts:
 		Stats.record_race_speed(Race.TARGETS[Race.target_index], run_speed())
 		PlayGames.submit_race_speed(Race.target_index, run_speed())
-	game_over_title.text = "YOU WIN!" if won else "AI WINS"
+	if won:
+		game_over_title.text = "YOU WIN!"
+	else:
+		game_over_title.text = "%s PLACE" % _ordinal(place) if field else "AI WINS"
 	if won:
 		game_over_title.add_theme_color_override("font_color", UiAccent.color())
 		if counts:
@@ -1846,6 +2003,9 @@ func _finish_race(won: bool) -> void:
 				"NEW BEST" if new_best else "BEST " + Stats.format_duration(best_before)]
 		else:
 			result_label.text = "TIME %s   ITEM BOXES ON" % Stats.format_duration(run_time)
+	elif crossed:
+		result_label.text = "TIME %s   %d RACERS" % [Stats.format_duration(run_time),
+			_bots.size() + 1]
 	else:
 		result_label.text = "YOU %d / %d" % [score, Race.target()]
 	result_label.show()
@@ -1855,13 +2015,16 @@ func _finish_race(won: bool) -> void:
 	Analytics.log_event("race_end", {
 		"difficulty": Race.difficulty_name(),
 		"target": Race.target(),
+		"racers": _bots.size() + 1,
+		"place": place,
 		"won": won,
 		"duration_s": int(run_time),
 	})
 	watch_ad_button.hide()
 	_show_race_tickets(won, refunded)
 	# The revive prompt's slot is free in a race, so the unlock takes it.
-	if won and counts and Race.unlock_grandmaster():
+	# Any win over MASTER opens it, item boxes or not -- unlike the records.
+	if won and Race.unlock_grandmaster():
 		revive_body_label.text = "GRANDMASTER UNLOCKED"
 		revive_body_label.add_theme_font_size_override("font_size", GRANDMASTER_FONT_SIZE)
 		revive_body_label.add_theme_color_override("font_color", UiAccent.color())
@@ -2041,6 +2204,8 @@ func _update_lan_screens() -> void:
 			if text != "":
 				Audio.play_ui_click()
 	elif _lan_stage == LanStage.WAITING:
+		# Still a race for the others, and the report covers all of it.
+		_sample_lead(get_process_delta_time())
 		var closing := LanRace.closing_left()
 		var text := ("WAITING FOR THE OTHERS" if closing < 0.0
 			else "RACE CLOSES IN %d" % ceili(closing))
@@ -2086,7 +2251,7 @@ func _finish_lan(finished: bool) -> void:
 		# At once rather than on the next tick, so the ghost on the other
 		# phones crosses the line too.
 		LanRace.send_state(player.feet.global_position - _course_offset(), score,
-			LanRace.FLAG_FINISHED, 0.0, true)
+			LanRace.FLAG_FINISHED | _streak_bits(), 0.0, true)
 		LanRace.report_finish(time)
 		game_over_title.text = "FINISHED!"
 		game_over_title.add_theme_color_override("font_color", UiAccent.color())
@@ -2115,6 +2280,7 @@ func _on_lan_results() -> void:
 	var lines := PackedStringArray()
 	var placing := -1
 	var my_time := LanRace.DNF
+	var report_lines: Array = []
 	for i in range(LanRace.results.size()):
 		var entry: Dictionary = LanRace.results[i]
 		var time: float = entry["time"]
@@ -2122,6 +2288,16 @@ func _on_lan_results() -> void:
 		if mine:
 			placing = i
 			my_time = time
+			report_lines.append(_report_line(entry["name"], UiAccent.color(), true, time,
+				score, _falls, _best_streak, _my_led, me))
+		else:
+			# A racer who left mid-race took their ghost, and what it knew.
+			var rival: NetRival = _net_rivals.get(entry["id"])
+			var known := rival != null and is_instance_valid(rival)
+			report_lines.append(_report_line(entry["name"], entry.get("color", Color.WHITE),
+				false, time, rival.score if known else 0, rival.falls if known else 0,
+				rival.best_streak if known else 0, rival.led_samples if known else 0,
+				entry["id"]))
 		lines.append("%s  %s%s   %s" % [
 			_ordinal(i + 1) if time >= 0.0 else "DNF", entry["name"],
 			" (YOU)" if mine else "", _race_time(time) if time >= 0.0 else "-"])
@@ -2137,6 +2313,8 @@ func _on_lan_results() -> void:
 	_lan_standings.add_theme_constant_override("line_spacing", 4 if crowded else 8)
 	_lan_standings.text = "\n".join(lines)
 	_lan_standings.show()
+	if _report.is_empty():
+		_save_report(RaceHistory.MODE_LAN, report_lines)
 	pace_label.hide()
 	restart_button.show()
 	Analytics.log_event("lan_race_end", {

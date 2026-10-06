@@ -34,8 +34,14 @@ const GRANDMASTER_SHORT_PACE := 115.0
 ## lose streaks more and their pace comes in bursts, like a person's.
 const FUMBLE_RATES := [0.12, 0.08, 0.05, 0.03, 0.02]
 const TARGETS := [10000, 20000, 30000]
+## How many racers a bot race lines up, the player included. Past two, the
+## bots are a field rather than one opponent: the quickest of them runs the
+## picked AI's pace and the rest string out behind it (see
+## RaceBot.set_persona), so beating the field is beating that AI -- which is
+## why best times and the GRANDMASTER unlock are shared across field sizes.
+const FIELD_SIZES := [2, 4, 8]
 ## Seconds a fall costs, for either racer, before they are dropped back in.
-const RESPAWN_PENALTY := 2.0
+const RESPAWN_PENALTY := 2.5
 
 ## Race mode -- and with it NOVICE -- opens after this many finished casual
 ## runs. Counted off Stats.games_played, which only casual runs add to --
@@ -85,10 +91,12 @@ var active: bool = false
 var menu_mode: int = 0
 var difficulty: Difficulty = Difficulty.NOVICE
 var target_index: int = 0
+var field_index: int = 0
 ## Item boxes in bot races (see race_items.gd), picked on the race screen.
 ## Off by default: a race with items on sets no record -- no best time, no
-## speed for Stats or the Play leaderboards, no GRANDMASTER unlock -- since a
-## Rocket run is not comparable with a clean one.
+## speed for Stats or the Play leaderboards -- since a Rocket run is not
+## comparable with a clean one. It still counts as a win: beating MASTER with
+## items on unlocks GRANDMASTER all the same.
 var items_on: bool = false
 var grandmaster_unlocked: bool = false
 ## Best casual score, kept here so the AI unlocks can be read without
@@ -126,6 +134,7 @@ func _ready() -> void:
 		difficulty = clampi(cfg.get_value("race", "difficulty", Difficulty.NOVICE),
 			0, Difficulty.size() - 1) as Difficulty
 		target_index = clampi(cfg.get_value("race", "target_index", 0), 0, TARGETS.size() - 1)
+		field_index = clampi(cfg.get_value("race", "field_index", 0), 0, FIELD_SIZES.size() - 1)
 		items_on = cfg.get_value("race", "items_on", false)
 		# "on_race" is the picker's save from when it only had two modes.
 		menu_mode = cfg.get_value("menu", "mode",
@@ -242,6 +251,15 @@ func choose(new_difficulty: Difficulty, new_target_index: int) -> void:
 	var cfg := _load()
 	cfg.set_value("race", "difficulty", difficulty)
 	cfg.set_value("race", "target_index", target_index)
+	cfg.save(SAVE_PATH)
+
+func bot_count() -> int:
+	return FIELD_SIZES[field_index] - 1
+
+func set_field(index: int) -> void:
+	field_index = index
+	var cfg := _load()
+	cfg.set_value("race", "field_index", index)
 	cfg.save(SAVE_PATH)
 
 func set_items_on(on: bool) -> void:

@@ -21,7 +21,6 @@ var peer_id: int = 0
 ## The latest state flags (LanRace.FLAG_*): over the line, and any race item
 ## running on them, drawn on the ghost (see _draw).
 var flags: int = 0
-var finished: bool = false
 
 ## [t, pos, score, flags], oldest first, t on LanRace.race_clock().
 var _samples: Array = []
@@ -80,7 +79,12 @@ func push_state(t: float, pos: Vector2, new_score: int, new_flags: int) -> void:
 	# not trail a tenth of a second behind what is known.
 	score = new_score
 	var respawning := new_flags & LanRace.FLAG_RESPAWNING != 0
+	# A fall is the flag going up: it stays up for the whole penalty, far
+	# longer than the gap between two samples.
+	if respawning and not is_respawning():
+		falls += 1
 	respawn_left = 1.0 if respawning else 0.0
+	best_streak = maxi(best_streak, (new_flags >> LanRace.STREAK_SHIFT) & LanRace.STREAK_MAX)
 	finished = finished or new_flags & LanRace.FLAG_FINISHED != 0
 	if new_flags != flags:
 		flags = new_flags

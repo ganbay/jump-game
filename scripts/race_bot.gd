@@ -33,6 +33,13 @@ class_name RaceBot
 ## whatever the item gained or cost is still there when the effect ends. The
 ## bot then holds its pace from that new footing.
 ##
+## A FIELD. In a race of more than two (Race.FIELD_SIZES) every bot is handed
+## a persona before it starts -- see set_persona(). Left alone, bots launched
+## from one point by one rule pick the same platforms and climb as a stack;
+## the persona gives each its own pace, its own side of the course, its own
+## taste in platforms and its own nerve, so they spread out and trade places.
+## A lone bot has none, and climbs exactly as it always did.
+##
 ## Steering and target picking are the trailer autopilot's (see
 ## trailer/trailer_autopilot.gd for the reasoning behind each piece), driving a
 ## steering axis here instead of the global input actions.
@@ -71,6 +78,50 @@ const REVIVE_LAUNCH_VELOCITY := -1500.0
 const REVIVE_SPAWN_LIFT := 40.0
 const REVIVE_SAFE_DROP := 240.0
 
+## --- Personas (set_persona) ---
+## The quickest bot of a field runs the picked AI's pace and the slowest this
+## much under it, the rest evenly between.
+const FIELD_PACE_SPREAD := 0.16
+## Sideways gap between neighbours off the launch, fanned out either side of
+## the player, and the furthest out any of them starts.
+const START_GAP := 80.0
+const START_MAX_SHIFT := 320.0
+## What a platform's sideways distance costs when picking one, in pixels of
+## height given up per pixel: from the bot itself (NEAR -- a bot that would
+## rather hop than reach) and from its home lane (LANE). Each bot rolls its
+## own between these.
+const NEAR_BIAS_MIN := 0.0
+const NEAR_BIAS_MAX := 0.45
+const LANE_BIAS_MIN := 0.15
+const LANE_BIAS_MAX := 0.5
+## The home lane wanders this far either side of its centre, as a fraction of
+## the course width, so a bot is not pinned to one column all race.
+const LANE_WANDER := 0.16
+## What a platform costs for each other bot of the field already headed for
+## it, in pixels of height; each bot rolls its own between these. The course
+## is one platform to a row, so "the highest in reach" is the same platform
+## for everybody on the same arc -- most of all off the launch, where only a
+## few rows are in reach at all. This is what sends them to different ones.
+const CROWD_COST_MIN := 110.0
+const CROWD_COST_MAX := 260.0
+## The furthest off a platform's centre a bot aims, as a fraction of its half
+## width -- inside the edge, so a slightly late arrival still lands.
+const AIM_LIMIT := 0.7
+## A bot gliding rather than darting still moves this much faster than it
+## strictly needs to arrive, to cover the time it takes to get up to speed.
+const DRIVE_MARGIN := 1.3
+## A bot falling behind its pace lets go of its tastes: all there up to
+## TASTE_SLACK seconds behind, gone by TASTE_GIVE_UP, when it takes the
+## highest platform it can reach as a lone bot always does -- so a persona can
+## colour how it climbs without costing it the pace.
+const TASTE_SLACK := 0.5
+const TASTE_GIVE_UP := 2.0
+## Every bot starts seconds behind: the clock runs from the hand-off, and
+## score only from the top of the launch. That opening deficit is not a
+## reason to climb plainly -- it is where the field most needs to split up --
+## so tastes stay whole until the bot is first back on its pace, or this long.
+const OPENING_GRACE := 20.0
+
 ## How long after getting an item the bot uses it, picked between these. An
 ## attack waits past it for the player to be ahead.
 const ITEM_USE_MIN := 0.8
@@ -80,10 +131,15 @@ const ITEM_USE_MAX := 3.5
 signal attack_requested(kind: int)
 
 var streak: int = 0
-## The item in its slot (a RaceItems.Item), and the player's score for
-## deciding when an attack can be thrown. Both kept by RaceItems.
+## Its id in the item feed and warnings (see RaceItems.BOT_ID): -1 down.
+var bot_id: int = -1
+## The ghost's silhouette, or -1 to pick the one least like the player's.
+var shape: int = -1
+## The item in its slot (a RaceItems.Item), and the best score among the
+## racers it could throw at, for deciding when an attack can be thrown. Both
+## kept by RaceItems.
 var held: int = RaceItems.Item.NONE
-var player_score: int = 0
+var ahead_score: int = 0
 var shield_left: float = 0.0
 var stun_left: float = 0.0
 var reverse_left: float = 0.0
@@ -96,6 +152,42 @@ var _expected: float = 0.0
 var _pace: float = 70.0
 var _fumble: float = 0.08
 var _mood_phase: Vector2 = Vector2.ZERO
+# The persona. These defaults are a lone bot's, and the numbers it has always
+# climbed by.
+var _pace_mult: float = 1.0
+var _fumble_mult: float = 1.0
+var _lead_response: float = LEAD_RESPONSE
+var _reach_safety: float = REACH_SAFETY
+var _wind_deficit: float = WIND_DEFICIT
+var _mood_slow: float = MOOD_SLOW
+var _mood_fast: float = MOOD_FAST
+var _mood_rate: Vector2 = Vector2(0.13, 0.41)
+var _near_bias: float = 0.0
+var _lane_bias: float = 0.0
+var _lane_home: float = 0.5
+var _lane_rate: float = 0.0
+var _lane_phase: float = 0.0
+var _start_shift: float = 0.0
+var _crowd_cost: float = 0.0
+## Where on a platform it lands: how far toward the side it arrives from,
+## and how much it scatters, both as fractions of the half width.
+var _edge_lean: float = 0.0
+var _aim_spread: float = 0.0
+## How it gets there: the longest it takes to start steering after a landing,
+## and how much of its speed it uses when there is time to spare.
+var _reaction: float = 0.0
+var _drive: float = 1.0
+## The rest of the field, itself included, for telling where they are headed.
+var field: Array[RaceBot] = []
+# Rolled afresh for each hop (see _roll_hop and _roll_aim).
+var _hop_wait: float = 0.0
+var _hop_drive: float = 1.0
+var _aim_for: int = -1
+var _aim_offset: float = 0.0
+## How much of its tastes it is acting on right now, 0 to 1 (TASTE_GIVE_UP).
+var _taste: float = 0.0
+## Whether the opening deficit has been made up yet (see OPENING_GRACE).
+var _settled: bool = false
 var _lazy: bool = false
 var _use_in: float = 0.0
 var _rocket_left: float = 0.0
@@ -137,14 +229,51 @@ func _ready() -> void:
 	super()
 	set_physics_process(false)
 
+## Makes this bot one of a field: number `index` of `count`, and the
+## `pace_rank`-th quickest of them (0 is the one running the AI's own pace).
+## Called before begin(). Everything here is rolled per race, so the same name
+## is not the same racer twice.
+func set_persona(index: int, count: int, pace_rank: int) -> void:
+	_pace_mult = 1.0 - FIELD_PACE_SPREAD * float(pace_rank) / float(maxi(count - 1, 1))
+	# Nerve: how sloppy its timing is, how hard it chases a deficit, how far
+	# it will reach for a platform, how long it sits on a Solar Wind.
+	_fumble_mult = randf_range(0.7, 1.6)
+	_lead_response = randf_range(0.2, 0.45)
+	_reach_safety = randf_range(0.66, 0.82)
+	_wind_deficit = randf_range(0.3, 1.6)
+	# Rhythm: how big its surges are and how fast they come round.
+	_mood_slow = MOOD_SLOW * randf_range(0.6, 1.8)
+	_mood_fast = MOOD_FAST * randf_range(0.6, 1.8)
+	_mood_rate = Vector2(randf_range(0.09, 0.19), randf_range(0.3, 0.55))
+	# Route: its own lane across the course, and how much it cares.
+	_near_bias = randf_range(NEAR_BIAS_MIN, NEAR_BIAS_MAX)
+	_lane_bias = randf_range(LANE_BIAS_MIN, LANE_BIAS_MAX)
+	_lane_home = (float(index) + 0.5) / float(count)
+	_lane_rate = randf_range(0.05, 0.12)
+	_lane_phase = randf() * TAU
+	_crowd_cost = randf_range(CROWD_COST_MIN, CROWD_COST_MAX)
+	# Touch: where on a platform it puts down, and how it moves across to it
+	# -- a quick dart and a wait, or a slow glide that arrives just in time.
+	_edge_lean = randf_range(0.0, 0.5)
+	_aim_spread = randf_range(0.15, 0.5)
+	_reaction = randf_range(0.04, 0.22)
+	_drive = randf_range(0.55, 1.0)
+	_hop_drive = _drive
+	# They do not all move off the launch on the same frame, either.
+	_hop_wait = randf_range(0.0, 0.35)
+	# Off the line: -1, +1, -2, +2 ... gaps either side of the player.
+	var step := floorf(float(index) / 2.0) + 1.0
+	var gap := minf(START_GAP, START_MAX_SHIFT / ceilf(float(count) / 2.0))
+	_start_shift = step * gap * (-1.0 if index % 2 == 0 else 1.0)
+
 ## Starts the bot on the player's own launch, from the same point at the same
 ## speed, so the two leave the intro side by side.
 func begin(spawner: Node2D, player: Player, death_margin: float) -> void:
 	_spawner = spawner
 	_death_margin = death_margin
 	_width = get_viewport_rect().size.x
-	_pace = Race.pace()
-	_fumble = Race.fumble_rate()
+	_pace = Race.pace() * _pace_mult
+	_fumble = Race.fumble_rate() * _fumble_mult
 	_mood_phase = Vector2(randf() * TAU, randf() * TAU)
 	_gravity = player.gravity
 	_jump_velocity = player.jump_velocity
@@ -162,6 +291,7 @@ func begin(spawner: Node2D, player: Player, death_margin: float) -> void:
 	_wind_launch_mult = player.solar_wind_launch_mult
 	_feet_offset = player.feet.position.y
 	global_position = player.feet.global_position
+	global_position.x = wrapf(global_position.x + _start_shift, 0.0, _width)
 	velocity = player.velocity
 	_best_y = global_position.y
 	show_ghost(_rival_shape())
@@ -172,11 +302,20 @@ func stop() -> void:
 	_active = false
 	set_physics_process(false)
 
+## Over the line: out of the race, and off the course.
+func finish() -> void:
+	finished = true
+	respawn_left = 0.0
+	visible = false
+	stop()
+
 ## A silhouette unlike the player's, even at 18px with the plasma churning
 ## its edge: a five-point star is spiky where every other skin is round or
 ## flat-sided, and the square answers the two star skins. (Diamond used to be
 ## the pick, and churned into something close to the default round cell.)
 func _rival_shape() -> PlasmaBlob.Shape:
+	if shape >= 0:
+		return shape as PlasmaBlob.Shape
 	var mine: PlasmaBlob.Shape = Player.SKIN_SHAPES.get(
 		Settings.active_player_skin(), PlasmaBlob.Shape.CIRCLE)
 	if mine == PlasmaBlob.Shape.STAR or mine == PlasmaBlob.Shape.SPARKLE:
@@ -195,6 +334,7 @@ func _physics_process(delta: float) -> void:
 			_respawn()
 		return
 	_update_wind(delta)
+	_hop_wait = maxf(_hop_wait - delta, 0.0)
 	_spawner.ensure_course(_apex_y() - COURSE_LOOKAHEAD)
 	_advance_low()
 	var axis := _steer_axis()
@@ -246,6 +386,10 @@ func take_attack(kind: int) -> bool:
 			stun_left = RaceItems.COMET_STUN
 		RaceItems.Item.REVERSE:
 			reverse_left = RaceItems.REVERSE_TIME
+		RaceItems.Item.SHOCKWAVE:
+			velocity.y = maxf(velocity.y, 0.0)
+			_rocket_left = 0.0
+			stun_left = maxf(stun_left, RaceItems.SHOCK_STUN)
 	return false
 
 func _update_items(delta: float) -> void:
@@ -277,10 +421,13 @@ func _use_item() -> void:
 		RaceItems.Item.SPRING:
 			_auto_boosts += RaceItems.SPRING_LANDINGS
 		RaceItems.Item.SHIELD:
+			# As for the player: also clears what has already landed.
 			shield_left = RaceItems.SHIELD_TIME
-		RaceItems.Item.COMET, RaceItems.Item.REVERSE:
-			# Attacks only go forward: kept until the player is ahead.
-			if player_score <= score:
+			stun_left = 0.0
+			reverse_left = 0.0
+		RaceItems.Item.COMET, RaceItems.Item.REVERSE, RaceItems.Item.SHOCKWAVE:
+			# Attacks only go forward: kept until somebody is ahead.
+			if ahead_score <= score:
 				return
 			attack_requested.emit(held)
 	held = RaceItems.Item.NONE
@@ -293,8 +440,8 @@ func _draw() -> void:
 
 ## Slow drift around 1.0, averaging out to it over a race.
 func _mood() -> float:
-	return 1.0 + MOOD_SLOW * sin(_elapsed * 0.13 + _mood_phase.x) \
-		+ MOOD_FAST * sin(_elapsed * 0.41 + _mood_phase.y)
+	return 1.0 + _mood_slow * sin(_elapsed * _mood_rate.x + _mood_phase.x) \
+		+ _mood_fast * sin(_elapsed * _mood_rate.y + _mood_phase.y)
 
 ## Seconds ahead of the pace (negative when behind).
 func _lead_seconds() -> float:
@@ -321,7 +468,11 @@ func _advance_low() -> void:
 # --- Steering -------------------------------------------------------------
 
 func _steer_axis() -> float:
-	_lazy = _lead_seconds() > LAZY_LEAD
+	var lead := _lead_seconds()
+	_lazy = lead > LAZY_LEAD
+	_settled = _settled or lead >= 0.0 or _elapsed > OPENING_GRACE
+	_taste = 1.0 if not _settled else clampf(
+		(lead + TASTE_GIVE_UP) / (TASTE_GIVE_UP - TASTE_SLACK), 0.0, 1.0)
 	var picked := _pick_target()
 	if picked >= 0:
 		_target = picked
@@ -329,6 +480,13 @@ func _steer_axis() -> float:
 		return 0.0
 	var eta := _time_to_reach(_spawner.course[_target].y)
 	var goal: Vector2 = _spawner.slot_position(_spawner.course[_target], _spawner.course_time + eta)
+	# One of a field puts down where it means to, not dead centre, and takes
+	# a moment after each landing before it starts across.
+	if _target != _aim_for:
+		_roll_aim(goal.x)
+	goal.x += _aim_offset
+	if _hop_wait > 0.0:
+		return 0.0
 	# Steered on where the bot would coast to if it let go now, not on where
 	# it is -- see trailer_autopilot.gd:_steer.
 	var dx := _wrapped_dx(global_position.x, goal.x)
@@ -337,7 +495,33 @@ func _steer_axis() -> float:
 	var error := dx - coast
 	if absf(error) <= STOP_EPS:
 		return 0.0
-	return 1.0 if error > 0.0 else -1.0
+	# Flat out, unless this hop is a glide: then no faster than its drive, or
+	# than arriving on time takes, whichever is more.
+	var throttle := 1.0
+	if _hop_drive < 1.0:
+		var needed := absf(error) / maxf(eta, 0.05) / _move_speed * DRIVE_MARGIN
+		throttle = clampf(maxf(_hop_drive, needed), 0.0, 1.0)
+	return throttle if error > 0.0 else -throttle
+
+## Picks the spot on the platform just targeted: leaning to the side the bot
+## comes from, as a player who stops steering early lands, plus its scatter.
+func _roll_aim(goal_x: float) -> void:
+	_aim_for = _target
+	_aim_offset = 0.0
+	if _aim_spread <= 0.0:
+		return
+	var half: float = _spawner.course[_target].width / 2.0
+	var side := signf(_wrapped_dx(goal_x, global_position.x))
+	_aim_offset = half * clampf(side * _edge_lean + randf_range(-1.0, 1.0) * _aim_spread,
+		-AIM_LIMIT, AIM_LIMIT)
+
+## How the next hop is moved: rolled around the bot's own habits at each
+## landing, and dropped with the rest of its tastes while it is behind.
+func _roll_hop() -> void:
+	if _reaction <= 0.0:
+		return
+	_hop_wait = randf_range(0.0, _reaction) * _taste
+	_hop_drive = lerpf(1.0, clampf(_drive + randf_range(-0.15, 0.15), 0.45, 1.0), _taste)
 
 ## Seconds until the feet, on the current arc, fall back to `py`.
 func _time_to_reach(py: float) -> float:
@@ -356,6 +540,10 @@ func _descent_time(distance: float, vy: float, g_fall: float) -> float:
 ## time -- or, while comfortably ahead, the nearest one, which is how a player
 ## who is not pushing climbs. Falls back to the least-unreachable one so a
 ## hopeless frame still steers somewhere useful.
+##
+## One of a field ranks "highest" by its own tastes: every pixel a platform
+## is off to the side, or off its lane, counts as some height given up (see
+## NEAR_BIAS_MIN). Two bots on the same arc then want different platforms.
 func _pick_target() -> int:
 	var course: Array = _spawner.course
 	var now: float = _spawner.course_time
@@ -363,6 +551,17 @@ func _pick_target() -> int:
 	var ceiling := _apex_y()
 	var best := -1
 	var best_score := INF
+	var near_cost := _near_bias * _taste
+	var lane_cost := _lane_bias * _taste
+	var lane_x := _lane_x()
+	# How many of the others are headed for each platform.
+	var crowd := {}
+	var crowd_cost := _crowd_cost * _taste
+	if crowd_cost > 0.0:
+		for other in field:
+			if other != self and other._target >= 0 and not other.finished \
+					and not other.is_respawning():
+				crowd[other._target] = crowd.get(other._target, 0) + 1
 	var nearest := -1
 	var nearest_cost := INF
 	for i in range(_low, course.size()):
@@ -379,9 +578,15 @@ func _pick_target() -> int:
 		var time_left := _time_to_reach(py)
 		var px: float = _spawner.slot_position(slot, now + time_left).x
 		var dx := absf(_wrapped_dx(global_position.x, px))
-		var reach := _move_speed * time_left * REACH_SAFETY
+		var reach := _move_speed * time_left * _reach_safety
 		if dx <= reach:
-			var rank := dx if _lazy else py
+			var rank := dx
+			if not _lazy:
+				rank = py + dx * near_cost
+				if lane_cost > 0.0:
+					rank += absf(_wrapped_dx(lane_x, px)) * lane_cost
+			if not crowd.is_empty():
+				rank += float(crowd.get(i, 0)) * crowd_cost
 			if rank < best_score:
 				best_score = rank
 				best = i
@@ -389,6 +594,11 @@ func _pick_target() -> int:
 			nearest_cost = dx - reach
 			nearest = i
 	return best if best >= 0 else nearest
+
+## Where its lane is right now: the home column, wandering slowly.
+func _lane_x() -> float:
+	var at := _lane_home + LANE_WANDER * sin(_elapsed * _lane_rate + _lane_phase)
+	return fposmod(at, 1.0) * _width
 
 func _wrapped_dx(from_x: float, to_x: float) -> float:
 	var d := to_x - from_x
@@ -437,6 +647,7 @@ func _land(index: int, pos: Vector2) -> void:
 	var boosted := is_timed and not _claimed.has(index)
 	if boosted:
 		streak += 1
+		best_streak = maxi(best_streak, streak)
 		_claimed[index] = true
 	elif attempt and not is_timed:
 		streak = 0
@@ -451,14 +662,15 @@ func _land(index: int, pos: Vector2) -> void:
 		_enter_wind()
 	_last_slot = index
 	_target = -1
+	_roll_hop()
 	squash(1.3 if boosted else 1.0)
 
 ## Even odds when on pace, climbing toward certain the further behind it is.
 func _flare_odds() -> float:
 	var lead := _lead_seconds()
-	var odds := clampf(0.5 - lead * LEAD_RESPONSE, MIN_FLARE_ODDS, MAX_FLARE_ODDS)
+	var odds := clampf(0.5 - lead * _lead_response, MIN_FLARE_ODDS, MAX_FLARE_ODDS)
 	# The next flare would be a Solar Wind -- hold it back unless it is needed.
-	if streak % 10 == 9 and lead > -WIND_DEFICIT:
+	if streak % 10 == 9 and lead > -_wind_deficit:
 		odds *= WIND_HOLD_ODDS
 	return odds
 
@@ -480,7 +692,10 @@ func _update_wind(delta: float) -> void:
 # --- Falling --------------------------------------------------------------
 
 func _fall() -> void:
+	falls += 1
 	respawn_left = Race.RESPAWN_PENALTY
+	# The penalty is the price of the fall; a stun does not outlast it.
+	stun_left = 0.0
 	_rocket_left = 0.0
 	streak = 0
 	velocity = Vector2.ZERO

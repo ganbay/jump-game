@@ -1037,7 +1037,7 @@ func _setup_race_showcase(game: Node, config: Dictionary) -> void:
 		items.begin(game._score_origin_y, Race.target(), spawner.course_left, spawner.course_width)
 		# The bots' own boxes are switched off: an item of theirs going off
 		# mid-shot is a beat nobody wrote.
-		items._bot_spent.fill(true)
+		items.skip_bot_gates()
 	# A showcase with no zone of its own stays on plain platforms: the banner
 	# is in use, and a stage boundary must not hand the spawner a zone.
 	if config.get("zone", -1) < 0:
@@ -1085,6 +1085,7 @@ func _build_gameplay(config: Dictionary) -> Node:
 	Race.active = config.get("race", false)
 	Race.items_on = config.get("items", false)
 	Race.target_index = Race.TARGETS.size() - 1
+	Race.field_index = 0
 	var game := GAME_SCENE.instantiate()
 	_pending_setup = _setup_gameplay.bind(game, config)
 	return game

@@ -13,6 +13,7 @@ class_name RaceHud
 ##   rival is on screen its ghost carries its own label instead.
 ## - The respawn countdown after the player falls.
 ## - In a LAN race, once someone has finished, how long the rest have left.
+## - A passing line when a bot of a field crosses the finish (see announce()).
 ##
 ## Redrawn only when something it shows has changed, not every frame.
 
@@ -44,6 +45,7 @@ const COUNTDOWN_Y := 0.42
 const CLOSING_FONT_SIZE := 24
 const CLOSING_Y := 0.2
 const CLOSING_COLOR := Color(1.4, 1.4, 1.4, 0.9)
+const NOTICE_TIME := 2.5
 
 var player: Node2D
 ## Everyone the player is racing (see rival.gd).
@@ -59,15 +61,27 @@ var closing_left: float = -1.0
 
 ## What was drawn last, so a frame that would draw the same thing skips it.
 var _last_key: Array = []
+var _notice: String = ""
+var _notice_color: Color = Color.WHITE
+var _notice_left: float = 0.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-func _process(_delta: float) -> void:
+## A line across the upper screen for NOTICE_TIME, where the LAN closing
+## countdown goes -- the two are never both in use.
+func announce(text: String, color: Color) -> void:
+	_notice = text
+	_notice_color = color
+	_notice_left = NOTICE_TIME
+
+func _process(delta: float) -> void:
 	if rivals.is_empty() or player == null or camera == null:
 		return
-	var key := [player_score, ceili(player_respawn_left), player_color, size, ceili(closing_left)]
+	_notice_left = maxf(_notice_left - delta, 0.0)
+	var key := [player_score, ceili(player_respawn_left), player_color, size, ceili(closing_left),
+		_notice if _notice_left > 0.0 else ""]
 	for rival in rivals:
 		key.append_array([rival.score, int(_screen_pos(rival).x), _edge(rival),
 			rival.is_respawning(), rival.color, rival.label])
@@ -100,6 +114,9 @@ func _draw() -> void:
 	if closing_left >= 0.0:
 		_draw_centered("FINISH CLOSES IN %d" % ceili(closing_left),
 			Vector2(size.x / 2.0, size.y * CLOSING_Y), CLOSING_FONT_SIZE, CLOSING_COLOR)
+	elif _notice_left > 0.0:
+		_draw_centered(_notice, Vector2(size.x / 2.0, size.y * CLOSING_Y),
+			CLOSING_FONT_SIZE, _notice_color)
 
 func _draw_rail() -> void:
 	var x := size.x - RAIL_MARGIN_X
@@ -127,6 +144,10 @@ func _draw_rival_tags() -> void:
 	var above: Array[Rival] = []
 	var below: Array[Rival] = []
 	for rival in rivals:
+		# A bot over the line is off the course (RaceBot.finish): its dot at
+		# the top of the rail is all that is left to say about it.
+		if rival is RaceBot and rival.finished:
+			continue
 		var edge := _edge(rival)
 		if edge == 0 and not rival.is_respawning():
 			continue

@@ -132,7 +132,11 @@ func _draw_alerts() -> void:
 	if not items.incoming.is_empty():
 		var attack: Dictionary = items.incoming[0]
 		var kind: RaceItems.Item = attack["kind"]
-		var verb := "COMET FROM %s" if kind == RaceItems.Item.COMET else "REVERSED BY %s"
+		var verb := "REVERSED BY %s"
+		if kind == RaceItems.Item.COMET:
+			verb = "COMET FROM %s"
+		elif kind == RaceItems.Item.SHOCKWAVE:
+			verb = "SHOCKWAVE FROM %s"
 		var text := verb % RaceItems.racer_name(attack["from"])
 		var c := RaceItems.racer_color(attack["from"])
 		c.a = 0.6 + 0.4 * absf(sin(_time * 12.0))

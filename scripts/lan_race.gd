@@ -47,7 +47,7 @@ const DISCOVERY_PORT := 47821
 const MAX_PLAYERS := 8
 ## Bumped on any change to the messages below. Checked in the handshake along
 ## with the course version and the app version.
-const PROTOCOL := 7
+const PROTOCOL := 8
 const STATE_INTERVAL := 1.0 / 15.0
 ## From the host pressing START to GO: the start message, the scene change and
 ## the whole intro (IntroSequence.total_time, with the 3-2-1 over its end) all
@@ -76,6 +76,12 @@ const FLAG_FINISHED := 2
 const FLAG_SHIELDED := 4
 const FLAG_STUNNED := 8
 const FLAG_REVERSED := 16
+## Above the flags, the same int carries the racer's longest streak so far,
+## for the race report. In the spare bits rather than a field of its own so
+## the packet -- and PROTOCOL -- stay as they are: a phone that predates this
+## sends zero there and ignores what it is sent.
+const STREAK_SHIFT := 8
+const STREAK_MAX := 0xFFFF
 ## A result's time when the racer did not finish.
 const DNF := -1.0
 

@@ -26,8 +26,19 @@ var score: int = 0
 ## Seconds left sitting out a fall, or 0 while racing.
 var respawn_left: float = 0.0
 var color: Color = Color.WHITE
-## Over its head and on its HUD tag. Players only ever see the bot called "AI".
+## Over its head and on its HUD tag. A lone bot is only ever called "AI"; in
+## a bigger field each one has a name (see game.gd:_setup_race).
 var label: String = "AI"
+## Over the line. A finished racer is out of everything: no items land on it
+## and it is nobody's target.
+var finished: bool = false
+## For the race report (see race_history.gd): when it crossed the line on
+## the race's clock (below zero until it has), how often it fell, the longest
+## streak it held, and how many of game.gd's lead samples found it in front.
+var finish_time: float = -1.0
+var falls: int = 0
+var best_streak: int = 0
+var led_samples: int = 0
 ## The AI's look: the white-hot core toned down (GHOST_CORE_WHITE) so its
 ## colour carries. A LAN rival turns this off before entering the tree and
 ## wears its player's character exactly as they do.

@@ -21,6 +21,8 @@ extends Node2D
 
 const SECTION_FONT_SIZE := 20
 const OPTION_FONT_SIZE := 26
+## Three to a row, each with a word after its number.
+const FIELD_FONT_SIZE := 22
 const OPTION_HEIGHT := 64.0
 const SECTION_GAP := 18.0
 const NOTE_COLOR := Color(1.0, 1.0, 1.0, 0.65)
@@ -39,11 +41,13 @@ const LOCKED_ALPHA := 0.4
 
 var _difficulty_buttons: Array[Button] = []
 var _target_buttons: Array[Button] = []
+var _field_buttons: Array[Button] = []
 var _items_button: Button
 var _best_label: Label
 var _start_button: Button
 var _cost_label: Label
 var _ticket_button: Button
+var _history_button: Button
 var _info_panel: Control
 var _info_ad_button: Button
 var _info_casual_button: Button
@@ -89,6 +93,16 @@ func _build() -> void:
 			button.add_theme_constant_override("h_separation", 12)
 			button.modulate.a = LOCKED_ALPHA
 		_difficulty_buttons.append(button)
+	# How many line up, the player included. No heading: the buttons say it.
+	var field_row := HBoxContainer.new()
+	field_row.add_theme_constant_override("separation", 12)
+	options.add_child(field_row)
+	for i in range(Race.FIELD_SIZES.size()):
+		var button := _add_option(field_row, "%d RACERS" % Race.FIELD_SIZES[i])
+		button.add_theme_font_size_override("font_size", FIELD_FONT_SIZE)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_on_field_pressed.bind(i))
+		_field_buttons.append(button)
 
 	_add_gap()
 	_add_section("DISTANCE")
@@ -118,6 +132,7 @@ func _build() -> void:
 	IconPop.attach([_start_button])
 	_cost_label = _add_note("")
 	_build_ticket_button()
+	_build_history_button()
 	_build_info_panel()
 
 ## The ticket count, pinned top right. A button rather than a readout: tapping
@@ -140,6 +155,29 @@ func _build_ticket_button() -> void:
 	_ticket_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_ticket_button.pressed.connect(_on_ticket_button_pressed)
 	$UI.add_child(_ticket_button)
+
+## Past races, AI and LAN alike (see race_history_panel.gd), pinned top left
+## opposite the tickets.
+func _build_history_button() -> void:
+	_history_button = Button.new()
+	_history_button.text = "HISTORY"
+	_history_button.flat = true
+	_history_button.focus_mode = Control.FOCUS_NONE
+	_history_button.add_theme_font_size_override("font_size", 22)
+	_history_button.add_to_group(UiAccent.GROUP)
+	_history_button.offset_left = 20.0
+	_history_button.offset_right = 170.0
+	_history_button.offset_top = 24.0
+	_history_button.offset_bottom = 88.0
+	_history_button.pressed.connect(_on_history_pressed)
+	$UI.add_child(_history_button)
+	IconPop.attach([_history_button])
+
+func _on_history_pressed() -> void:
+	if _leaving:
+		return
+	Audio.play_ui_click()
+	$UI.add_child(RaceHistoryPanel.new())
 
 ## The two ways to get tickets, as two buttons: an ad now, or a casual run
 ## (which pays out by score -- see race.gd). Tapping outside closes it.
@@ -300,6 +338,8 @@ func _refresh() -> void:
 		UiPlate.option(_difficulty_buttons[i], i == _difficulty)
 	for i in range(_target_buttons.size()):
 		UiPlate.option(_target_buttons[i], i == _target_index)
+	for i in range(_field_buttons.size()):
+		UiPlate.option(_field_buttons[i], i == Race.field_index)
 	if _items_button != null:
 		_items_button.text = "ITEM BOXES: ON" if Race.items_on else "ITEM BOXES: OFF"
 		UiPlate.option(_items_button, Race.items_on)
@@ -338,6 +378,11 @@ func _on_difficulty_pressed(index: int) -> void:
 func _on_items_pressed() -> void:
 	Audio.play_ui_click()
 	Race.set_items_on(not Race.items_on)
+	_refresh()
+
+func _on_field_pressed(index: int) -> void:
+	Audio.play_ui_click()
+	Race.set_field(index)
 	_refresh()
 
 func _on_target_pressed(index: int) -> void:
