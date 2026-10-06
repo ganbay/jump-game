@@ -36,7 +36,6 @@ Ads="*res://scripts/ads.gd"
 Crash="*res://scripts/crash.gd"
 Race="*res://scripts/race.gd"
 LanRace="*res://scripts/lan_race.gd"
-_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 PlayGames="*res://scripts/play_games.gd"
 GodotPlayGameServices="*uid://brb677dfpunhk"
 
