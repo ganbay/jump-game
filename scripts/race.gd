@@ -18,15 +18,16 @@ const DIFFICULTY_NAMES := ["NOVICE", "APPRENTICE", "EXPERT", "MASTER", "GRANDMAS
 ## The score per second each bot averages over a race. Score is height / 10,
 ## the same units as the HUD and the game-over SPEED line, so these can be read
 ## straight against a player's own Stats.average_speed(). Never shown to the
-## player. Simulated to land within ~1/s of these at 10,000 (Master drifts
-## to just under 100 over 30,000, where the widest gaps slow any climb).
+## player. Simulated over a few minutes of race, each lands within ~2/s of
+## its number; over a shorter stretch a bot can run 10% off it either way, as
+## a Solar Wind burst or a broken streak is caught up or paid back.
 ##
 ## The ceiling, measured the same way with the bot flaring on every landing it
 ## can: ~128/s over 10,000, ~134 over 20,000, ~146 over 30,000 -- longer races
 ## allow longer streaks, and streaks compound. GRANDMASTER's 120 therefore sits
 ## right against the ceiling over the short race, so there it runs at
 ## GRANDMASTER_SHORT_PACE instead (see pace()).
-const PACES := [25.0, 50.0, 75.0, 100.0, 120.0]
+const PACES := [20.0, 40.0, 60.0, 90.0, 120.0]
 const GRANDMASTER_SHORT_PACE := 115.0
 ## How often the bot fumbles a flare it went for, which breaks its streak the
 ## way a mistimed tap breaks the player's. Lower bots are sloppier, so they
@@ -79,14 +80,16 @@ const SAVE_PATH := "user://race.cfg"
 const HIGH_SCORE_PATH := "user://highscore.cfg"
 
 var active: bool = false
-## Whether the menu's mode picker was last left on RACE rather than CASUAL,
-## so the menu reopens on the mode the player was using.
-var menu_on_race: bool = false
-## Whether the player has opened LAN racing yet. Until they have, the race
-## screen flags its button NEW.
-var lan_seen: bool = false
+## Which mode the menu's picker was last left on (main_menu.gd's Mode), so
+## the menu reopens on the mode the player was using.
+var menu_mode: int = 0
 var difficulty: Difficulty = Difficulty.NOVICE
 var target_index: int = 0
+## Item boxes in bot races (see race_items.gd), picked on the race screen.
+## Off by default: a race with items on sets no record -- no best time, no
+## speed for Stats or the Play leaderboards, no GRANDMASTER unlock -- since a
+## Rocket run is not comparable with a clean one.
+var items_on: bool = false
 var grandmaster_unlocked: bool = false
 ## Best casual score, kept here so the AI unlocks can be read without
 ## reaching into game.gd. Fed by award_casual_run.
@@ -123,8 +126,10 @@ func _ready() -> void:
 		difficulty = clampi(cfg.get_value("race", "difficulty", Difficulty.NOVICE),
 			0, Difficulty.size() - 1) as Difficulty
 		target_index = clampi(cfg.get_value("race", "target_index", 0), 0, TARGETS.size() - 1)
-		menu_on_race = cfg.get_value("menu", "on_race", false)
-		lan_seen = cfg.get_value("menu", "lan_seen", false)
+		items_on = cfg.get_value("race", "items_on", false)
+		# "on_race" is the picker's save from when it only had two modes.
+		menu_mode = cfg.get_value("menu", "mode",
+			1 if cfg.get_value("menu", "on_race", false) else 0)
 		tickets = cfg.get_value("tickets", "count", 0)
 		_starter_granted = cfg.get_value("tickets", "starter_granted", false)
 		_last_daily = cfg.get_value("tickets", "last_daily", "")
@@ -147,6 +152,10 @@ func _ready() -> void:
 		_starter_granted = true
 		tickets = maxi(tickets, STARTER_TICKETS)
 	_save_tickets()
+	# Wins from before Stats kept race speeds: the best times here are the
+	# only record of them. A no-op once Stats has caught up.
+	for i in range(TARGETS.size()):
+		Stats.record_race_speed(TARGETS[i], _best_speed_from_times(i))
 
 func is_unlocked() -> bool:
 	return Stats.games_played >= UNLOCK_RUNS
@@ -235,23 +244,32 @@ func choose(new_difficulty: Difficulty, new_target_index: int) -> void:
 	cfg.set_value("race", "target_index", target_index)
 	cfg.save(SAVE_PATH)
 
-func set_menu_on_race(on_race: bool) -> void:
-	menu_on_race = on_race
+func set_items_on(on: bool) -> void:
+	items_on = on
 	var cfg := _load()
-	cfg.set_value("menu", "on_race", on_race)
+	cfg.set_value("race", "items_on", on)
 	cfg.save(SAVE_PATH)
 
-func mark_lan_seen() -> void:
-	if lan_seen:
-		return
-	lan_seen = true
+func set_menu_mode(mode: int) -> void:
+	menu_mode = mode
 	var cfg := _load()
-	cfg.set_value("menu", "lan_seen", true)
+	cfg.set_value("menu", "mode", mode)
 	cfg.save(SAVE_PATH)
 
 ## Fastest winning time for this bot and distance, or 0.0 if never won.
 func best_time(for_difficulty: int = difficulty, for_target_index: int = target_index) -> float:
 	return _load().get_value("best", _best_key(for_difficulty, for_target_index), 0.0)
+
+## The fastest win on record for a distance, across every AI, or 0.0 with no
+## win yet. The distance is fixed, so the shortest time is the highest speed.
+func _best_speed_from_times(for_target_index: int) -> float:
+	var cfg := _load()
+	var best := 0.0
+	for i in range(DIFFICULTY_NAMES.size()):
+		var time: float = cfg.get_value("best", _best_key(i, for_target_index), 0.0)
+		if time > 0.0 and (best <= 0.0 or time < best):
+			best = time
+	return TARGETS[for_target_index] / best if best > 0.0 else 0.0
 
 ## Records a win. Returns whether it beat the previous best.
 func record_win(time: float) -> bool:

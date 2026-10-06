@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Renders the trailer.
 #
-#   tools/render_trailer.sh [--landscape] [seed]
+#   tools/render_trailer.sh [--release] [--landscape] [seed]
+#
+# --release renders the release cut (race mode, item boxes, racing friends --
+# see trailer_director.gd:_release_segments) to promo/release_trailer_*.mp4
+# instead of the announcement cut.
 #
 # Portrait (1080x1920) is the store cut. --landscape renders the 16:9 YouTube
 # cut instead: the same running order, the same seed and the same takes, with
@@ -24,22 +28,28 @@ set -euo pipefail
 PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 USER_DIR="$HOME/.local/share/godot/app_userdata/Jetlet- Solar Escape"
 
+CUT="announce"
 ASPECT="portrait"
-if [ "${1:-}" = "--landscape" ]; then
-  ASPECT="landscape"
-  shift
-fi
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --release) CUT="release"; shift ;;
+    --landscape) ASPECT="landscape"; shift ;;
+    *) break ;;
+  esac
+done
 SEED="${1:-20260916}"
 
 # Separate scratch directories, so rendering one cut does not throw away the
 # frames of the other -- they are kept deliberately (see the closing message)
 # and a re-render wipes whichever it is about to write.
+PREFIX="trailer"
+[ "$CUT" = "release" ] && PREFIX="release_trailer"
 if [ "$ASPECT" = "landscape" ]; then
-  FRAMES_NAME="trailer_frames_16x9"
-  OUT="$PROJECT/promo/trailer_1920x1080.mp4"
+  FRAMES_NAME="${PREFIX}_frames_16x9"
+  OUT="$PROJECT/promo/${PREFIX}_1920x1080.mp4"
 else
-  FRAMES_NAME="trailer_frames"
-  OUT="$PROJECT/promo/trailer_1080x1920.mp4"
+  FRAMES_NAME="${PREFIX}_frames"
+  OUT="$PROJECT/promo/${PREFIX}_1080x1920.mp4"
 fi
 FRAMES="$USER_DIR/$FRAMES_NAME"
 
@@ -47,20 +57,20 @@ command -v ffmpeg >/dev/null || { echo "ffmpeg not found" >&2; exit 1; }
 
 BACKUP="$(mktemp -d)"
 restore() {
-  for f in settings.cfg unlocks.cfg highscore.cfg stats.cfg missions.cfg; do
+  for f in settings.cfg unlocks.cfg highscore.cfg stats.cfg missions.cfg race.cfg; do
     [ -e "$BACKUP/$f" ] && mv -f "$BACKUP/$f" "$USER_DIR/$f"
   done
   rmdir "$BACKUP" 2>/dev/null || true
 }
 trap restore EXIT
-for f in settings.cfg unlocks.cfg highscore.cfg stats.cfg missions.cfg; do
+for f in settings.cfg unlocks.cfg highscore.cfg stats.cfg missions.cfg race.cfg; do
   [ -e "$USER_DIR/$f" ] && cp -p "$USER_DIR/$f" "$BACKUP/$f"
 done
 
 rm -rf "$FRAMES"
 mkdir -p "$FRAMES" "$PROJECT/promo"
 
-echo "== rendering frames ($ASPECT, seed $SEED) =="
+echo "== rendering frames ($CUT, $ASPECT, seed $SEED) =="
 LOG="$(mktemp)"
 # Judged by what it produced, not by how it exited. Godot has been seen to
 # abort while unwinding the render's viewports at shutdown -- after the
@@ -69,7 +79,7 @@ LOG="$(mktemp)"
 # work over a crash in the teardown of a process that has nothing left to do.
 set +e
 godot --path "$PROJECT" --fixed-fps 60 res://scenes/trailer.tscn \
-  -- --seed "$SEED" --aspect "$ASPECT" --out "user://$FRAMES_NAME" 2>&1 | tee "$LOG"
+  -- --seed "$SEED" --aspect "$ASPECT" --cut "$CUT" --out "user://$FRAMES_NAME" 2>&1 | tee "$LOG"
 GODOT_STATUS=${PIPESTATUS[0]}
 set -e
 
@@ -107,15 +117,34 @@ done < <(grep -E '^  [a-z]+ +[0-9.]+s +-> frame [0-9]+' "$LOG" | awk '{print $1,
 # every other cue here which is a fixed hold length.
 DEATH_FRAME=$(sed -n 's/.*death registers at frame \([0-9]*\).*/\1/p' "$LOG" | tail -1)
 rm -f "$LOG"
-for name in splash climb squish; do
+# The three cues the mix is built on (see mix_trailer_audio.sh): where the
+# drums join, where the gameplay music ducks out, and where the menu track
+# comes in. The announcement cut ducks on its one death; the release cut has
+# none, so its gameplay music runs to the end card and hands over there.
+if [ "$CUT" = "release" ]; then
+  CUE_NAMES="splash race friends"
+else
+  CUE_NAMES="splash climb squish"
+fi
+for name in $CUE_NAMES; do
   if [ -z "${SEG_END[$name]:-}" ]; then
     echo "render: could not find the '$name' segment's frame marker in the log -- can't build the audio cues" >&2
     exit 1
   fi
 done
-if [ -z "$DEATH_FRAME" ]; then
-  echo "render: squish segment never registered a death -- re-run with a different seed" >&2
-  exit 1
+MIX_BPM=125
+if [ "$CUT" = "release" ]; then
+  MIX_BPM=155
+  DRIFT_F="${SEG_END[race]}"      # drums join as the item boxes slide in
+  CUSTOM_F="${SEG_END[friends]}"  # menu track under the end card
+  DEATH_FRAME="${SEG_END[friends]}"
+else
+  if [ -z "$DEATH_FRAME" ]; then
+    echo "render: squish segment never registered a death -- re-run with a different seed" >&2
+    exit 1
+  fi
+  DRIFT_F="${SEG_END[climb]}"    # drift's slide-in starts where climb's hold ends
+  CUSTOM_F="${SEG_END[squish]}"  # customization's slide-in starts where squish's hold ends
 fi
 echo "== $COUNT frames -> mp4 =="
 
@@ -133,10 +162,8 @@ echo "== mixing in music =="
 # run you can iterate on the mix directly with
 #   tools/mix_trailer_audio.sh "$OUT" <drift> <custom> <death>
 # using the three cue frames it prints here.
-DRIFT_F="${SEG_END[climb]}"    # drift's slide-in starts where climb's hold ends
-CUSTOM_F="${SEG_END[squish]}"  # customization's slide-in starts where squish's hold ends
 echo "   cues: drift $DRIFT_F  custom $CUSTOM_F  death $DEATH_FRAME"
-"$PROJECT/tools/mix_trailer_audio.sh" "$OUT" "$DRIFT_F" "$CUSTOM_F" "$DEATH_FRAME"
+"$PROJECT/tools/mix_trailer_audio.sh" "$OUT" "$DRIFT_F" "$CUSTOM_F" "$DEATH_FRAME" "$MIX_BPM"
 
 echo
 echo "trailer: $OUT"

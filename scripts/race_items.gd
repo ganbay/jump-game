@@ -1,8 +1,13 @@
 extends Node2D
 class_name RaceItems
 
-## Item boxes in a LAN race (see docs/lan-items.md). Owned by game.gd, only
-## when the host left ITEM BOXES on.
+## Item boxes in a race (see docs/lan-items.md). Owned by game.gd, only when
+## ITEM BOXES is on: the host's switch in a LAN race, Race.items_on against
+## the AI.
+##
+## Against the AI (`bot` set) nothing goes over a network: the bot takes its
+## own boxes and uses its own items (see race_bot.gd), and an attack either
+## way is handed across right here, under BOT_ID.
 ##
 ## Gates of boxes sit across the course at fixed scores. Every racer has their
 ## own copy of every box, so pickups and rolls never go over the network. The
@@ -34,6 +39,15 @@ const NAMES := {
 ## the column order of ODDS.
 const ROLLABLE := [Item.ROCKET, Item.NET, Item.SPRING, Item.SHIELD, Item.COMET, Item.REVERSE]
 const ATTACKS := [Item.COMET, Item.REVERSE]
+## The AI's id in the feed and the warnings, where a LAN racer's is its peer
+## id. Peer ids are positive.
+const BOT_ID := -1
+## The bot's own copy of a gate gives it an item this often: its lane through
+## the gate is not simulated, and about nine lanes in ten collect.
+const BOT_PICKUP_ODDS := 0.9
+
+## The AI's colour, for the static name/colour lookups below.
+static var bot_color: Color = Color.WHITE
 
 const FONT := preload("res://fonts/Chillax-Bold.otf")
 
@@ -97,6 +111,8 @@ const ODDS := [
 var player: Player
 var camera: Camera2D
 var rivals: Array[Rival] = []
+## The AI in a bot race, or null in a LAN one.
+var bot: RaceBot
 ## Kept up to date by game.gd. What the roll measures the gap from.
 var player_score: int = 0
 
@@ -125,6 +141,11 @@ var _taken_at: Array[float] = []
 var _pops: Array = []
 var _prev_y: float = 0.0
 var _time: float = 0.0
+## The bot's own pass through the gates, and this phone's attacks on their
+## way to it: {kind, left}.
+var _bot_prev_y: float = 0.0
+var _bot_spent: Array[bool] = []
+var _bot_incoming: Array[Dictionary] = []
 
 func _ready() -> void:
 	set_physics_process(false)
@@ -147,6 +168,15 @@ func begin(score_origin_y: float, target: int, course_left: float, course_width:
 		_taken.append(-1)
 		_taken_at.append(-1.0)
 		at += GATE_EVERY
+	_bot_spent = []
+	_bot_spent.resize(_gate_ys.size())
+	_bot_spent.fill(false)
+	_bot_incoming.clear()
+	if bot != null:
+		bot_color = bot.color
+		_bot_prev_y = bot.global_position.y
+		if not bot.attack_requested.is_connected(_on_bot_attack):
+			bot.attack_requested.connect(_on_bot_attack)
 	_prev_y = player.global_position.y
 	_running = true
 	set_physics_process(true)
@@ -159,6 +189,7 @@ func stop() -> void:
 	net_left = 0.0
 	shield_left = 0.0
 	incoming.clear()
+	_bot_incoming.clear()
 	player.rocket_left = 0.0
 	player.auto_boosts = 0
 	player.stun_left = 0.0
@@ -190,10 +221,14 @@ func use() -> bool:
 				_notify("NOBODY AHEAD", Color(1.0, 1.0, 1.0, 0.8))
 				return false
 			# The Comet goes for the leader, the Reverse for everyone ahead.
-			var targets: Array = [ahead[0].peer_id] if held == Item.COMET \
-				else ahead.map(func(r: NetRival): return r.peer_id)
-			LanRace.send_attack(held, targets)
-	Analytics.log_event("lan_item_used", {"item": NAMES[held]})
+			if bot != null:
+				_bot_incoming.append({"kind": held, "left": ATTACK_WARN_TIME})
+			else:
+				var targets: Array = [_id_of(ahead[0])] if held == Item.COMET \
+					else ahead.map(_id_of)
+				LanRace.send_attack(held, targets)
+	Analytics.log_event("race_item_used" if bot != null else "lan_item_used",
+		{"item": NAMES[held]})
 	held = Item.NONE
 	Audio.vibrate(25)
 	changed.emit()
@@ -211,22 +246,34 @@ func status_flags() -> int:
 	return flags
 
 ## Rivals still racing who are ahead of this phone, leader first.
-func _racers_ahead() -> Array[NetRival]:
-	var ahead: Array[NetRival] = []
+func _racers_ahead() -> Array[Rival]:
+	var ahead: Array[Rival] = []
 	for rival in rivals:
-		if rival is NetRival and is_instance_valid(rival) and not rival.finished \
-				and rival.score > player_score:
+		if _racing(rival) and rival.score > player_score:
 			ahead.append(rival)
-	ahead.sort_custom(func(a: NetRival, b: NetRival): return a.score > b.score)
+	ahead.sort_custom(func(a: Rival, b: Rival): return a.score > b.score)
 	return ahead
 
-## LanRace.peers' name for `id`, or YOU for this phone.
+## Still on the course: a LAN racer who has not finished, or the AI.
+func _racing(rival: Rival) -> bool:
+	if not is_instance_valid(rival):
+		return false
+	return not rival.finished if rival is NetRival else rival is RaceBot
+
+func _id_of(rival: Rival) -> int:
+	return rival.peer_id if rival is NetRival else BOT_ID
+
+## LanRace.peers' name for `id`, YOU for this phone, or AI.
 static func racer_name(id: int) -> String:
+	if id == BOT_ID:
+		return "AI"
 	if id == LanRace.my_id():
 		return "YOU"
 	return str(LanRace.peers.get(id, {}).get("name", "?"))
 
 static func racer_color(id: int) -> Color:
+	if id == BOT_ID:
+		return bot_color
 	if id == LanRace.my_id():
 		return UiAccent.color()
 	return LanRace.peers.get(id, {}).get("color", Color.WHITE)
@@ -260,8 +307,22 @@ func _land_attack(attack: Dictionary) -> void:
 				player.reverse_left = REVERSE_TIME
 		Audio.vibrate(60)
 	_pops.append([player.global_position, 0.0])
-	LanRace.report_attack(attack["from"], kind, blocked)
+	if bot != null:
+		_on_attack_outcome(attack["from"], LanRace.my_id(), kind, blocked)
+	else:
+		LanRace.report_attack(attack["from"], kind, blocked)
 	changed.emit()
+
+## The AI threw something at this phone: the same warning a LAN attack gets.
+func _on_bot_attack(kind: int) -> void:
+	_on_attacked(BOT_ID, kind)
+
+## This phone's attack reaching the AI, after the same warning time.
+func _land_on_bot(kind: int) -> void:
+	if bot == null or not is_instance_valid(bot):
+		return
+	var blocked := bot.take_attack(kind)
+	_on_attack_outcome(LanRace.my_id(), BOT_ID, kind, blocked)
 
 func _on_attack_outcome(from: int, victim: int, kind: int, blocked: bool) -> void:
 	feed.append({"from": from, "victim": victim, "kind": kind, "blocked": blocked, "age": 0.0})
@@ -288,6 +349,8 @@ func next_gate_y() -> float:
 	return INF
 
 func _physics_process(delta: float) -> void:
+	if bot != null and is_instance_valid(bot):
+		_check_bot_gates()
 	# Respawning: physics is off and the character is parked out of sight.
 	if not player.is_physics_processing():
 		_prev_y = player.global_position.y
@@ -331,6 +394,27 @@ func _check_gates(prev_y: float, y: float) -> void:
 			rolling_left = ROLL_TIME
 			changed.emit()
 
+## The AI's own copy of every gate: spent the first time it rises through,
+## as the player's is, and rolled from how far behind the player it is.
+func _check_bot_gates() -> void:
+	bot.player_score = player_score
+	var y := bot.global_position.y
+	for i in range(_gate_ys.size()):
+		var gate_y := _gate_ys[i]
+		if gate_y > _bot_prev_y:
+			continue
+		if gate_y < y:
+			break
+		if _bot_spent[i]:
+			continue
+		_bot_spent[i] = true
+		if bot.held == Item.NONE and randf() < BOT_PICKUP_ODDS:
+			var gap := float(maxi(player_score - bot.score, 0)) / float(GATE_EVERY)
+			# No Safety Net: the bot's falls are its own simulation's business.
+			bot.give_item(_roll_from(gap, player_score > bot.score,
+				player_score < bot.score, false))
+	_bot_prev_y = y
+
 func _check_net() -> void:
 	var net_y := camera.global_position.y + get_viewport_rect().size.y / 2.0 - NET_INSET
 	var feet_y := player.feet.global_position.y
@@ -353,6 +437,10 @@ func _process(delta: float) -> void:
 		attack["left"] -= delta
 	while not incoming.is_empty() and incoming[0]["left"] <= 0.0:
 		_land_attack(incoming.pop_front())
+	for attack in _bot_incoming:
+		attack["left"] -= delta
+	while not _bot_incoming.is_empty() and _bot_incoming[0]["left"] <= 0.0:
+		_land_on_bot(_bot_incoming.pop_front()["kind"])
 	for line in feed:
 		line["age"] += delta
 	feed = feed.filter(func(line): return line["age"] < FEED_TIME)
@@ -381,6 +469,15 @@ func _roll() -> Item:
 	if not ahead.is_empty():
 		leader = ahead[0].score
 	var gap := float(leader - player_score) / float(GATE_EVERY)
+	# Nobody left to throw at -- everyone ahead is over the line. And attacks
+	# only ever go forward, so with nobody racing behind -- 2nd of 2, or last
+	# of any field -- nothing can reach this phone for a Shield to block.
+	return _roll_from(gap, not ahead.is_empty(), _anyone_behind(), true)
+
+## A roll for a racer `gap` gates behind the leader. Whatever it cannot use
+## -- an attack with nobody ahead, a Shield with nobody behind, the Net for
+## the AI -- gives its share to the rest, in their proportions.
+func _roll_from(gap: float, can_attack: bool, can_shield: bool, can_net: bool) -> Item:
 	var weights: Array = ODDS.back().slice(1)
 	for i in range(1, ODDS.size()):
 		var lo: Array = ODDS[i - 1]
@@ -391,16 +488,14 @@ func _roll() -> Item:
 			for w in range(1, lo.size()):
 				weights.append(lerpf(lo[w], hi[w], u))
 			break
-	# Nobody left to throw at -- everyone ahead is over the line.
-	if ahead.is_empty():
+	if not can_attack:
 		for i in range(ROLLABLE.size()):
 			if ROLLABLE[i] in ATTACKS:
 				weights[i] = 0.0
-	# Attacks only ever go forward, so with nobody racing behind -- 2nd of 2,
-	# or last of any field -- nothing can reach this phone for a Shield to
-	# block. Its share goes to the rest, in their proportions.
-	if not _anyone_behind():
+	if not can_shield:
 		weights[ROLLABLE.find(Item.SHIELD)] = 0.0
+	if not can_net:
+		weights[ROLLABLE.find(Item.NET)] = 0.0
 	var total := 0.0
 	for w in weights:
 		total += w
@@ -418,8 +513,7 @@ func _roll() -> Item:
 ## A rival still racing who could throw something at this phone.
 func _anyone_behind() -> bool:
 	for rival in rivals:
-		if rival is NetRival and is_instance_valid(rival) and not rival.finished \
-				and rival.score < player_score:
+		if _racing(rival) and rival.score < player_score:
 			return true
 	return false
 

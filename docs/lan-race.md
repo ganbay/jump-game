@@ -23,7 +23,7 @@ leaving.
 | Ghost played back from the network, 100 ms behind, with extrapolation | `scripts/net_rival.gd` (`NetRival extends Rival`) |
 | Shared ghost visual for the bot and network rivals | `scripts/rival.gd` |
 | Race flow: intro on the shared clock with a 3-2-1 over its end, no pause, waiting panel, placings | `game.gd`, the "LAN race" section |
-| Entry point: "RACE FRIENDS ON WI-FI" under START on the race screen | `race_setup.gd` |
+| Entry point: LAN, a third mode on the menu's mode picker | `main_menu.gd` |
 | Intro driven by the race clock, so it ends at GO everywhere | `IntroSequence.begin(..., clock)` |
 | Same song on every phone, in step | `LanRace.music_set`, `Audio.play_music(set, from)` |
 | Distance that doesn't touch the bot race's saved pick | `Race.shared_target` |
@@ -31,8 +31,9 @@ leaving.
 
 ### Decisions taken
 
-- **Entry point:** a quiet button on the race screen. The race screen is
-  already gated behind race mode unlocking.
+- **Entry point:** its own mode on the menu's picker (CASUAL / RACE / LAN),
+  not a button on the race screen. Unlike RACE it is never locked: it costs
+  no tickets, and a friend's fresh install should be able to join a room.
 - **Room size: 8** (`LanRace.MAX_PLAYERS`). The network isn't the limit: the
   host relays about 15 × n² small packets a second, ~80 KB/s at 8. The limits
   are phone hotspots (many cap at 8–10 devices) and how much the HUD can show.

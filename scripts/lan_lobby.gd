@@ -1,7 +1,7 @@
 extends Node2D
 
-## The LAN race lobby (see lan_race.gd). Built in code like the race screen it
-## is opened from, as three views of one screen:
+## The LAN race lobby (see lan_race.gd), opened from the menu's LAN mode. Built
+## in code like the race screen, as three views of one screen:
 ##
 ## - Outside a room: HOST A RACE, the rooms heard on this network, and joining
 ##   by address -- for networks that drop the rooms' broadcasts, which is most
@@ -379,7 +379,7 @@ func _on_back_pressed() -> void:
 	_leaving = true
 	LanRace.stop_browsing()
 	LanRace.last_error = ""
-	Transition.change_scene("res://scenes/race_setup.tscn")
+	Transition.change_scene("res://scenes/main_menu.tscn")
 
 func _on_scene_change_failed(_path: String) -> void:
 	_leaving = false

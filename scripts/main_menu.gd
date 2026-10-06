@@ -10,11 +10,13 @@ extends Node2D
 ##
 ## The mode picker sits in the middle of the play zone: swipe left or right
 ## anywhere in the zone (or use the arrows, or the arrow keys) to switch
-## between CASUAL and RACE, and the same tap-to-play then starts whichever is
-## showing. RACE goes to the race screen first to pick the AI and distance.
+## between CASUAL, RACE and LAN, and the same tap-to-play then starts whichever
+## is showing. RACE goes to the race screen first to pick the AI and distance.
 ## Until Race.is_unlocked(), RACE can still be swiped to -- so the player
 ## learns it exists -- but shows a padlock in place of the play glyph and a
-## count of casual runs left, and a tap only shakes it.
+## count of casual runs left, and a tap only shakes it. LAN (racing friends on
+## the same Wi-Fi, see lan_lobby.gd) goes to its lobby and is never locked: it
+## costs no tickets, and a friend's phone should be able to join straight away.
 ##
 ## Two things about races are told here, since the menu is where the player
 ## lands between sessions: a line under the prompt while the day's free
@@ -35,9 +37,9 @@ const TROPHY_ICON := preload("res://assets/icons/trophy.svg")
 const LOCKED_ALPHA := 0.4
 const LOCKED_SHAKE := 10.0
 
-enum Mode { CASUAL, RACE }
-const MODE_NAMES := ["CASUAL", "RACE"]
-const MODE_PROMPTS := ["TAP TO PLAY", "TAP TO RACE"]
+enum Mode { CASUAL, RACE, LAN }
+const MODE_NAMES := ["CASUAL", "RACE", "LAN"]
+const MODE_PROMPTS := ["TAP TO PLAY", "TAP TO RACE", "TAP TO RACE"]
 ## Horizontal travel, press to release, that makes a touch a swipe rather than
 ## a tap. Well past a thumb's wobble on a tap, well short of a deliberate flick.
 const SWIPE_MIN := 60.0
@@ -108,7 +110,7 @@ var _popup: Control
 var _popup_shown_ms: int = 0
 
 func _ready() -> void:
-	_mode = Mode.RACE if Race.menu_on_race else Mode.CASUAL
+	_mode = clampi(Race.menu_mode, 0, MODE_NAMES.size() - 1) as Mode
 	_mode_home_x = mode_label.position.x
 	for i in range(MODE_NAMES.size()):
 		var dot := Panel.new()
@@ -306,7 +308,7 @@ func _step_mode(step: int) -> void:
 		return
 	Audio.play_ui_click()
 	_mode = posmod(_mode + step, MODE_NAMES.size()) as Mode
-	Race.set_menu_on_race(_mode == Mode.RACE)
+	Race.set_menu_mode(_mode)
 	_update_mode_view()
 	if _mode_tween != null and _mode_tween.is_valid():
 		_mode_tween.kill()
@@ -407,6 +409,9 @@ func _play() -> void:
 		return
 	if _mode == Mode.RACE:
 		_go("res://scenes/race_setup.tscn")
+		return
+	if _mode == Mode.LAN:
+		_go("res://scenes/lan_lobby.tscn")
 		return
 	Race.active = false
 	_go("res://scenes/main.tscn" if Stats.tutorial_seen else "res://scenes/guide.tscn")

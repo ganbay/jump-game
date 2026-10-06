@@ -88,6 +88,10 @@ const CUSTOMIZATION_SCENE := preload("res://scenes/customization.tscn")
 ## reads this; the running order, the timings and the takes are identical, so
 ## the two renders stay in step and share one audio mix.
 @export var landscape: bool = false
+## Which running order to render: "announce" (the zones and the character
+## picker, _segments below) or "release" (race mode, item boxes and racing
+## friends, _release_segments). Selected with `-- --cut release`.
+@export var cut: String = "announce"
 
 ## The running order. `seconds` is how long the segment holds *after* it has
 ## finished sliding in; the slide itself is charged to neither side.
@@ -122,6 +126,34 @@ var _segments: Array[Dictionary] = [
 		"panel": ["MAKE IT YOURS",
 			"Ten characters, and every colour on the spectrum, yours to mix.",
 			VIOLET]},
+	{"name": "end", "seconds": 2.80, "build": "_build_end_card", "full": true},
+]
+
+## The release cut: what shipped after the announcement trailer. Race mode
+## against the AI, the item boxes, attacks both ways, and a room of friends.
+## Each is set in a different zone, unannounced -- the banner is the feature's
+## -- so the cut is not four shots of the same plain platforms.
+## The three race showcases are real bot races (Race.active, a RaceBot on the
+## course); the last dresses more bots as friends' ghosts, since a LAN race
+## needs other phones and a render has none.
+var _release_segments: Array[Dictionary] = [
+	{"name": "splash", "seconds": 1.30, "build": "_build_splash", "full": true},
+	{"name": "race", "seconds": 3.80, "build": "_build_race",
+		"panel": ["RACE MODE",
+			"Same course, same rules, one rival. First to the line wins.",
+			CYAN]},
+	{"name": "boxes", "seconds": 5.00, "build": "_build_boxes",
+		"panel": ["ITEM BOXES",
+			"Rise through a gate, roll an item, and spend it when it counts.",
+			ORANGE]},
+	{"name": "attack", "seconds": 4.60, "build": "_build_attack",
+		"panel": ["HIT AND BLOCK",
+			"Drop a Comet on whoever is ahead. Raise a Shield when it comes back.",
+			MAGENTA]},
+	{"name": "friends", "seconds": 4.40, "build": "_build_friends",
+		"panel": ["RACE YOUR FRIENDS",
+			"Up to eight players on the same Wi-Fi. No accounts, no servers.",
+			GREEN]},
 	{"name": "end", "seconds": 2.80, "build": "_build_end_card", "full": true},
 ]
 
@@ -177,6 +209,8 @@ func _ready() -> void:
 	# single popup silently freezes the rest of the trailer.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_read_cmdline()
+	if cut == "release":
+		_segments = _release_segments
 	_output_size = LANDSCAPE_SIZE if landscape else OUTPUT_SIZE
 	seed(random_seed)
 	_build_stage()
@@ -193,6 +227,8 @@ func _read_cmdline() -> void:
 			output_dir = args[i + 1]
 		elif args[i] == "--aspect":
 			landscape = args[i + 1] == "landscape"
+		elif args[i] == "--cut":
+			cut = args[i + 1]
 
 func _build_stage() -> void:
 	_stage = SubViewport.new()
@@ -370,6 +406,7 @@ func _render() -> void:
 			await _slide_to(node, segment)
 		await _hold(_frames(segment["seconds"]))
 		_verify_death(segment)
+		_verify_roll(segment)
 		print("  %-8s %5.2fs  -> frame %d" % [segment["name"], segment["seconds"], _frame])
 	_finish()
 
@@ -702,9 +739,17 @@ func _tick_gameplay(frame: int) -> void:
 	# name instead, at a size the format supports, and for the whole segment
 	# rather than for a beat of it. Cutting it also avoids the same words
 	# appearing twice at two sizes at once, which reads as a mistake.
-	if zone >= 0 and not landscape and frame == _frames(ZONE_BANNER_AT):
+	# A showcase with a banner of its own (the release cut) is set in its zone
+	# without naming it.
+	if zone >= 0 and not landscape and frame == _frames(ZONE_BANNER_AT) \
+			and _config.get("banner", "") == "":
 		_flash_zone_banner(_current,
 			"%s ZONE" % ZoneDirector.ZONE_NAMES[zone], ZONE_BANNER_HOLD)
+	# The release cut's showcases are not zones, but are named the same way.
+	var banner: String = _config.get("banner", "")
+	if banner != "" and not landscape and frame == _frames(ZONE_BANNER_AT):
+		_flash_zone_banner(_current, banner, ZONE_BANNER_HOLD)
+	_tick_items(frame)
 	var die_at: float = _config.get("die_at", -1.0)
 	if die_at >= 0.0 and frame == _frames(die_at) \
 			and _pilot != null and is_instance_valid(_pilot):
@@ -780,7 +825,237 @@ func _sweep_colors(screen: Node, t: float) -> void:
 func _build_end_card() -> Node:
 	_config = {}
 	_tick = Callable()
-	return EndCard.new()
+	var card := EndCard.new()
+	if cut == "release":
+		card.cta_text = "OUT NOW ON GOOGLE PLAY"
+	return card
+
+# --- the release cut ---------------------------------------------------------
+
+## Shared by the four race showcases: a bot race, each in a zone of its own, far
+## enough from the finish that it never ends. `score` opens each one a little
+## under a multiple of RaceItems.GATE_EVERY when it wants a gate in shot, or
+## well clear of one when it does not.
+func _race_config(overrides: Dictionary) -> Dictionary:
+	var config := {
+		"skin": Player.SkinType.PLASMA,
+		"color": Settings.PLAYER_COLOR_DEFAULT,
+		"platform_color": Settings.PLATFORM_COLOR_DEFAULT,
+		"particle_color": Settings.PARTICLE_COLOR_DEFAULT,
+		"zone": -1,
+		"race": true,
+		"items": false,
+		"perfect_cycle": PackedInt32Array([1, 0, 1]),
+		"launch_velocity": -950.0,
+		"streak": 0,
+		"score": 600,
+		"climbed": 1200.0,
+		"min_gap": 100.0,
+		"max_gap": 150.0,
+		"platform_width": 100.0,
+		"bot_pace": TRAILER_PACE,
+	}
+	config.merge(overrides, true)
+	return config
+
+## The race itself: the AI's ghost climbing the same platforms, a little ahead
+## so it is in shot and there is something to chase.
+func _build_race() -> Node:
+	return _build_gameplay(_race_config({
+		"banner": "RACE MODE",
+		"zone": ZoneDirector.Zone.MOVING,
+		"color": CYAN,
+		"platform_color": BLUE,
+		"particle_color": CYAN,
+		# Past 1,000: below it the spawner builds plain platforms whatever
+		# the zone (platform_spawner.gd:_pick_attributes).
+		"score": 1100,
+		"climbed": 2200.0,
+		"bot_lift": 140.0,
+		"bot_pace": 50.0,
+	}))
+
+## A gate, the roulette, and the Rocket it lands on. Opens just under the
+## 3,000 gate so the row of boxes comes down into shot within the first second.
+func _build_boxes() -> Node:
+	return _build_gameplay(_race_config({
+		"banner": "ITEM BOXES",
+		# Phantom, as the announcement cut's Solar Wind shot is: there is no
+		# platform art to lose while the Rocket throws the frame upward.
+		"zone": ZoneDirector.Zone.INVISIBLE,
+		"skin": Player.SkinType.STAR,
+		"color": ORANGE,
+		"platform_color": ORANGE,
+		"particle_color": RED,
+		"items": true,
+		"score": 2925,
+		"climbed": 6000.0,
+		"roll": RaceItems.Item.ROCKET,
+		"use_after_roll": 0.45,
+	}))
+
+## Both attacks' whole story in one shot: a Comet thrown at the AI ahead, and
+## the AI's own answered with a Shield. Nowhere near a gate -- the items are
+## put in the slot on cue.
+func _build_attack() -> Node:
+	return _build_gameplay(_race_config({
+		"banner": "HIT AND BLOCK",
+		"zone": ZoneDirector.Zone.GLASS,
+		"skin": Player.SkinType.DIAMOND,
+		"color": MAGENTA,
+		"platform_color": WHITE,
+		"particle_color": MAGENTA,
+		"items": true,
+		"score": 4650,
+		"climbed": 9000.0,
+		"bot_lift": 230.0,
+		"bot_pace": 52.0,
+		"beats": [
+			[0.10, "give", RaceItems.Item.COMET],
+			[0.55, "use", 0],
+			[1.85, "give", RaceItems.Item.SHIELD],
+			[2.15, "use", 0],
+			[2.30, "bot_attack", RaceItems.Item.COMET],
+		],
+	}))
+
+## A room of friends. The AI is renamed and three more bots join it, each in
+## a colour and shape of its own and without the AI's dimmed core, which is
+## how a LAN rival is drawn. Opens just under the 6,000 gate, so the whole
+## field goes through a row of boxes together.
+func _build_friends() -> Node:
+	return _build_gameplay(_race_config({
+		"banner": "RACE YOUR FRIENDS",
+		"zone": ZoneDirector.Zone.SQUISHY,
+		# Timed every time: a mistimed landing on a squish platform is a
+		# halved bounce, and the shot is not about that.
+		"perfect_cycle": PackedInt32Array([1]),
+		"skin": Player.SkinType.HEART,
+		"color": GREEN,
+		"platform_color": VIOLET,
+		"particle_color": GREEN,
+		"items": true,
+		"score": 5925,
+		"climbed": 12000.0,
+		"bot_label": "ALEX",
+		"bot_lift": 90.0,
+		"friends": [
+			["SAM", Color(2.2, 0.5, 0.5), PlasmaBlob.Shape.SQUARE, 200.0, 51.0],
+			["MIA", Color(0.4, 1.4, 2.4), PlasmaBlob.Shape.CIRCLE, -60.0, 44.0],
+			["KAI", Color(2.4, 1.8, 0.3), PlasmaBlob.Shape.DIAMOND, 320.0, 54.0],
+		],
+		"roll": RaceItems.Item.SPRING,
+		"use_after_roll": 0.35,
+	}))
+
+## The item beats of a release showcase: a box roll steered to the item the
+## shot is about, that item used a moment later, and anything put on a cue.
+func _tick_items(frame: int) -> void:
+	var items: RaceItems = _current.get("_items")
+	if items == null:
+		return
+	var roll: int = _config.get("roll", RaceItems.Item.NONE)
+	if roll != RaceItems.Item.NONE and not _config.get("_rolled", false):
+		_ensure_pickup(items)
+		# Taken over on the roulette's last frame, so the slot lands on the
+		# item wanted without ever showing whatever the dice said.
+		if items.rolling_left > 0.0 and items.rolling_left <= 2.0 / float(FPS):
+			items.rolling_left = 0.0
+			items.held = roll
+			items.changed.emit()
+			_config["_rolled"] = true
+			_config["_use_at"] = frame + _frames(_config.get("use_after_roll", 0.4))
+			print("trailer: box rolled at frame %d" % _frame)
+	if _config.get("_use_at", -1) == frame:
+		items.use()
+	for beat in _config.get("beats", []):
+		if frame != _frames(beat[0]):
+			continue
+		match beat[1]:
+			"give":
+				items.held = beat[2]
+				items.rolling_left = 0.0
+				items.changed.emit()
+			"use":
+				if not items.use():
+					printerr("trailer: LOST TAKE at frame %d -- an item on cue could not "
+						% _frame + "be used. Re-render with a different seed.")
+			"bot_attack":
+				_current._bot.attack_requested.emit(beat[2])
+
+## A gate the character went through between two boxes, in a showcase that
+## is about the box: the nearest one is taken anyway. The reach is 78px and
+## the boxes are 180 apart, so this moves a pickup by a few pixels at most,
+## rather than throwing away a take over them.
+func _ensure_pickup(items: RaceItems) -> void:
+	if items.rolling_left > 0.0 or items.held != RaceItems.Item.NONE:
+		return
+	for i in range(items._spent.size()):
+		if not items._spent[i] or items._taken[i] >= 0:
+			continue
+		var nearest := 0
+		for k in range(RaceItems.BOXES_PER_GATE):
+			if absf(items.player.global_position.x - items.box_x(k)) \
+					< absf(items.player.global_position.x - items.box_x(nearest)):
+				nearest = k
+		items._taken[i] = nearest
+		items._taken_at[i] = items._time
+		items._pops.append([Vector2(items.box_x(nearest), items._gate_ys[i]), 0.0])
+		items.rolling_left = RaceItems.ROLL_TIME
+		items.changed.emit()
+		return
+
+## A showcase built around a box is a lost take if the character went through
+## the gate between two of them.
+func _verify_roll(segment: Dictionary) -> void:
+	if _config.get("roll", RaceItems.Item.NONE) == RaceItems.Item.NONE:
+		return
+	if not _config.get("_rolled", false):
+		printerr("trailer: LOST TAKE -- the %s segment never picked up its box. "
+			% segment["name"] + "Re-render with a different seed.")
+
+## Puts the race on the footing the showcase asked for. Runs at the end of
+## _on_run_started, once the hop, the platform field and the score origin are
+## the segment's own: game.gd started the bot and laid the gates against the
+## intro's hand-off, which none of those still match.
+func _setup_race_showcase(game: Node, config: Dictionary) -> void:
+	var spawner: Node2D = game.spawner
+	var bot: RaceBot = game._bot
+	_restart_bot(bot, game, config.get("bot_label", "AI"), config.get("bot_lift", 0.0),
+		0.0, config["bot_pace"], float(config["score"]))
+	for friend in config.get("friends", []):
+		var ghost := RaceBot.new()
+		ghost.color = friend[1]
+		ghost.ghost_core = false
+		game.add_child(ghost)
+		_restart_bot(ghost, game, friend[0], friend[3] * 0.5, friend[3] - 160.0,
+			friend[4], float(config["score"]))
+		ghost.show_ghost(friend[2])
+		game._race_hud.rivals.append(ghost)
+	var items: RaceItems = game._items
+	if items != null:
+		items.begin(game._score_origin_y, Race.target(), spawner.course_left, spawner.course_width)
+		# The bots' own boxes are switched off: an item of theirs going off
+		# mid-shot is a beat nobody wrote.
+		items._bot_spent.fill(true)
+	# A showcase with no zone of its own stays on plain platforms: the banner
+	# is in use, and a stage boundary must not hand the spawner a zone.
+	if config.get("zone", -1) < 0:
+		game.zones.zone_changed.disconnect(game._on_zone_changed)
+		var stages: Array[int] = game.zones._stages
+		for i in range(stages.size()):
+			stages[i] = 0
+
+func _restart_bot(bot: RaceBot, game: Node, label: String, lift: float, shift_x: float,
+		pace: float, score: float) -> void:
+	bot.begin(game.spawner, game.player, 1.0e9)
+	bot.label = label
+	bot.global_position += Vector2(shift_x, -lift)
+	bot._best_y = bot.global_position.y
+	bot._pace = pace
+	# On its pace from where it stands, rather than from a score of zero.
+	bot._expected = score + lift / 10.0
+	bot.queue_redraw()
 
 # --- gameplay setup ----------------------------------------------------------
 
@@ -795,7 +1070,21 @@ func _build_gameplay(config: Dictionary) -> Node:
 	Settings.player_color = config["color"]
 	Settings.platform_color = config["platform_color"]
 	Settings.background_particle_color = config["particle_color"]
+	if config.get("zone", -1) >= 0:
+		# In a zone the game paints both itself: the platforms and the drift
+		# start from neutral white and take the zone's tint as a multiply (see
+		# ZoneAmbience.tint_modulate). A saturated colour under that multiply
+		# keeps only what the two hues share, which is how a blue slab under
+		# an amber tint came out a dim teal. Neither is a player setting any
+		# more, so a segment's own picks only apply outside the zones.
+		Settings.platform_color = Settings.PLATFORM_COLOR_NEUTRAL
+		Settings.background_particle_color = Settings.PARTICLE_COLOR_NEUTRAL
 	_tick = _tick_gameplay
+	# Read by game.gd's _ready, which builds the bot, the race HUD and the item
+	# boxes off them. Plain vars: nothing here reaches race.cfg.
+	Race.active = config.get("race", false)
+	Race.items_on = config.get("items", false)
+	Race.target_index = Race.TARGETS.size() - 1
 	var game := GAME_SCENE.instantiate()
 	_pending_setup = _setup_gameplay.bind(game, config)
 	return game
@@ -901,6 +1190,15 @@ func _on_run_started(game: Node, config: Dictionary) -> void:
 		# appears over a segment already labelled.
 		game.zones.zone_changed.disconnect(game._on_zone_changed)
 		_force_zone(game, zone)
+		# The zone's own sky, drift and tints -- the half of _on_zone_changed
+		# that is not the banner. Marked as not yet started so it arrives
+		# with the shot, the way stage 0 does with a run, instead of blending
+		# in from the opening sky across the first second and a half.
+		game._ambience_started = false
+		game._apply_zone_ambience(1)
+
+	if config.get("race", false):
+		_setup_race_showcase(game, config)
 
 	var pilot := Autopilot.new()
 	pilot.perfect_cycle = config["perfect_cycle"]

@@ -163,20 +163,9 @@ func _on_game_loaded(json: String) -> void:
 		# while signed out.
 		submit_run(_local_high_score())
 		for i in range(Race.TARGETS.size()):
-			submit_race_speed(i, _best_race_speed(i))
+			submit_race_speed(i, Stats.race_best_speed(Race.TARGETS[i]))
 	# Also covers the no-snapshot case, where this is the first cloud save.
 	_queue_upload()
-
-## The fastest win on record for a distance, across every AI, or 0.0 with no
-## win yet. Race keeps best *times*; the distance is fixed, so the shortest
-## time is the highest speed.
-func _best_race_speed(target_index: int) -> float:
-	var best := 0.0
-	for difficulty in range(Race.DIFFICULTY_NAMES.size()):
-		var time := Race.best_time(difficulty, target_index)
-		if time > 0.0 and (best <= 0.0 or time < best):
-			best = time
-	return Race.TARGETS[target_index] / best if best > 0.0 else 0.0
 
 ## The snapshot's bytes arrive as a JSON array of *signed* Java bytes.
 func _decode(content: Variant) -> Dictionary:

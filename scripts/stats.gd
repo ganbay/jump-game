@@ -22,6 +22,10 @@ var best_streak_ever: int = 0
 ## averages, which would let one lucky two-second run dominate.
 var total_time: float = 0.0
 var best_speed: float = 0.0
+## Fastest won AI race per distance, in score per second, keyed by the
+## distance (10000, 20000, ...). The local copy of what the Play leaderboards
+## hold -- see PlayGames.submit_race_speed, which is sent the same wins.
+var race_best_speeds: Dictionary = {}
 ## The spendable balance, banked one run at a time. Separate from a lifetime
 ## total on purpose -- once there is something to spend it on, this is the
 ## number that goes down.
@@ -45,6 +49,7 @@ func _ready() -> void:
 		best_streak_ever = cfg.get_value("stats", "best_streak_ever", 0)
 		total_time = cfg.get_value("stats", "total_time", 0.0)
 		best_speed = cfg.get_value("stats", "best_speed", 0.0)
+		race_best_speeds = cfg.get_value("stats", "race_best_speeds", {})
 		coins = cfg.get_value("stats", "coins", 0)
 		escaped = cfg.get_value("stats", "escaped", false)
 		true_ending = cfg.get_value("stats", "true_ending", false)
@@ -71,6 +76,19 @@ func record_run(score: int, max_streak: int, coins_earned: int = 0, duration: fl
 	if runs.size() > RUN_HISTORY_MAX:
 		runs = runs.slice(runs.size() - RUN_HISTORY_MAX)
 	_save()
+
+## 0.0 for a distance never won.
+func race_best_speed(distance: int) -> float:
+	return float(race_best_speeds.get(distance, 0.0))
+
+## A won AI race's speed. Returns whether it beat the record for its distance;
+## nothing is written when it did not.
+func record_race_speed(distance: int, speed: float) -> bool:
+	if speed <= race_best_speed(distance):
+		return false
+	race_best_speeds[distance] = speed
+	_save()
+	return true
 
 ## Mission payouts and anything else that hands coins over, as opposed to the
 ## run itself banking them through record_run.
@@ -150,6 +168,7 @@ func _save() -> void:
 	cfg.set_value("stats", "best_streak_ever", best_streak_ever)
 	cfg.set_value("stats", "total_time", total_time)
 	cfg.set_value("stats", "best_speed", best_speed)
+	cfg.set_value("stats", "race_best_speeds", race_best_speeds)
 	cfg.set_value("stats", "coins", coins)
 	cfg.set_value("stats", "escaped", escaped)
 	cfg.set_value("stats", "true_ending", true_ending)
@@ -168,6 +187,7 @@ func cloud_state() -> Dictionary:
 		"best_streak_ever": best_streak_ever,
 		"total_time": total_time,
 		"best_speed": best_speed,
+		"race_best_speeds": race_best_speeds,
 		"coins": coins,
 		"escaped": escaped,
 		"true_ending": true_ending,
@@ -191,6 +211,11 @@ func merge_cloud(state: Dictionary) -> void:
 		coins = int(state.get("coins", 0))
 	best_streak_ever = maxi(best_streak_ever, int(state.get("best_streak_ever", 0)))
 	best_speed = maxf(best_speed, float(state.get("best_speed", 0.0)))
+	var cloud_race: Variant = state.get("race_best_speeds")
+	if cloud_race is Dictionary:
+		for distance in cloud_race:
+			race_best_speeds[int(distance)] = maxf(race_best_speed(int(distance)),
+				float(cloud_race[distance]))
 	escaped = escaped or bool(state.get("escaped", false))
 	true_ending = true_ending or bool(state.get("true_ending", false))
 	tutorial_seen = tutorial_seen or bool(state.get("tutorial_seen", false))

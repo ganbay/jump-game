@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Mixes the trailer's music onto an already-rendered cut.
 #
-#   tools/mix_trailer_audio.sh <video.mp4> <drift_frame> <custom_frame> <death_frame>
+#   tools/mix_trailer_audio.sh <video.mp4> <drift_frame> <custom_frame> <death_frame> [125|155]
+#
+# The last argument picks the gameplay pair, by tempo, from the game's own
+# music sets (scripts/audio.gd:MUSIC_SETS). 125 if left out.
 #
 # Split out of render_trailer.sh so the mix can be re-cut in seconds against an
 # existing render instead of costing a several-minute re-render of every frame.
@@ -23,8 +26,8 @@
 # customization showcase and riding out to the end card.
 set -euo pipefail
 
-if [ $# -ne 4 ]; then
-  echo "usage: $(basename "$0") <video.mp4> <drift_frame> <custom_frame> <death_frame>" >&2
+if [ $# -lt 4 ] || [ $# -gt 5 ]; then
+  echo "usage: $(basename "$0") <video.mp4> <drift_frame> <custom_frame> <death_frame> [125|155]" >&2
   exit 1
 fi
 VIDEO="$1"
@@ -37,8 +40,16 @@ command -v ffmpeg >/dev/null || { echo "ffmpeg not found" >&2; exit 1; }
 
 PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MUSIC="$PROJECT/audio/music"
-LEAD="$MUSIC/gameplay_asap_125bpm.ogg"
-DRUM="$MUSIC/gameplay_indie_drums_125bpm_v2.ogg"
+# Both pairs are whole bars at their tempo (125: 16 and 8 bars; 155: 16 and
+# 8 bars), which the bar-locking below depends on.
+BPM="${5:-125}"
+case "$BPM" in
+  125) LEAD="$MUSIC/gameplay_asap_125bpm.ogg"
+       DRUM="$MUSIC/gameplay_indie_drums_125bpm_v2.ogg" ;;
+  155) LEAD="$MUSIC/gameplay_pad_155bpm.ogg"
+       DRUM="$MUSIC/gameplay_dnb_drums_155bpm.ogg" ;;
+  *) echo "mix: no music set at ${BPM}bpm (125 or 155)" >&2; exit 1 ;;
+esac
 MENU="$MUSIC/menu_ambient.ogg"
 
 FPS=60
@@ -46,7 +57,6 @@ FPS=60
 # it. Both loops are whole numbers of bars at this tempo (30.72s = 16 bars,
 # 15.36s = 8), which is what lets the drum layer be quantised to the grid and
 # lets either loop repeat without drifting off it.
-BPM=125
 BAR=$(awk -v b="$BPM" 'BEGIN{printf "%.6f", 240.0/b}')
 
 t() { awk -v f="$1" -v fps="$FPS" 'BEGIN{printf "%.5f", f/fps}'; }

@@ -437,6 +437,10 @@ func _ready() -> void:
 	if Race.active:
 		_setup_race()
 		_hud_nodes.append(_race_hud)
+	if _bot != null and Race.items_on:
+		_make_items()
+		_items.bot = _bot
+		_hud_nodes.append(_item_button)
 	if _lan:
 		_setup_lan()
 		_use_shared_width()
@@ -577,6 +581,8 @@ func _on_intro_finished() -> void:
 			"players": LanRace.peers.size(), "target": Race.target()})
 	if _bot != null:
 		_bot.begin(spawner, player, _death_margin)
+		if _items != null:
+			_items.begin(_score_origin_y, Race.target(), spawner.course_left, spawner.course_width)
 		Analytics.log_event("race_start", {
 			"difficulty": Race.difficulty_name(), "target": Race.target()})
 	# Missions.begin_run()  # missions disabled; see missions.gd ENABLED
@@ -1816,6 +1822,10 @@ func _respawn_player() -> void:
 func _finish_race(won: bool) -> void:
 	is_game_over = true
 	_bot.stop()
+	# A race with item boxes sets no record of any kind (see Race.items_on).
+	var counts := _items == null
+	if _items != null:
+		_items.stop()
 	_respawn_left = 0.0
 	_race_hud.player_respawn_left = 0.0
 	_dismiss_control_hint()
@@ -1823,15 +1833,19 @@ func _finish_race(won: bool) -> void:
 	Audio.fade_to_menu_music()
 	Audio.vibrate(60)
 	var best_before := Race.best_time()
-	var new_best := won and Race.record_win(run_time)
+	var new_best := won and counts and Race.record_win(run_time)
 	var refunded := won and Race.refund_race()
-	if won:
+	if won and counts:
+		Stats.record_race_speed(Race.TARGETS[Race.target_index], run_speed())
 		PlayGames.submit_race_speed(Race.target_index, run_speed())
 	game_over_title.text = "YOU WIN!" if won else "AI WINS"
 	if won:
 		game_over_title.add_theme_color_override("font_color", UiAccent.color())
-		result_label.text = "TIME %s   %s" % [Stats.format_duration(run_time),
-			"NEW BEST" if new_best else "BEST " + Stats.format_duration(best_before)]
+		if counts:
+			result_label.text = "TIME %s   %s" % [Stats.format_duration(run_time),
+				"NEW BEST" if new_best else "BEST " + Stats.format_duration(best_before)]
+		else:
+			result_label.text = "TIME %s   ITEM BOXES ON" % Stats.format_duration(run_time)
 	else:
 		result_label.text = "YOU %d / %d" % [score, Race.target()]
 	result_label.show()
@@ -1847,7 +1861,7 @@ func _finish_race(won: bool) -> void:
 	watch_ad_button.hide()
 	_show_race_tickets(won, refunded)
 	# The revive prompt's slot is free in a race, so the unlock takes it.
-	if won and Race.unlock_grandmaster():
+	if won and counts and Race.unlock_grandmaster():
 		revive_body_label.text = "GRANDMASTER UNLOCKED"
 		revive_body_label.add_theme_font_size_override("font_size", GRANDMASTER_FONT_SIZE)
 		revive_body_label.add_theme_color_override("font_color", UiAccent.color())

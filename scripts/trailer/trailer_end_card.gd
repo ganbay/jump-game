@@ -30,6 +30,10 @@ const CTA_COLOR := Color(0.7403599, 2.2, 0.6491324)
 
 const STARS := preload("res://scripts/splash_stars.gd")
 
+## The one line that differs between the cuts: set before the card enters the
+## tree (see trailer_director.gd:_build_end_card).
+var cta_text: String = "COMING SOON ON GOOGLE PLAY"
+
 const FADE_IN := 0.5
 const RISE_PX := 26.0
 ## The box every line is given around its anchor. Held as constants because the
@@ -80,7 +84,7 @@ func _ready() -> void:
 
 	var title := _label(content, "JETLET", 0.42, 96, TITLE_COLOR)
 	var sub := _label(content, "SOLAR ESCAPE", 0.505, 44, SUB_COLOR)
-	var cta := _label(content, "COMING SOON ON GOOGLE PLAY", 0.60, 28, CTA_COLOR)
+	var cta := _label(content, cta_text, 0.60, 28, CTA_COLOR)
 
 	# Staggered so the card assembles itself instead of appearing whole: the
 	# name, then what it is, then where to get it -- the order it would be read

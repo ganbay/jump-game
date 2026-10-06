@@ -18,10 +18,6 @@ extends Node2D
 ## An AI not yet opened by casual score (see Race.is_difficulty_unlocked) is
 ## still listed, faded and padlocked, and a tap on it names the score that
 ## opens it instead of picking it.
-##
-## Racing friends (lan_lobby.tscn) gets the bottom of the screen: the START
-## plate's look with a Wi-Fi glyph, breathing a slow glow so it is noticed
-## under the AI picker, and flagged NEW until it has been opened once.
 
 const SECTION_FONT_SIZE := 20
 const OPTION_FONT_SIZE := 26
@@ -37,21 +33,16 @@ const AD_BUTTON_MIN_WIDTH := 440.0
 const COOLDOWN_ALPHA := 0.55
 const LOCK_ICON := preload("res://assets/icons/lock.svg")
 const LOCKED_ALPHA := 0.4
-const LAN_ICON := preload("res://assets/icons/signal.svg")
-## The LAN button's breathing: up to this bright and back, every LAN_GLOW_BEAT
-## seconds each way. Over 1.0, so the screen's glow picks it up.
-const LAN_GLOW := Color(1.55, 1.55, 1.55, 1.0)
-const LAN_GLOW_BEAT := 1.1
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var options: VBoxContainer = $UI/Options
 
 var _difficulty_buttons: Array[Button] = []
 var _target_buttons: Array[Button] = []
+var _items_button: Button
 var _best_label: Label
 var _start_button: Button
 var _cost_label: Label
-var _lan_button: Button
 var _ticket_button: Button
 var _info_panel: Control
 var _info_ad_button: Button
@@ -85,8 +76,6 @@ func _apply_visual_settings() -> void:
 	if _info_ad_button != null:
 		UiPlate.action(_info_ad_button)
 		UiPlate.action(_info_casual_button)
-	if _lan_button != null:
-		_style_lan_button()
 	_refresh()
 
 func _build() -> void:
@@ -111,6 +100,9 @@ func _build() -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_target_pressed.bind(i))
 		_target_buttons.append(button)
+	# Straight under the distance, as on the LAN lobby.
+	_items_button = _add_option(options, "")
+	_items_button.pressed.connect(_on_items_pressed)
 
 	_add_gap()
 	_best_label = _add_note("")
@@ -125,42 +117,8 @@ func _build() -> void:
 	UiPlate.action(_start_button)
 	IconPop.attach([_start_button])
 	_cost_label = _add_note("")
-	_add_gap()
-	_build_lan_button()
 	_build_ticket_button()
 	_build_info_panel()
-
-func _build_lan_button() -> void:
-	_lan_button = Button.new()
-	_lan_button.text = "RACE YOUR FRIENDS"
-	_lan_button.icon = LAN_ICON
-	_lan_button.focus_mode = Control.FOCUS_NONE
-	_lan_button.add_theme_font_size_override("font_size", 28)
-	_lan_button.add_theme_constant_override("icon_max_width", 34)
-	_lan_button.add_theme_constant_override("h_separation", 14)
-	_lan_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_lan_button.pressed.connect(_on_lan_pressed)
-	options.add_child(_lan_button)
-	_style_lan_button()
-	IconPop.attach([_lan_button])
-	_add_note("NEW!  UP TO 8 PLAYERS ON THE SAME WI-FI" if not Race.lan_seen
-		else "UP TO 8 PLAYERS ON THE SAME WI-FI")
-	# On modulate, not self_modulate: UiOpacity owns that one.
-	var tw := _lan_button.create_tween().set_loops()
-	tw.tween_property(_lan_button, "modulate", LAN_GLOW, LAN_GLOW_BEAT) \
-		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(_lan_button, "modulate", Color.WHITE, LAN_GLOW_BEAT) \
-		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-
-## The action plate, with the glyph tinted to match its text: accent at rest,
-## punched out black while held.
-func _style_lan_button() -> void:
-	UiPlate.action(_lan_button)
-	var accent := UiAccent.color()
-	for state in ["icon_normal_color", "icon_focus_color"]:
-		_lan_button.add_theme_color_override(state, accent)
-	for state in ["icon_hover_color", "icon_pressed_color"]:
-		_lan_button.add_theme_color_override(state, UiPlate.TITLE_TEXT)
 
 ## The ticket count, pinned top right. A button rather than a readout: tapping
 ## it is how the explainer is found again.
@@ -342,10 +300,16 @@ func _refresh() -> void:
 		UiPlate.option(_difficulty_buttons[i], i == _difficulty)
 	for i in range(_target_buttons.size()):
 		UiPlate.option(_target_buttons[i], i == _target_index)
+	if _items_button != null:
+		_items_button.text = "ITEM BOXES: ON" if Race.items_on else "ITEM BOXES: OFF"
+		UiPlate.option(_items_button, Race.items_on)
 	if _best_label != null:
 		var best := Race.best_time(_difficulty, _target_index)
-		_best_label.text = ("BEST TIME %s" % Stats.format_duration(best) if best > 0.0
-			else "NOT BEATEN YET")
+		if Race.items_on:
+			_best_label.text = "NO RECORDS WITH ITEM BOXES ON"
+		else:
+			_best_label.text = ("BEST TIME %s" % Stats.format_duration(best) if best > 0.0
+				else "NOT BEATEN YET")
 	if _ticket_button != null:
 		_ticket_button.text = "%d/%d" % [Race.tickets, Race.TICKET_CAP]
 	if _cost_label != null:
@@ -371,6 +335,11 @@ func _on_difficulty_pressed(index: int) -> void:
 	_difficulty = index
 	_refresh()
 
+func _on_items_pressed() -> void:
+	Audio.play_ui_click()
+	Race.set_items_on(not Race.items_on)
+	_refresh()
+
 func _on_target_pressed(index: int) -> void:
 	Audio.play_ui_click()
 	_target_index = index
@@ -388,14 +357,6 @@ func _on_start_pressed() -> void:
 	Race.pay_for_race()
 	Race.active = true
 	Transition.change_scene("res://scenes/main.tscn")
-
-func _on_lan_pressed() -> void:
-	if _leaving:
-		return
-	_leaving = true
-	Audio.play_ui_click()
-	Race.mark_lan_seen()
-	Transition.change_scene("res://scenes/lan_lobby.tscn")
 
 func _on_back_pressed() -> void:
 	if _leaving:

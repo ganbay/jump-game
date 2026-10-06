@@ -24,6 +24,15 @@ class_name RaceBot
 ## behind: it is worth several seconds of pace in one launch, and spending it
 ## while already ahead would make the bot lurch away and then idle.
 ##
+## ITEMS. With item boxes on (see race_items.gd, which hands the bot its
+## items and carries attacks both ways) the pace would undo every one of them:
+## a bot knocked back just flares until it is on its number again, and one
+## that rockets ahead coasts until the lead is gone. So while an item's effect
+## runs -- its own Rocket or Spring Shoes, or a Comet or Reverse it took --
+## the "where I should be" is carried along with where it actually is, and
+## whatever the item gained or cost is still there when the effect ends. The
+## bot then holds its pace from that new footing.
+##
 ## Steering and target picking are the trailer autopilot's (see
 ## trailer/trailer_autopilot.gd for the reasoning behind each piece), driving a
 ## steering axis here instead of the global input actions.
@@ -62,7 +71,22 @@ const REVIVE_LAUNCH_VELOCITY := -1500.0
 const REVIVE_SPAWN_LIFT := 40.0
 const REVIVE_SAFE_DROP := 240.0
 
+## How long after getting an item the bot uses it, picked between these. An
+## attack waits past it for the player to be ahead.
+const ITEM_USE_MIN := 0.8
+const ITEM_USE_MAX := 3.5
+
+## The bot wants to throw `kind` (a RaceItems.Item attack) at the player.
+signal attack_requested(kind: int)
+
 var streak: int = 0
+## The item in its slot (a RaceItems.Item), and the player's score for
+## deciding when an attack can be thrown. Both kept by RaceItems.
+var held: int = RaceItems.Item.NONE
+var player_score: int = 0
+var shield_left: float = 0.0
+var stun_left: float = 0.0
+var reverse_left: float = 0.0
 
 var _spawner: Node2D
 var _active: bool = false
@@ -73,6 +97,13 @@ var _pace: float = 70.0
 var _fumble: float = 0.08
 var _mood_phase: Vector2 = Vector2.ZERO
 var _lazy: bool = false
+var _use_in: float = 0.0
+var _rocket_left: float = 0.0
+var _auto_boosts: int = 0
+## True while an item's effect runs, and the lead it started at -- see ITEMS.
+var _in_effect: bool = false
+var _effect_lead: float = 0.0
+var _status_shown: bool = false
 ## Highest point reached, as a feet y. The bot's camera, in effect: its score
 ## and its death line are both measured from here, as the player's are.
 var _best_y: float = 0.0
@@ -157,6 +188,7 @@ func _physics_process(delta: float) -> void:
 		return
 	_elapsed += delta
 	_expected += _pace * _mood() * delta
+	_update_items(delta)
 	if respawn_left > 0.0:
 		respawn_left -= delta
 		if respawn_left <= 0.0:
@@ -166,9 +198,16 @@ func _physics_process(delta: float) -> void:
 	_spawner.ensure_course(_apex_y() - COURSE_LOOKAHEAD)
 	_advance_low()
 	var axis := _steer_axis()
+	# A Comet takes the steering away; a Reverse swaps it, as on a player.
+	if stun_left > 0.0:
+		axis = 0.0
+	elif reverse_left > 0.0:
+		axis = -axis
 
 	var g := _gravity / _fall_multiplier() if velocity.y >= 0.0 else _gravity
 	velocity.y += g * delta
+	if _rocket_left > 0.0:
+		velocity.y = -RaceItems.ROCKET_SPEED
 	if axis != 0.0:
 		velocity.x = move_toward(velocity.x, axis * _move_speed, _key_accel * delta)
 	else:
@@ -186,6 +225,71 @@ func _physics_process(delta: float) -> void:
 	score = int(maxf(_spawner.score_origin_y - (_best_y - _feet_offset), 0.0) / 10.0)
 	if global_position.y > _best_y + _death_margin:
 		_fall()
+
+# --- Items ----------------------------------------------------------------
+
+## Into the slot, to be used after a moment -- a person looks at what they
+## got before pressing it.
+func give_item(item: int) -> void:
+	held = item
+	_use_in = randf_range(ITEM_USE_MIN, ITEM_USE_MAX)
+
+## An attack landing. Returns whether a raised Shield blocked it.
+func take_attack(kind: int) -> bool:
+	if shield_left > 0.0:
+		shield_left = 0.0
+		return true
+	match kind:
+		RaceItems.Item.COMET:
+			velocity.y = maxf(velocity.y, 0.0)
+			_rocket_left = 0.0
+			stun_left = RaceItems.COMET_STUN
+		RaceItems.Item.REVERSE:
+			reverse_left = RaceItems.REVERSE_TIME
+	return false
+
+func _update_items(delta: float) -> void:
+	shield_left = maxf(shield_left - delta, 0.0)
+	stun_left = maxf(stun_left - delta, 0.0)
+	reverse_left = maxf(reverse_left - delta, 0.0)
+	_rocket_left = maxf(_rocket_left - delta, 0.0)
+	if held != RaceItems.Item.NONE and respawn_left <= 0.0:
+		_use_in -= delta
+		if _use_in <= 0.0:
+			_use_item()
+	var effect := stun_left > 0.0 or reverse_left > 0.0 or _rocket_left > 0.0 \
+		or _auto_boosts > 0
+	if effect and not _in_effect:
+		_effect_lead = float(score) - _expected
+	_in_effect = effect
+	if _in_effect:
+		_expected = float(score) - _effect_lead
+	# One redraw past the end of it, so the last status is wiped off the ghost.
+	var status := shield_left > 0.0 or stun_left > 0.0 or reverse_left > 0.0
+	if status or _status_shown:
+		queue_redraw()
+	_status_shown = status
+
+func _use_item() -> void:
+	match held:
+		RaceItems.Item.ROCKET:
+			_rocket_left = RaceItems.ROCKET_TIME
+		RaceItems.Item.SPRING:
+			_auto_boosts += RaceItems.SPRING_LANDINGS
+		RaceItems.Item.SHIELD:
+			shield_left = RaceItems.SHIELD_TIME
+		RaceItems.Item.COMET, RaceItems.Item.REVERSE:
+			# Attacks only go forward: kept until the player is ahead.
+			if player_score <= score:
+				return
+			attack_requested.emit(held)
+	held = RaceItems.Item.NONE
+
+## The label, then whatever an item has put on the ghost.
+func _draw() -> void:
+	super()
+	RaceItems.draw_status(self, Vector2(0.0, -18.0), shield_left > 0.0, stun_left > 0.0,
+		reverse_left > 0.0, _elapsed, shield_left)
 
 ## Slow drift around 1.0, averaging out to it over a race.
 func _mood() -> float:
@@ -324,8 +428,12 @@ func _check_landing(prev_y: float, new_y: float) -> void:
 func _land(index: int, pos: Vector2) -> void:
 	var slot = _spawner.course[index]
 	global_position.y = pos.y - Player.PLATFORM_HALF_HEIGHT
-	var attempt := randf() < _flare_odds()
-	var is_timed := attempt and randf() >= _fumble
+	# Spring Shoes: the next few landings flare themselves, and launch harder.
+	var sprung := _auto_boosts > 0 and not _claimed.has(index)
+	if sprung:
+		_auto_boosts -= 1
+	var attempt := sprung or randf() < _flare_odds()
+	var is_timed := sprung or (attempt and randf() >= _fumble)
 	var boosted := is_timed and not _claimed.has(index)
 	if boosted:
 		streak += 1
@@ -333,6 +441,8 @@ func _land(index: int, pos: Vector2) -> void:
 	elif attempt and not is_timed:
 		streak = 0
 	velocity.y = _boosted_jump_velocity() if boosted else _jump_velocity
+	if sprung:
+		velocity.y *= RaceItems.SPRING_JUMP_MULT
 	if slot.has_attr(Platform.Attr.SQUISHY):
 		velocity.y *= Platform.SQUISH_BOOST if is_timed else Platform.SQUISH_PENALTY
 	if slot.has_attr(Platform.Attr.GLASS):
@@ -371,6 +481,7 @@ func _update_wind(delta: float) -> void:
 
 func _fall() -> void:
 	respawn_left = Race.RESPAWN_PENALTY
+	_rocket_left = 0.0
 	streak = 0
 	velocity = Vector2.ZERO
 	_wind_left = 0.0
