@@ -67,6 +67,7 @@ func _ready() -> void:
 	Transition.scene_change_failed.connect(_on_scene_change_failed)
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
 	IconPop.attach([$UI/BackButton])
+	RaceGuidePanel.add_button($UI, true)
 	_show_view(_current_view())
 
 func _current_view() -> View:

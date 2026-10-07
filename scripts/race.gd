@@ -53,7 +53,9 @@ const UNLOCK_SCORES := [0, 5000, 10000, 20000, -1]
 
 ## --- Tickets ---
 ## Every race but a Novice one costs a ticket, charged when it starts (so
-## quitting or replaying mid-race still costs one) and refunded on a win.
+## quitting or replaying mid-race still costs one). A win does not hand it
+## back: a refund let anyone who could win race forever for free, which left
+## the players racing most with no use for the refill at all.
 ## Tickets come from casual runs -- the first of each day pays DAILY_TICKETS
 ## whatever it scores, and after that any run reaching RUN_MIN_SCORE pays
 ## one -- and from an ad for AD_TICKETS. The daily grant is a reason to open
@@ -68,7 +70,9 @@ const AD_TICKETS := 5
 ## One ad refill per this many seconds, shared by every place that offers it.
 ## A cooldown rather than a daily count: it hands a player a reason to come
 ## back later instead of a number to burn through in one sitting.
-const AD_COOLDOWN := 2 * 3600
+## Short enough that someone who runs dry mid-session can buy their way back
+## in before they have put the game down.
+const AD_COOLDOWN := 30 * 60
 ## A local reminder for when the cooldown ends -- only while the player is out
 ## of tickets, the one time it is news. The copy never mentions the ad.
 const READY_NOTIFICATION := "race_tickets_ready"
@@ -93,12 +97,16 @@ var difficulty: Difficulty = Difficulty.NOVICE
 var target_index: int = 0
 var field_index: int = 0
 ## Item boxes in bot races (see race_items.gd), picked on the race screen.
-## Off by default: a race with items on sets no record -- no best time, no
-## speed for Stats or the Play leaderboards -- since a Rocket run is not
-## comparable with a clean one. It still counts as a win: beating MASTER with
-## items on unlocks GRANDMASTER all the same.
-var items_on: bool = false
+## On by default, as in a LAN race. A race with items on sets no record -- no
+## best time, no speed for Stats or the Play leaderboards -- since a Rocket
+## run is not comparable with a clean one; switching them off is how a record
+## is chased. It still counts as a win: beating MASTER with items on unlocks
+## GRANDMASTER all the same.
+var items_on: bool = true
 var grandmaster_unlocked: bool = false
+## Bot-race wins in a row, across every AI and distance. Only a race run to
+## its end moves it -- quitting one neither adds to it nor breaks it.
+var win_streak: int = 0
 ## Best casual score, kept here so the AI unlocks can be read without
 ## reaching into game.gd. Fed by award_casual_run.
 var _best_casual: int = 0
@@ -121,8 +129,6 @@ var course_seed: int = -1
 ## apart from target_index so a LAN race never changes, or saves over, the
 ## distance picked for bot races.
 var shared_target: int = 0
-## Whether the race in progress took a ticket, and so has one to refund.
-var _paid: bool = false
 
 func _ready() -> void:
 	var scores := ConfigFile.new()
@@ -135,7 +141,8 @@ func _ready() -> void:
 			0, Difficulty.size() - 1) as Difficulty
 		target_index = clampi(cfg.get_value("race", "target_index", 0), 0, TARGETS.size() - 1)
 		field_index = clampi(cfg.get_value("race", "field_index", 0), 0, FIELD_SIZES.size() - 1)
-		items_on = cfg.get_value("race", "items_on", false)
+		items_on = cfg.get_value("race", "items_on", true)
+		win_streak = cfg.get_value("race", "win_streak", 0)
 		# "on_race" is the picker's save from when it only had two modes.
 		menu_mode = cfg.get_value("menu", "mode",
 			1 if cfg.get_value("menu", "on_race", false) else 0)
@@ -268,6 +275,18 @@ func set_items_on(on: bool) -> void:
 	cfg.set_value("race", "items_on", on)
 	cfg.save(SAVE_PATH)
 
+## Whether the how-to panel (race_guide_panel.gd) has been opened for this
+## mode, AI or LAN: each opens by itself the first time its screen is entered.
+func guide_seen(lan: bool) -> bool:
+	return _load().get_value("guide", "lan" if lan else "ai", false)
+
+func mark_guide_seen(lan: bool) -> void:
+	if guide_seen(lan):
+		return
+	var cfg := _load()
+	cfg.set_value("guide", "lan" if lan else "ai", true)
+	cfg.save(SAVE_PATH)
+
 func set_menu_mode(mode: int) -> void:
 	menu_mode = mode
 	var cfg := _load()
@@ -288,6 +307,15 @@ func _best_speed_from_times(for_target_index: int) -> float:
 		if time > 0.0 and (best <= 0.0 or time < best):
 			best = time
 	return TARGETS[for_target_index] / best if best > 0.0 else 0.0
+
+## Moves the win streak on a finished bot race and returns where it now
+## stands: one longer for a win, back to nothing for anything else.
+func record_result(won: bool) -> int:
+	win_streak = win_streak + 1 if won else 0
+	var cfg := _load()
+	cfg.set_value("race", "win_streak", win_streak)
+	cfg.save(SAVE_PATH)
+	return win_streak
 
 ## Records a win. Returns whether it beat the previous best.
 func record_win(time: float) -> bool:
@@ -313,22 +341,10 @@ func can_start(for_difficulty: int = difficulty) -> bool:
 ## (the lobby starts it), and this makes sure no rematch path charges either.
 func pay_for_race() -> bool:
 	if LanRace.in_race():
-		_paid = false
 		return true
 	if not can_start():
 		return false
-	var cost := race_cost()
-	tickets -= cost
-	_paid = cost > 0
-	_save_tickets()
-	return true
-
-## The winner's refund. Never capped: it only ever hands back what was paid.
-func refund_race() -> bool:
-	if not _paid:
-		return false
-	_paid = false
-	tickets += 1
+	tickets -= race_cost()
 	_save_tickets()
 	return true
 

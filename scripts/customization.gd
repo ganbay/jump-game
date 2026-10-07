@@ -342,6 +342,7 @@ func _open_confirm() -> void:
 		confirm_body.text = CONFIRM_BODY % [left, "" if left == 1 else "s"]
 	confirm_watch_button.disabled = false
 	confirm_panel.show()
+	Ads.log_offer(Ads.PLACEMENT_SKIN)
 
 func _close_confirm() -> void:
 	confirm_panel.hide()
@@ -361,7 +362,7 @@ func _on_confirm_watch_pressed() -> void:
 	# The ad takes a moment to come up with the button still on screen under
 	# it, so without this a second tap queues a second request behind the first.
 	confirm_watch_button.disabled = true
-	Ads.show_rewarded(_on_unlock_ad_rewarded, _on_unlock_ad_dismissed)
+	Ads.show_rewarded(Ads.PLACEMENT_SKIN, _on_unlock_ad_rewarded, _on_unlock_ad_dismissed)
 
 func _on_confirm_cancel_pressed() -> void:
 	Audio.play_ui_click()

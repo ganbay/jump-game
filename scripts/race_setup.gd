@@ -35,6 +35,8 @@ const AD_BUTTON_MIN_WIDTH := 440.0
 const COOLDOWN_ALPHA := 0.55
 const LOCK_ICON := preload("res://assets/icons/lock.svg")
 const LOCKED_ALPHA := 0.4
+const PADLOCK_SIZE := 28.0
+const PADLOCK_INSET := 20.0
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var options: VBoxContainer = $UI/Options
@@ -88,9 +90,7 @@ func _build() -> void:
 		var button := _add_option(options, Race.DIFFICULTY_NAMES[i])
 		button.pressed.connect(_on_difficulty_pressed.bind(i))
 		if not Race.is_difficulty_unlocked(i):
-			button.icon = LOCK_ICON
-			button.add_theme_constant_override("icon_max_width", 28)
-			button.add_theme_constant_override("h_separation", 12)
+			_add_padlock(button)
 			button.modulate.a = LOCKED_ALPHA
 		_difficulty_buttons.append(button)
 	# How many line up, the player included. No heading: the buttons say it.
@@ -133,6 +133,7 @@ func _build() -> void:
 	_cost_label = _add_note("")
 	_build_ticket_button()
 	_build_history_button()
+	RaceGuidePanel.add_button($UI, false)
 	_build_info_panel()
 
 ## The ticket count, pinned top right. A button rather than a readout: tapping
@@ -228,6 +229,10 @@ func _info_button(parent: Control, text: String) -> Button:
 func _open_info() -> void:
 	_info_panel.visible = true
 	_update_info_ad_button()
+	# Counted once per opening, and only when the button is live: a disabled
+	# one (full, cooling down, no ad) is not an offer anyone could have taken.
+	if _info_ad_button != null and not _info_ad_button.disabled:
+		Ads.log_offer(Ads.PLACEMENT_TICKET_SETUP)
 
 func _close_info() -> void:
 	Audio.play_ui_click()
@@ -286,7 +291,7 @@ func _on_info_ad_pressed() -> void:
 	Audio.play_ui_click()
 	_ad_showing = true
 	_info_ad_button.disabled = true
-	Ads.show_rewarded(_on_info_ad_rewarded, _on_info_ad_dismissed)
+	Ads.show_rewarded(Ads.PLACEMENT_TICKET_SETUP, _on_info_ad_rewarded, _on_info_ad_dismissed)
 
 func _on_info_ad_rewarded() -> void:
 	_ad_showing = false
@@ -300,6 +305,24 @@ func _on_info_ad_dismissed() -> void:
 	_ad_showing = false
 	Ads.load_rewarded()
 	_update_info_ad_button()
+
+## A padlock pinned to the button's left edge. Not Button.icon: that is laid
+## out in one run with the text, which pushes a locked AI's name off the
+## centre line the unlocked ones sit on.
+func _add_padlock(button: Button) -> void:
+	var padlock := TextureRect.new()
+	padlock.texture = LOCK_ICON
+	padlock.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	padlock.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	padlock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	padlock.anchor_top = 0.5
+	padlock.anchor_bottom = 0.5
+	padlock.offset_left = PADLOCK_INSET
+	padlock.offset_right = PADLOCK_INSET + PADLOCK_SIZE
+	padlock.offset_top = -PADLOCK_SIZE / 2.0
+	padlock.offset_bottom = PADLOCK_SIZE / 2.0
+	padlock.add_to_group(UiAccent.GROUP)
+	button.add_child(padlock)
 
 func _add_section(text: String) -> Label:
 	var label := Label.new()
@@ -357,7 +380,7 @@ func _refresh() -> void:
 		if Race.race_cost(_difficulty) == 0:
 			_cost_label.text = "NOVICE RACES ARE FREE"
 		elif affordable:
-			_cost_label.text = "1 TICKET - WIN TO GET IT BACK"
+			_cost_label.text = "THIS RACE COSTS 1 TICKET"
 		else:
 			_cost_label.text = "OUT OF RACE TICKETS"
 		var start_text := "START" if affordable else "GET TICKETS"

@@ -402,6 +402,20 @@ const TICKET_OFFER_FONT_SIZE := 30
 ## The daily grant is the one ticket line worth celebrating, so it is set
 ## larger and in the accent rather than as the usual quiet note.
 const TICKET_GRANT_FONT_SIZE := 24
+## The finish moment of a won bot race (see _play_win_moment). The time is
+## real seconds, not slowed ones.
+const WIN_SLOWMO_SCALE := 0.3
+const WIN_MOMENT_TIME := 0.9
+## How much harder than a landing's the finish flash is. Scaled off the same
+## bonuses, so it still follows the player's glow setting.
+const WIN_GLOW_BOOST := 2.0
+## One buzz per third of the moment, the last the longest.
+const WIN_BUZZES := [60, 60, 180]
+## Between the pace line and the revive slot.
+const WIN_LINE_ANCHOR := 0.5
+const NEW_BEST_PULSE_SCALE := 1.12
+const NEW_BEST_PULSE_TIME := 0.5
+var _win_label: Label
 
 func _ready() -> void:
 	# First thing in the run: under shuffle this picks the character and emits
@@ -1596,6 +1610,7 @@ func _offer_revive() -> void:
 	revive_body_label.show()
 	watch_ad_button.disabled = false
 	watch_ad_button.show()
+	Ads.log_offer(Ads.PLACEMENT_REVIVE)
 	_show_game_over_panel()
 
 func _on_revive_watch_ad_pressed() -> void:
@@ -1605,9 +1620,9 @@ func _on_revive_watch_ad_pressed() -> void:
 	watch_ad_button.disabled = true
 	match _ad_offer:
 		AdOffer.REVIVE:
-			Ads.show_rewarded(_on_revive_ad_rewarded, _on_revive_ad_dismissed)
+			Ads.show_rewarded(Ads.PLACEMENT_REVIVE, _on_revive_ad_rewarded, _on_revive_ad_dismissed)
 		AdOffer.TICKET_REFILL:
-			Ads.show_rewarded(_on_ticket_refill_rewarded, _on_ticket_ad_dismissed)
+			Ads.show_rewarded(Ads.PLACEMENT_TICKET_POST_RACE, _on_ticket_refill_rewarded, _on_ticket_ad_dismissed)
 
 func _on_revive_ad_rewarded() -> void:
 	_revive_used = true
@@ -1984,11 +1999,15 @@ func _finish_race(crossed: bool) -> void:
 	_race_hud.player_respawn_left = 0.0
 	_dismiss_control_hint()
 	_end_tap_cue()
-	Audio.fade_to_menu_music()
-	Audio.vibrate(60)
+	# A win keeps the beat under its finish moment and fades with the panel
+	# (see _play_win_moment); cutting to the menu track on the line would
+	# take the air out of it.
+	if not won:
+		Audio.fade_to_menu_music()
+		Audio.vibrate(60)
 	var best_before := Race.best_time()
 	var new_best := won and counts and Race.record_win(run_time)
-	var refunded := won and Race.refund_race()
+	var win_streak := Race.record_result(won)
 	if won and counts:
 		Stats.record_race_speed(Race.TARGETS[Race.target_index], run_speed())
 		PlayGames.submit_race_speed(Race.target_index, run_speed())
@@ -2000,9 +2019,12 @@ func _finish_race(crossed: bool) -> void:
 		game_over_title.add_theme_color_override("font_color", UiAccent.color())
 		if counts:
 			result_label.text = "TIME %s   %s" % [Stats.format_duration(run_time),
-				"NEW BEST" if new_best else "BEST " + Stats.format_duration(best_before)]
+				"NEW BEST!" if new_best else "BEST " + Stats.format_duration(best_before)]
 		else:
 			result_label.text = "TIME %s   ITEM BOXES ON" % Stats.format_duration(run_time)
+		if new_best:
+			result_label.add_theme_color_override("font_color", UiAccent.color())
+		_show_win_line(win_streak)
 	elif crossed:
 		result_label.text = "TIME %s   %d RACERS" % [Stats.format_duration(run_time),
 			_bots.size() + 1]
@@ -2021,7 +2043,7 @@ func _finish_race(crossed: bool) -> void:
 		"duration_s": int(run_time),
 	})
 	watch_ad_button.hide()
-	_show_race_tickets(won, refunded)
+	_show_race_tickets()
 	# The revive prompt's slot is free in a race, so the unlock takes it.
 	# Any win over MASTER opens it, item boxes or not -- unlike the records.
 	if won and Race.unlock_grandmaster():
@@ -2032,9 +2054,72 @@ func _finish_race(crossed: bool) -> void:
 		Analytics.log_event("race_grandmaster_unlocked")
 	elif not _offer_ticket_refill():
 		revive_body_label.hide()
+	if won:
+		_play_win_moment(new_best)
+	else:
+		_present_race_result()
+
+func _present_race_result() -> void:
 	_set_hud_visible(false)
 	get_tree().paused = true
 	_show_game_over_panel()
+
+## The beat between crossing the line and the result panel: the world drops to
+## slow motion with the player still flying, and the finish gets its own burst,
+## flash and buzz before anything covers it. Without this a win cuts straight
+## to the same panel a loss does.
+##
+## Everything timed here ignores Engine.time_scale -- it is the thing being
+## bent -- and _exit_tree puts the scale back should the scene go away first.
+func _play_win_moment(new_best: bool) -> void:
+	Engine.time_scale = WIN_SLOWMO_SCALE
+	_spawn_burst(player)
+	_camera_punch()
+	_glow_pulse(Settings.glow_strength + PUNCH_GLOW_BONUS * WIN_GLOW_BOOST,
+		FLARE_GLOW_BLOOM_PEAK * WIN_GLOW_BOOST)
+	for i in range(WIN_BUZZES.size()):
+		Audio.vibrate(WIN_BUZZES[i])
+		await get_tree().create_timer(WIN_MOMENT_TIME / WIN_BUZZES.size(), true, false, true).timeout
+		if i < WIN_BUZZES.size() - 1:
+			_spawn_burst(player)
+	Engine.time_scale = 1.0
+	Audio.fade_to_menu_music()
+	_present_race_result()
+	if new_best:
+		_pulse_new_best()
+
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0
+
+## What the win was, under the time: how far clear of the next racer, and the
+## run of wins it extends. The margin is in score, the same unit the race HUD
+## calls gaps in, since the beaten bots have no finish time to compare yet.
+func _show_win_line(win_streak: int) -> void:
+	if _win_label == null:
+		_win_label = _ticket_label.duplicate()
+		_win_label.anchor_top = WIN_LINE_ANCHOR
+		_win_label.anchor_bottom = WIN_LINE_ANCHOR
+		_win_label.add_theme_color_override("font_color", UiAccent.color())
+		game_over_panel.add_child(_win_label)
+	var runner_up := 0
+	for bot in _bots:
+		runner_up = maxi(runner_up, bot.score)
+	var text := "WON BY %s" % RaceHud._thousands(maxi(Race.target() - runner_up, 0))
+	if win_streak >= 2:
+		text += "   %d WINS IN A ROW" % win_streak
+	_win_label.text = text
+	_win_label.show()
+
+## A slow breathe on the result line for as long as the panel is up. Scale
+## rather than font size, for the reason _grow_to gives.
+func _pulse_new_best() -> void:
+	result_label.pivot_offset = result_label.size / 2.0
+	var tw := create_tween().set_loops()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_property(result_label, "scale", Vector2.ONE * NEW_BEST_PULSE_SCALE, NEW_BEST_PULSE_TIME) \
+		.set_trans(Tween.TRANS_SINE)
+	tw.tween_property(result_label, "scale", Vector2.ONE, NEW_BEST_PULSE_TIME) \
+		.set_trans(Tween.TRANS_SINE)
 
 ## --- LAN race (see lan_race.gd) ------------------------------------------
 ##
@@ -2412,10 +2497,8 @@ func _show_casual_tickets(award: Dictionary) -> void:
 	_ticket_label.text = text
 	_ticket_label.show()
 
-func _show_race_tickets(won: bool, refunded: bool) -> void:
-	if refunded:
-		_ticket_label.text = "TICKET REFUNDED   " + _ticket_count()
-	elif not Race.can_start():
+func _show_race_tickets() -> void:
+	if not Race.can_start():
 		_ticket_label.text = "OUT OF RACE TICKETS   " + _ticket_count()
 	else:
 		_ticket_label.text = "RACE TICKETS " + _ticket_count()
@@ -2427,6 +2510,7 @@ func _offer_ticket_refill() -> bool:
 	if Race.can_start() or not Race.can_watch_ad() or not Ads.is_rewarded_ready():
 		return false
 	_show_ad_offer(AdOffer.TICKET_REFILL, "+%d RACE TICKETS?" % Race.AD_TICKETS)
+	Ads.log_offer(Ads.PLACEMENT_TICKET_POST_RACE)
 	return true
 
 func _show_ad_offer(offer: AdOffer, prompt: String) -> void:

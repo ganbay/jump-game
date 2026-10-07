@@ -39,6 +39,14 @@ const CONSENT_TIMEOUT := 8.0
 ## Same reasoning for a load that never resolves -- see _watch_load().
 const LOAD_TIMEOUT := 30.0
 
+## Where an ad is offered from -- the `placement` on ad_offer_shown and
+## ad_rewarded_result, so opt-in and completion can be read per offer rather
+## than as one blended number.
+const PLACEMENT_REVIVE := "revive"
+const PLACEMENT_TICKET_POST_RACE := "ticket_post_race"
+const PLACEMENT_TICKET_SETUP := "ticket_setup"
+const PLACEMENT_SKIN := "skin"
+
 var _initialized: bool = false
 var _consent_done: bool = false
 ## Re-made for every request, never reused -- see load_rewarded().
@@ -51,6 +59,7 @@ var _loading: bool = false
 var _reward_earned: bool = false
 var _on_reward: Callable = Callable()
 var _on_dismissed: Callable = Callable()
+var _placement: String = ""
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -99,6 +108,21 @@ func _finish_consent() -> void:
 		return
 	_consent_done = true
 	_initialize()
+
+## Whether this player has a consent choice they are entitled to revisit (EEA,
+## UK and the like). Only known once the launch-time consent update has come
+## back, and UNKNOWN off-device -- both read as false, which hides the entry
+## point rather than offering a form that would not open.
+func privacy_options_required() -> bool:
+	return (UserMessagingPlatform.consent_information.get_privacy_options_requirement_status()
+		== ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED)
+
+## Reopens the consent form so an earlier answer can be changed. The SDK reads
+## the new choice on its own from the next ad request on; nothing to redo here.
+func show_privacy_options() -> void:
+	UserMessagingPlatform.show_privacy_options_form(func(error: FormError) -> void:
+		if error != null:
+			push_warning("[ads] privacy options form dismissed with error: %s" % error.message))
 
 func _initialize() -> void:
 	MobileAds.set_request_configuration(RequestConfiguration.new())
@@ -160,13 +184,20 @@ func _watch_load() -> void:
 func is_rewarded_ready() -> bool:
 	return _rewarded_ad != null
 
+## Call when a live Watch Ad button is put in front of the player. Shown versus
+## ad_rewarded_result for the same placement is the opt-in rate, which the
+## result event alone cannot give: it only ever counts the ones who said yes.
+func log_offer(placement: String) -> void:
+	Analytics.log_event("ad_offer_shown", {"placement": placement})
+
 ## Shows the loaded ad. Exactly one of the two callbacks fires, always on the
 ## ad's dismissal: `on_reward` if the reward listener latched first, otherwise
 ## `on_dismissed` -- closed early, failed to show, or nothing loaded.
-func show_rewarded(on_reward: Callable, on_dismissed: Callable) -> void:
+func show_rewarded(placement: String, on_reward: Callable, on_dismissed: Callable) -> void:
 	if _rewarded_ad == null:
 		on_dismissed.call()
 		return
+	_placement = placement
 	_on_reward = on_reward
 	_on_dismissed = on_dismissed
 	_reward_earned = false
@@ -197,7 +228,8 @@ func _settle(ad: RewardedAd) -> void:
 	_on_dismissed = Callable()
 	var earned := _reward_earned
 	_reward_earned = false
-	Analytics.log_event("ad_rewarded_result", {"earned": int(earned)})
+	Analytics.log_event("ad_rewarded_result", {"earned": int(earned), "placement": _placement})
+	_placement = ""
 	# Cleared before the callback because game.gd calls straight back into
 	# load_rewarded() from it.
 	if earned and reward.is_valid():

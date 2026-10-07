@@ -29,6 +29,12 @@ const HINTS_OFF_ICON := preload("res://assets/icons/no_symbol.svg")
 @onready var privacy_button: Button = $UI/PrivacyButton
 @onready var privacy_panel: ColorRect = $UI/PrivacyPanel
 
+## CLOSE and AD CHOICES sit either side of the panel's centre line when both
+## are up: each runs from GAP to SPAN away from it.
+const AD_CHOICES_GAP := 12.0
+const AD_CHOICES_SPAN := 232.0
+var _ad_choices_button: Button = null
+
 func _ready() -> void:
 	glow_slider.value = Settings.glow_strength
 	opacity_slider.value = Settings.ui_opacity
@@ -125,7 +131,36 @@ func _update_score_align_text() -> void:
 
 func _on_privacy_pressed() -> void:
 	Audio.play_ui_click()
+	_update_ad_choices_button()
 	privacy_panel.visible = true
+
+## The way back to the consent form, for players who were shown one. Built on
+## first need beside CLOSE rather than placed in the scene: most players are
+## outside the regions that require it and never see it, and CLOSE keeps its
+## centred spot for them. Rechecked on every opening because the answer only
+## exists once the launch-time consent update has come back.
+func _update_ad_choices_button() -> void:
+	var required := Ads.privacy_options_required()
+	var close_button: Button = privacy_panel.get_node("CloseButton")
+	if _ad_choices_button == null:
+		if not required:
+			return
+		# Flags 0: the copy must not inherit CLOSE's scene-wired pressed signal.
+		_ad_choices_button = close_button.duplicate(0)
+		_ad_choices_button.name = "AdChoicesButton"
+		_ad_choices_button.text = "AD CHOICES"
+		_ad_choices_button.pressed.connect(_on_ad_choices_pressed)
+		privacy_panel.add_child(_ad_choices_button)
+	_ad_choices_button.visible = required
+	if required:
+		close_button.offset_left = -AD_CHOICES_SPAN
+		close_button.offset_right = -AD_CHOICES_GAP
+		_ad_choices_button.offset_left = AD_CHOICES_GAP
+		_ad_choices_button.offset_right = AD_CHOICES_SPAN
+
+func _on_ad_choices_pressed() -> void:
+	Audio.play_ui_click()
+	Ads.show_privacy_options()
 
 func _on_privacy_close_pressed() -> void:
 	Audio.play_ui_click()
