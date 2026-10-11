@@ -476,6 +476,10 @@ func _roll_colour(slider: ColorSpectrumSlider, apply: Callable) -> void:
 	slider.value = t
 	apply.call(slider.sample(t), t)
 
+## The Android back button -- see Transition.
+func go_back() -> void:
+	_on_back_pressed()
+
 func _on_back_pressed() -> void:
 	Audio.play_ui_click()
 	Transition.change_scene("res://scenes/main_menu.tscn")

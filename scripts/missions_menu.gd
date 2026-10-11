@@ -75,6 +75,10 @@ func _draw() -> void:
 			draw_rect(Rect2(left, y, BAR_WIDTH * clampf(filled, 0.0, 1.0), BAR_HEIGHT),
 				DONE_COLOR if row["done"] else accent)
 
+## The Android back button -- see Transition.
+func go_back() -> void:
+	_on_back_pressed()
+
 func _on_back_pressed() -> void:
 	Audio.play_ui_click()
 	Transition.change_scene("res://scenes/main_menu.tscn")

@@ -166,6 +166,13 @@ func _on_privacy_close_pressed() -> void:
 	Audio.play_ui_click()
 	privacy_panel.visible = false
 
+## The Android back button -- see Transition.
+func go_back() -> void:
+	if privacy_panel.visible:
+		_on_privacy_close_pressed()
+	else:
+		_on_back_pressed()
+
 func _on_back_pressed() -> void:
 	Audio.play_ui_click()
 	Transition.change_scene("res://scenes/main_menu.tscn")

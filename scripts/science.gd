@@ -24,6 +24,10 @@ func _apply_visual_settings() -> void:
 	UiOpacity.apply($UI)
 	UiAccent.apply($UI)
 
+## The Android back button -- see Transition.
+func go_back() -> void:
+	_on_back_pressed()
+
 func _on_back_pressed() -> void:
 	Audio.play_ui_click()
 	Transition.change_scene("res://scenes/main_menu.tscn")

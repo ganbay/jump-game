@@ -237,6 +237,14 @@ func _on_popup_input(event: InputEvent) -> void:
 	if event.is_pressed() and (event is InputEventMouseButton or event is InputEventScreenTouch):
 		_dismiss_popup()
 
+## The Android back button -- see Transition. The menu is the root of the app,
+## so with nothing left to close this is where back leaves it.
+func go_back() -> void:
+	if _popup != null:
+		_dismiss_popup()
+	elif not _leaving:
+		get_tree().quit()
+
 func _dismiss_popup() -> void:
 	if _popup == null or Time.get_ticks_msec() - _popup_shown_ms < POPUP_GUARD_MS:
 		return

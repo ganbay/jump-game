@@ -51,6 +51,26 @@ if pgrep -x godot >/dev/null; then
 fi
 
 echo "==> version: $(grep -E '^version/(code|name)' "$CFG" | tr '\n' ' ')"
+
+# LAN races refuse a phone on a different game version, and that check reads
+# application/config/version -- so it has to move with the preset's.
+preset_version="$(sed -n 's|^version/name="\(.*\)"|\1|p' "$CFG")"
+project_version="$(sed -n 's|^config/version="\(.*\)"|\1|p' "$PROJECT/project.godot")"
+if [[ "$preset_version" != "$project_version" ]]; then
+    echo "error: version/name in export_presets.cfg ($preset_version) and" >&2
+    echo "       config/version in project.godot (${project_version:-unset}) differ." >&2
+    exit 1
+fi
+# AdRequest.gd names MediationExtras as a type, so excluding the mediation
+# scripts leaves every ad class unable to compile on device -- no ad ever loads.
+if grep -q '^exclude_filter=.*admob/gdscript/src/mediation' "$CFG"; then
+    echo "error: exclude_filter drops addons/admob/gdscript/src/mediation/* --" >&2
+    echo "       that breaks rewarded ads in the exported build. Remove it." >&2
+    exit 1
+fi
+if grep -q '^custom_features=.*testads' "$CFG"; then
+    echo "warning: 'testads' is set -- this build serves test ads only." >&2
+fi
 echo "==> features: $(grep -E '^custom_features' "$CFG")"
 
 set_format() { sed -i "s|^gradle_build/export_format=.*|gradle_build/export_format=$1|" "$CFG"; }

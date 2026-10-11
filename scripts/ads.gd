@@ -47,6 +47,11 @@ const PLACEMENT_TICKET_POST_RACE := "ticket_post_race"
 const PLACEMENT_TICKET_SETUP := "ticket_setup"
 const PLACEMENT_SKIN := "skin"
 
+## Emitted once, when the launch-time consent round trip has settled one way or
+## the other (answered, not needed, failed or timed out). Analytics holds its
+## events back until then -- see analytics_allowed().
+signal consent_settled
+
 var _initialized: bool = false
 var _consent_done: bool = false
 ## Re-made for every request, never reused -- see load_rewarded().
@@ -68,10 +73,13 @@ func _ready() -> void:
 	# UMP has no editor mock in this plugin, so its callbacks would never fire
 	# off-device and initialization would stall behind them forever. The form is
 	# only meaningful on a real handset anyway.
-	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+	if _on_device():
 		_request_consent()
 	else:
-		_initialize()
+		_finish_consent()
+
+func _on_device() -> bool:
+	return OS.get_name() == "Android" or OS.get_name() == "iOS"
 
 func _request_consent() -> void:
 	get_tree().create_timer(CONSENT_TIMEOUT).timeout.connect(_on_consent_timeout)
@@ -107,7 +115,26 @@ func _finish_consent() -> void:
 	if _consent_done:
 		return
 	_consent_done = true
+	consent_settled.emit()
 	_initialize()
+
+func is_consent_settled() -> bool:
+	return _consent_done
+
+## Whether gameplay analytics may be sent for this player. Only where UMP
+## reports that no consent is required at all. In a region that does require
+## it (EEA, UK, Switzerland) the form's answer is about ads, and what was
+## actually chosen cannot be read back through this plugin -- OBTAINED means
+## "answered", not "agreed" -- so analytics stays off there rather than
+## guessing. UNKNOWN (a first launch with no connection) is treated the same
+## way; the status is cached by the SDK, so a later launch settles it.
+func analytics_allowed() -> bool:
+	if not _consent_done:
+		return false
+	if not _on_device():
+		return true
+	return (UserMessagingPlatform.consent_information.get_consent_status()
+		== ConsentInformation.ConsentStatus.NOT_REQUIRED)
 
 ## Whether this player has a consent choice they are entitled to revisit (EEA,
 ## UK and the like). Only known once the launch-time consent update has come

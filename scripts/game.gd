@@ -699,6 +699,30 @@ func _unhandled_input(event: InputEvent) -> void:
 			and not _revive_open and not _tutorial_open:
 		_toggle_pause()
 
+## The Android back button -- see Transition. Mid-run it is the pause button,
+## both ways; on the game-over panel it is the home button. The intro and the
+## panels that hold the run for an answer (tutorial, milestone, revive offer)
+## ignore it, as they ignore the pause button.
+func go_back() -> void:
+	if is_intro or _milestone_open or _revive_open or _tutorial_open:
+		return
+	if is_game_over:
+		_on_menu_pressed()
+		return
+	Audio.play_ui_click()
+	_toggle_pause()
+
+## Leaving the app mid-run opens the pause panel, so coming back from a call
+## or a notification lands on it instead of in a run already falling. Not in a
+## LAN race: that cannot stop, and LanRace forfeits it on the same signal.
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_APPLICATION_PAUSED:
+		return
+	if is_paused or is_intro or is_game_over or _lan \
+			or _milestone_open or _revive_open or _tutorial_open:
+		return
+	_toggle_pause()
+
 func _on_pause_pressed() -> void:
 	if is_game_over or _milestone_open or _revive_open or _tutorial_open:
 		return

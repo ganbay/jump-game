@@ -230,13 +230,44 @@ func _read_cmdline() -> void:
 		elif args[i] == "--cut":
 			cut = args[i + 1]
 
+## A viewport with use_hdr_2d holds linear light, and only the engine's blit to
+## the window encodes it for display. The stage is not that blit: it draws the
+## game's texture as it is, so without this every colour reaches the frame as
+## its linear value. The HDR neons clip either way and look right, which hides
+## it -- but anything dim does not survive: the zone backdrops, authored at
+## 0.03-0.27, came out several times darker than in the game, visible only as
+## a faint band along the bottom edge. Done here, on the 16-bit source, rather
+## than on the written frame, where it would stretch 8-bit values into bands.
+const TO_DISPLAY_SHADER := "shader_type canvas_item;
+render_mode unshaded;
+
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	vec3 lo = c.rgb * 12.92;
+	vec3 hi = 1.055 * pow(max(c.rgb, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055;
+	COLOR = vec4(mix(lo, hi, step(vec3(0.0031308), c.rgb)), c.a);
+}
+"
+var _to_display: ShaderMaterial
+
+## One material for everything the stage draws out of an HDR viewport: the live
+## shot, the frozen snapshot of it, and the landscape chrome.
+func _display_material() -> ShaderMaterial:
+	if _to_display == null:
+		var shader := Shader.new()
+		shader.code = TO_DISPLAY_SHADER
+		_to_display = ShaderMaterial.new()
+		_to_display.shader = shader
+	return _to_display
+
 func _build_stage() -> void:
 	_stage = SubViewport.new()
 	_stage.size = _output_size
 	_stage.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_stage.disable_3d = true
-	# The compositor only ever draws already-tonemapped textures, so it has no
-	# glow of its own to run and nothing above 1.0 to preserve. The landscape
+	# The compositor only ever draws textures whose glow has already run, so it
+	# has none of its own to run and nothing above 1.0 to preserve (they are
+	# still linear, though -- see TO_DISPLAY_SHADER). The landscape
 	# chrome does want glow, and runs it inside its own viewport for exactly
 	# this reason -- turning it on here instead would put the gameplay texture
 	# through a second bloom on its way out.
@@ -266,6 +297,7 @@ func _build_stage() -> void:
 	# whose units are output pixels.
 	_live.stretch = false
 	_live.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_live.material = _display_material()
 	_shot_box.add_child(_live)
 
 	_game_vp = SubViewport.new()
@@ -286,6 +318,8 @@ func _build_stage() -> void:
 	_snapshot = TextureRect.new()
 	_snapshot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_snapshot.visible = false
+	# Its image is read straight off the game viewport, so it is linear too.
+	_snapshot.material = _display_material()
 	_shot_box.add_child(_snapshot)
 
 	_build_preview()
@@ -298,6 +332,7 @@ func _build_chrome() -> void:
 	holder.stretch = false
 	holder.size = Vector2(_output_size)
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.material = _display_material()
 	_stage.add_child(holder)
 
 	_chrome_vp = SubViewport.new()

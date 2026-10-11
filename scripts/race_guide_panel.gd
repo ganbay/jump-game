@@ -70,6 +70,7 @@ static func _open(ui: Node, for_lan: bool) -> void:
 	ui.add_child(panel)
 
 func _ready() -> void:
+	add_to_group(Transition.BACK_DISMISS_GROUP)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	Race.mark_guide_seen(lan)
@@ -162,6 +163,10 @@ func _add_gap(parent: Control) -> void:
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0.0, 14.0)
 	parent.add_child(gap)
+
+## The Android back button -- see Transition.
+func go_back() -> void:
+	_on_close_pressed()
 
 func _on_close_pressed() -> void:
 	Audio.play_ui_click()

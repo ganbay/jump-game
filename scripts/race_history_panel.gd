@@ -24,6 +24,7 @@ var _list: VBoxContainer
 var _empty_label: Label
 
 func _ready() -> void:
+	add_to_group(Transition.BACK_DISMISS_GROUP)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_races = RaceHistory.load_all()
@@ -131,6 +132,10 @@ func _on_filter_pressed(index: int) -> void:
 func _on_row_pressed(record: Dictionary) -> void:
 	Audio.play_ui_click()
 	RaceReport.open(self, record)
+
+## The Android back button -- see Transition.
+func go_back() -> void:
+	_on_close_pressed()
 
 func _on_close_pressed() -> void:
 	Audio.play_ui_click()

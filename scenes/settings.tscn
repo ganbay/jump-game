@@ -386,10 +386,10 @@ theme_override_colors/default_color = Color(1.2, 1.2, 1.2, 1)
 theme_override_font_sizes/normal_font_size = 18
 theme_override_font_sizes/bold_font_size = 18
 bbcode_enabled = true
-text = "Last updated: September 17, 2026
+text = "Last updated: October 10, 2026
 
 [b]What we collect[/b]
-We don't require an account. Jetlet: Solar Escape shows ads through Google AdMob, which can collect your device's advertising ID, device info, IP-derived approximate location, and ad interaction data to serve and measure ads. We also send anonymous gameplay events (session length, run score/streak/duration, milestones reached) to Google Analytics, tied to a random per-install id rather than your identity. If the app crashes, Firebase Crashlytics collects a crash report (device info and the crash's stack trace) to help us fix it. High score, stats and settings themselves stay on your device.
+We don't require an account. Jetlet: Solar Escape shows ads through Google AdMob, which can collect your device's advertising ID, device info, IP-derived approximate location, and ad interaction data to serve and measure ads. Outside regions where the law requires consent for it, we also send anonymous gameplay events (session length, run score/streak/duration, milestones reached) to Google Analytics, tied to a random per-install id rather than your identity. In the EEA, the UK and Switzerland no gameplay analytics are sent. If the app crashes, Firebase Crashlytics collects a crash report (device info and the crash's stack trace) to help us fix it. High score, stats and settings themselves stay on your device.
 
 [b]Third parties[/b]
 Google AdMob serves and measures ads in the app, Google Analytics processes the anonymous gameplay events above, and Firebase Crashlytics processes crash reports. See Google's privacy policy at policies.google.com/privacy for details on how Google handles that data.

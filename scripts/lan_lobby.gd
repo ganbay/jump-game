@@ -369,6 +369,10 @@ func _on_peers_changed() -> void:
 func _on_session_ended(_reason: String) -> void:
 	_show_view(View.OUTSIDE)
 
+## The Android back button -- see Transition.
+func go_back() -> void:
+	_on_back_pressed()
+
 ## Out of a room first, then off the screen.
 func _on_back_pressed() -> void:
 	if _leaving:

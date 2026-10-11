@@ -56,6 +56,7 @@ static func open(parent: Node, new_record: Dictionary) -> RaceReport:
 	return report
 
 func _ready() -> void:
+	add_to_group(Transition.BACK_DISMISS_GROUP)
 	# The finish screen it opens over has the tree paused.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -74,6 +75,10 @@ func _ready() -> void:
 	add_child(_close_button)
 	UiPlate.action(_close_button)
 	resized.connect(queue_redraw)
+
+## The Android back button -- see Transition.
+func go_back() -> void:
+	_on_close_pressed()
 
 func _on_close_pressed() -> void:
 	Audio.play_ui_click()

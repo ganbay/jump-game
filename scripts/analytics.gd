@@ -29,11 +29,16 @@ var _session_start_msec: int = 0
 var _queue: Array[Dictionary] = []
 var _request: HTTPRequest
 var _sending: bool = false
+## Nothing leaves the device, and no client id is made or read, until the
+## launch-time consent check in ads.gd has settled and said analytics is
+## allowed. Events logged while PENDING wait in the queue; DENIED drops them
+## and everything after for the rest of the session.
+enum Gate { PENDING, ALLOWED, DENIED }
+var _gate: Gate = Gate.PENDING
 
 func _ready() -> void:
 	if MEASUREMENT_ID.is_empty() or API_SECRET.is_empty():
 		return
-	_load_or_create_client_id()
 	_session_id = str(Time.get_unix_time_from_system())
 	_session_start_msec = Time.get_ticks_msec()
 	_request = HTTPRequest.new()
@@ -41,13 +46,33 @@ func _ready() -> void:
 	add_child(_request)
 	_request.request_completed.connect(_on_request_completed)
 	log_event("session_start")
+	# Deferred: Ads is a later autoload and is not in the tree yet.
+	_bind_consent.call_deferred()
+
+func _bind_consent() -> void:
+	if Ads.is_consent_settled():
+		_on_consent_settled()
+	else:
+		Ads.consent_settled.connect(_on_consent_settled, CONNECT_ONE_SHOT)
+
+func _on_consent_settled() -> void:
+	if Ads.analytics_allowed():
+		_load_or_create_client_id()
+		_gate = Gate.ALLOWED
+		_pump()
+	else:
+		_gate = Gate.DENIED
+		_queue.clear()
+		# An id written by a build that did not ask first.
+		if FileAccess.file_exists(SAVE_PATH):
+			DirAccess.remove_absolute(SAVE_PATH)
 
 ## Fire-and-forget: a dropped or failed hit is not retried. This is gameplay
 ## telemetry, not a purchase receipt -- losing an occasional event to a bad
 ## connection is fine, and retrying would only queue up staler and staler
 ## data behind a device that's actually offline.
 func log_event(event_name: String, params: Dictionary = {}) -> void:
-	if MEASUREMENT_ID.is_empty() or API_SECRET.is_empty():
+	if MEASUREMENT_ID.is_empty() or API_SECRET.is_empty() or _gate == Gate.DENIED:
 		return
 	var event_params := params.duplicate()
 	# Required by GA4 for a hit to count toward session-based reports (active
@@ -60,7 +85,7 @@ func log_event(event_name: String, params: Dictionary = {}) -> void:
 	_pump()
 
 func _pump() -> void:
-	if _sending or _queue.is_empty():
+	if _gate != Gate.ALLOWED or _sending or _queue.is_empty():
 		return
 	_sending = true
 	var event: Dictionary = _queue.pop_front()

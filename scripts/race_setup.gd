@@ -426,6 +426,13 @@ func _on_start_pressed() -> void:
 	Race.active = true
 	Transition.change_scene("res://scenes/main.tscn")
 
+## The Android back button -- see Transition.
+func go_back() -> void:
+	if _info_panel != null and _info_panel.visible:
+		_close_info()
+		return
+	_on_back_pressed()
+
 func _on_back_pressed() -> void:
 	if _leaving:
 		return
