@@ -278,3 +278,22 @@ func _keep_editor_mock_running() -> void:
 	var mock = factory.get_mock_plugin("PoingGodotAdMobRewardedAd")
 	if mock is Node:
 		(mock as Node).process_mode = Node.PROCESS_MODE_ALWAYS
+
+## Lets go of every callback the AdMob plugin's API has stashed in a static var.
+## Statics outlive the scene tree: they are only freed at the very end of engine
+## shutdown, after GDScript itself has been torn down, and freeing one of our
+## lambdas that late locks a mutex that no longer exists. On Android that is a
+## SIGABRT in recursive_mutex::lock() when Back quits from the main menu (the
+## 1.0.10 crash in Play vitals); on desktop, heap corruption on every quit.
+## Autoloads leave the tree while the engine is still whole, so drop them here.
+func _exit_tree() -> void:
+	MobileAds._current_on_initialization_complete_listener = null
+	MobileAds._current_on_ad_inspector_closed_listener = null
+	UserMessagingPlatform._on_consent_form_load_success_listener_callback = null
+	UserMessagingPlatform._on_consent_form_load_failure_listener_callback = null
+	UserMessagingPlatform._on_privacy_options_form_dismissed_callback = null
+	UserMessagingPlatform.active_consent_form = null
+	var info := UserMessagingPlatform.consent_information
+	if info != null:
+		info._on_consent_info_updated_success_callback = null
+		info._on_consent_info_updated_failure_callback = null
