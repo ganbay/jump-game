@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Renders the trailer.
 #
-#   tools/render_trailer.sh [--release] [--landscape] [seed]
+#   tools/render_trailer.sh [--release | --faces] [--landscape] [seed]
 #
 # --release renders the release cut (race mode, item boxes, racing friends --
 # see trailer_director.gd:_release_segments) to promo/release_trailer_*.mp4
-# instead of the announcement cut.
+# instead of the announcement cut. --faces renders the faces update
+# (_faces_segments) to promo/faces_trailer_*.mp4.
 #
 # Portrait (1080x1920) is the store cut. --landscape renders the 16:9 YouTube
 # cut instead: the same running order, the same seed and the same takes, with
@@ -33,6 +34,7 @@ ASPECT="portrait"
 while [ $# -gt 0 ]; do
   case "$1" in
     --release) CUT="release"; shift ;;
+    --faces) CUT="faces"; shift ;;
     --landscape) ASPECT="landscape"; shift ;;
     *) break ;;
   esac
@@ -44,6 +46,7 @@ SEED="${1:-20260916}"
 # and a re-render wipes whichever it is about to write.
 PREFIX="trailer"
 [ "$CUT" = "release" ] && PREFIX="release_trailer"
+[ "$CUT" = "faces" ] && PREFIX="faces_trailer"
 if [ "$ASPECT" = "landscape" ]; then
   FRAMES_NAME="${PREFIX}_frames_16x9"
   OUT="$PROJECT/promo/${PREFIX}_1920x1080.mp4"
@@ -77,8 +80,12 @@ LOG="$(mktemp)"
 # director has printed "done" and every frame is on disk. That is a finished
 # render, and treating it as a failure would throw away several minutes of
 # work over a crash in the teardown of a process that has nothing left to do.
+#
+# --disable-vsync: with vsync on, a window that is not on screen (behind the
+# editor, on Wayland) can block forever presenting a frame, and the render
+# stalls without a word.
 set +e
-godot --path "$PROJECT" --fixed-fps 60 res://scenes/trailer.tscn \
+godot --disable-vsync --path "$PROJECT" --fixed-fps 60 res://scenes/trailer.tscn \
   -- --seed "$SEED" --aspect "$ASPECT" --cut "$CUT" --out "user://$FRAMES_NAME" 2>&1 | tee "$LOG"
 GODOT_STATUS=${PIPESTATUS[0]}
 set -e
@@ -120,7 +127,9 @@ rm -f "$LOG"
 # The three cues the mix is built on (see mix_trailer_audio.sh): where the
 # drums join, where the gameplay music ducks out, and where the menu track
 # comes in. The announcement cut ducks on its one death; the release cut has
-# none, so its gameplay music runs to the end card and hands over there.
+# none, so its gameplay music runs to the end card and hands over there. The
+# faces cut is built on the announcement's showcases and names, and dies in
+# the same squish segment, so it takes the announcement's cues unchanged.
 if [ "$CUT" = "release" ]; then
   CUE_NAMES="splash race friends"
 else

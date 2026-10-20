@@ -27,7 +27,7 @@ const DOT_RADIUS := 4.5
 @onready var player_slider: ColorSpectrumSlider = $UI/PlayerSlider
 @onready var platform_slider: ColorSpectrumSlider = $UI/PlatformSlider
 @onready var particle_slider: ColorSpectrumSlider = $UI/ParticleSlider
-@onready var trail_check: CheckButton = $UI/TrailCheck
+@onready var face_button: Button = $UI/FaceButton
 @onready var particles_check: CheckButton = $UI/ParticlesCheck
 @onready var shuffle_check: CheckButton = $UI/ShuffleCheck
 @onready var coins_label: Label = $UI/CoinsRow/Value
@@ -105,6 +105,9 @@ var _browse: int = 0
 ## Drag distance banked since the last character change.
 var _drag: float = 0.0
 var _preview_home: Vector2
+## The preview's face, idling: blinks and glances, and a grin for each new
+## character slid in.
+var _face: BlobFace
 var _slide_tween: Tween
 
 func _ready() -> void:
@@ -113,6 +116,9 @@ func _ready() -> void:
 	confirm_panel.hide()
 	_browse = Settings.player_skin
 	_preview_home = preview.position
+	_face = BlobFace.new()
+	_face.wander = true
+	preview.add_child(_face)
 	player_slider.value = Settings.player_color_slider
 	_hide_zone_driven_colours()
 	_add_palette_toggle()
@@ -122,7 +128,6 @@ func _ready() -> void:
 	# `toggled`, and the .tscn wires that up before _ready runs -- so seeding
 	# the boxes from Settings would fire both handlers, clicking twice and
 	# writing the config back on every visit to this screen.
-	trail_check.set_pressed_no_signal(Settings.trail_enabled)
 	particles_check.set_pressed_no_signal(Settings.background_particles)
 	shuffle_check.set_pressed_no_signal(Settings.shuffle_skin)
 	_apply_visual_settings()
@@ -226,6 +231,8 @@ func _apply_visual_settings() -> void:
 	# coins_label.add_theme_color_override("font_color", Settings.background_particle_color)
 	preview.shape = Player.SKIN_SHAPES.get(_browse, PlasmaBlob.Shape.CIRCLE)
 	preview.color = Settings.player_color
+	_face.style = Settings.face_style as BlobFace.Style
+	face_button.text = "FACE %d" % (Settings.face_style + 1)
 	# platform_swatch.color = Settings.platform_color  # zone-driven; row hidden
 	name_label.text = Player.SKIN_NAMES[_browse]
 	_refresh_lock_state()
@@ -414,6 +421,7 @@ func _slide_in(dir: int) -> void:
 	_slide_tween = create_tween()
 	_slide_tween.tween_property(preview, "position", _preview_home, SLIDE_TIME) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_face.react(&"joyful", 0.5)
 
 func _on_prev_pressed() -> void:
 	_step(-1)
@@ -433,9 +441,12 @@ func _on_platform_slider_color_changed(_color: Color) -> void:
 func _on_particle_slider_color_changed(_color: Color) -> void:
 	pass  # Settings.set_background_particle_color(_color, particle_slider.value)
 
-func _on_trail_check_toggled(pressed: bool) -> void:
+## Steps to the next face, wrapping round. The preview grins in it, so the
+## pick shows off the face's own happy expression, not just its resting one.
+func _on_face_button_pressed() -> void:
 	Audio.play_ui_click()
-	Settings.set_trail_enabled(pressed)
+	Settings.set_face_style((Settings.face_style + 1) % BlobFace.Style.size())
+	_face.react(&"joyful", 0.7)
 
 func _on_particles_check_toggled(pressed: bool) -> void:
 	Audio.play_ui_click()

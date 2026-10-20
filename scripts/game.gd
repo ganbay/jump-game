@@ -305,6 +305,9 @@ var _skip_button: Button
 var _hud_nodes: Array[Control] = []
 var _hud_home: Array[Vector2] = []
 var _death_margin: float = 720.0
+## Fraction of _death_margin below the camera where player.danger starts to
+## rise from 0, reaching 1 at the death line itself.
+const DANGER_START := 0.8
 ## The tap lesson pauses the run the same way a milestone does, and needs the
 ## same treatment from the pause controls.
 var _tutorial_open: bool = false
@@ -899,6 +902,12 @@ func _process(delta: float) -> void:
 		_update_race(delta)
 	elif player.global_position.y > camera.global_position.y + _death_margin:
 		_game_over()
+	else:
+		# Only the last stretch above the death line counts: a boosted landing
+		# can legitimately come down well below the camera, and the face should
+		# not panic on an ordinary jump.
+		player.danger = clampf(inverse_lerp(_death_margin * DANGER_START, _death_margin,
+			player.global_position.y - camera.global_position.y), 0.0, 1.0)
 
 ## The past-score marks. Nothing to draw on a first run. Placed against the
 ## launch apex, which is already known at hand-off (see _launch_apex_y).
@@ -1693,6 +1702,8 @@ func _revive_player() -> void:
 	player.global_position = _revive_position()
 	player.velocity = Vector2(0.0, REVIVE_LAUNCH_VELOCITY)
 	player.streak = 0
+	player.danger = 0.0
+	player.face.react(&"hyped", 0.8)
 	# Brings the gameplay layers back up from the death duck, then immediately
 	# overrides them down to the zero-streak volumes -- a revive starts the
 	# beat fresh, not wherever the pre-death streak tier left it.

@@ -45,9 +45,12 @@ const HINT_TEXT := "SPACE play/pause    → step one frame    S save PNG    ESC 
 ## for re-exporting the art after a tweak, without giving up the look-first
 ## default for the interactive case.
 ##
-## Shoot with --fixed-fps 60, always:
+## Shoot with --fixed-fps 60, always, and --disable-vsync:
 ##
-##     godot --path . --fixed-fps 60 res://scenes/icon_screenshot.tscn -- --shoot
+##     godot --disable-vsync --path . --fixed-fps 60 res://scenes/icon_screenshot.tscn -- --shoot
+##
+## Without --disable-vsync a window that is not on screen (behind the editor,
+## on Wayland) can block forever presenting a frame, and the shot never lands.
 ##
 ## A composition poses on the first frame where its accumulated time passes
 ## `pose_time`, and that time accumulates real frame deltas. Free-running, a

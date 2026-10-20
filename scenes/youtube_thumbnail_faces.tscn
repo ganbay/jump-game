@@ -1,0 +1,94 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/promo_shot.gd" id="1_shot"]
+[ext_resource type="Script" path="res://scripts/icon_3d.gd" id="2_composition"]
+[ext_resource type="FontFile" path="res://fonts/Chillax-Bold.otf" id="3_bold"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_badge"]
+bg_color = Color(1, 0.78, 0.22, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+content_margin_left = 22.0
+content_margin_top = 6.0
+content_margin_right = 22.0
+content_margin_bottom = 6.0
+
+[node name="YoutubeThumbnailFacesShot" type="Node"]
+process_mode = 3
+script = ExtResource("1_shot")
+output_path = "res://promo/youtube_thumbnail_faces.png"
+
+[node name="SubViewport" type="SubViewport" parent="."]
+process_mode = 1
+handle_input_locally = false
+size = Vector2i(1280, 720)
+render_target_update_mode = 4
+
+[node name="Composition" type="Node2D" parent="SubViewport"]
+script = ExtResource("2_composition")
+layout = "thumbnail"
+fisheye_strength = 0.3
+lens_center = Vector2(0.3, 0.5)
+camera_fov = 102.0
+
+[node name="Badge" type="Label" parent="SubViewport"]
+offset_left = 700.0
+offset_top = 178.0
+offset_right = 940.0
+offset_bottom = 234.0
+theme_override_colors/font_color = Color(0.1, 0.04, 0.2, 1)
+theme_override_fonts/font = ExtResource("3_bold")
+theme_override_font_sizes/font_size = 34
+theme_override_styles/normal = SubResource("StyleBox_badge")
+text = "NEW UPDATE"
+vertical_alignment = 1
+
+[node name="Headline" type="Label" parent="SubViewport"]
+offset_left = 694.0
+offset_top = 244.0
+offset_right = 1250.0
+offset_bottom = 464.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.02, 0.01, 0.08, 0.7)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 6
+theme_override_constants/line_spacing = -10
+theme_override_fonts/font = ExtResource("3_bold")
+theme_override_font_sizes/font_size = 100
+text = "NEW
+FACES!"
+vertical_alignment = 1
+
+[node name="Subtitle" type="Label" parent="SubViewport"]
+offset_left = 702.0
+offset_top = 474.0
+offset_right = 1250.0
+offset_bottom = 520.0
+theme_override_colors/font_color = Color(0.9, 0.88, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.02, 0.01, 0.08, 0.7)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 3
+theme_override_font_sizes/font_size = 34
+text = "JETLET: SOLAR ESCAPE"
+vertical_alignment = 1
+
+[node name="PreviewLayer" type="CanvasLayer" parent="."]
+
+[node name="Backdrop" type="ColorRect" parent="PreviewLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.08, 0.08, 0.09, 1)
+
+[node name="Preview" type="TextureRect" parent="PreviewLayer"]
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Hint" type="Label" parent="PreviewLayer"]
+theme_override_colors/font_color = Color(0.75, 0.78, 0.85, 1)
+theme_override_font_sizes/font_size = 15
+vertical_alignment = 1

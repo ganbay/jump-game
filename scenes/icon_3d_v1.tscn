@@ -1,0 +1,38 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/promo_shot.gd" id="1_shot"]
+[ext_resource type="Script" path="res://scripts/icon_3d_v1.gd" id="2_composition"]
+
+[node name="Icon3DShotV1" type="Node"]
+process_mode = 3
+script = ExtResource("1_shot")
+output_path = "res://promo/icon_3d_v1.png"
+include_alpha = true
+
+[node name="SubViewport" type="SubViewport" parent="."]
+process_mode = 1
+handle_input_locally = false
+size = Vector2i(512, 512)
+render_target_update_mode = 4
+
+[node name="Composition" type="Node2D" parent="SubViewport"]
+script = ExtResource("2_composition")
+
+[node name="PreviewLayer" type="CanvasLayer" parent="."]
+
+[node name="Backdrop" type="ColorRect" parent="PreviewLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.08, 0.08, 0.09, 1)
+
+[node name="Preview" type="TextureRect" parent="PreviewLayer"]
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Hint" type="Label" parent="PreviewLayer"]
+theme_override_colors/font_color = Color(0.75, 0.78, 0.85, 1)
+theme_override_font_sizes/font_size = 15
+vertical_alignment = 1

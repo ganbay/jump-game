@@ -250,7 +250,7 @@ offset_right = 260.0
 offset_bottom = 18.0
 script = ExtResource("5_colorslider")
 
-[node name="TrailCheck" type="CheckButton" parent="UI" unique_id=1406238040]
+[node name="FaceButton" type="Button" parent="UI"]
 anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.495
@@ -261,7 +261,7 @@ offset_top = -26.0
 offset_right = 160.0
 offset_bottom = 26.0
 theme_override_font_sizes/font_size = 20
-text = "CHARACTER TRAIL"
+text = "FACE 1"
 
 [node name="PlatformColorLabel" type="Label" parent="UI" unique_id=1805726426]
 anchors_preset = -1
@@ -471,7 +471,7 @@ flat = true
 [connection signal="pressed" from="UI/NextButton" to="." method="_on_next_pressed"]
 [connection signal="pressed" from="UI/UnlockButton" to="." method="_on_unlock_pressed"]
 [connection signal="color_changed" from="UI/PlayerSlider" to="." method="_on_player_slider_color_changed"]
-[connection signal="toggled" from="UI/TrailCheck" to="." method="_on_trail_check_toggled"]
+[connection signal="pressed" from="UI/FaceButton" to="." method="_on_face_button_pressed"]
 [connection signal="color_changed" from="UI/PlatformSlider" to="." method="_on_platform_slider_color_changed"]
 [connection signal="toggled" from="UI/ParticlesCheck" to="." method="_on_particles_check_toggled"]
 [connection signal="color_changed" from="UI/ParticleSlider" to="." method="_on_particle_slider_color_changed"]

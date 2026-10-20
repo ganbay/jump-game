@@ -79,6 +79,8 @@ var player_skin: Player.SkinType = Player.SkinType.PLASMA
 ## on whatever the last run happened to roll.
 var shuffle_skin: bool = false
 var trail_enabled: bool = true
+## Which of the character's faces is worn (BlobFace.Style, as a raw int).
+var face_style: int = BlobFace.Style.CLASSIC
 ## What other players see in a LAN race (see lan_race.gd). Empty until the
 ## player sets one; the room then calls them by their slot, P1-P8.
 var player_name: String = ""
@@ -136,7 +138,11 @@ func _ready() -> void:
 		# background_particle_color = cfg.get_value("visual", "background_particle_color", background_particle_color)
 		player_skin = cfg.get_value("visual", "player_skin", Player.SkinType.PLASMA) as Player.SkinType
 		shuffle_skin = cfg.get_value("visual", "shuffle_skin", false)
-		trail_enabled = cfg.get_value("visual", "trail_enabled", true)
+		# The trail's toggle is gone from customization, so a save that turned
+		# it off would have no way back -- the saved value is ignored.
+		trail_enabled = true
+		face_style = clampi(cfg.get_value("visual", "face_style", BlobFace.Style.CLASSIC),
+			0, BlobFace.Style.size() - 1)
 		player_name = clean_player_name(str(cfg.get_value("profile", "name", "")))
 		# The toggle used to mute only the music bus; a save from that era carries
 		# its choice over to the mute that now covers everything.
@@ -256,8 +262,8 @@ func roll_shuffled_skin() -> void:
 	_shuffled_skin = pool.pick_random()
 	visual_settings_changed.emit()
 
-func set_trail_enabled(value: bool) -> void:
-	trail_enabled = value
+func set_face_style(value: int) -> void:
+	face_style = value
 	_save()
 	visual_settings_changed.emit()
 
@@ -331,6 +337,7 @@ func _save() -> void:
 	cfg.set_value("visual", "player_skin", player_skin)
 	cfg.set_value("visual", "shuffle_skin", shuffle_skin)
 	cfg.set_value("visual", "trail_enabled", trail_enabled)
+	cfg.set_value("visual", "face_style", face_style)
 	cfg.set_value("profile", "name", player_name)
 	cfg.set_value("audio", "sound_muted", sound_muted)
 	cfg.set_value("audio", "haptics_enabled", haptics_enabled)

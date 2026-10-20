@@ -164,6 +164,12 @@ var _lean: float = 0.0
 ## the true baseline, not to whatever the last burst left behind.
 var _base_move_speed: float = 0.0
 var _solar_wind_tween: Tween
+## Seconds of Solar Wind left, for the face; the tween owns the speed itself.
+var _solar_wind_left: float = 0.0
+## 0..1, how close the character is to falling off the bottom of the screen.
+## Set by game.gd, which owns the camera and the death line; only the face
+## reads it.
+var danger: float = 0.0
 const NO_POINTER := -1
 ## Stands in for a touch index for the real (desktop) mouse.
 const MOUSE_POINTER := -100
@@ -194,6 +200,27 @@ const COLOR := Color(0.66295815, 2.299754, 0.0, 1.0)
 @onready var feet: Area2D = $Feet
 @onready var visual: PlasmaBlob = $PlasmaVisual
 @onready var trail: PlayerTrail = $Trail
+@onready var face: BlobFace = $PlasmaVisual/Face
+
+## Above this the face reads the fall as fast and narrows its eyes, below it
+## (but falling) they widen. Near streak_jump_cap a descent runs well past it.
+const FACE_FAST_FALL := 1800.0
+const FACE_FALL_WIDE := 350.0
+const FACE_RISE := -150.0
+## Vertical speed that takes `look` and `tilt` to their full range.
+const FACE_FULL_SPEED := 1400.0
+## Danger past which the face gives up on composure.
+const FACE_PANIC := 0.5
+const FACE_LAND_TIME := 0.22
+const FACE_FLARE_TIME := 0.45
+const FACE_BROKEN_TIME := 0.8
+## The face is drawn at this size over its default proportions -- those are
+## tuned on the big customization preview and vanish at the character's ~36px.
+const FACE_SCALE := 1.6
+## Canvas layer the face paints on: one above main.tscn's
+## background_canvas_max_layer, so the glow pass cannot bloom over the eyes
+## (see BlobFace.lift_above_glow).
+const FACE_LAYER := 2
 
 func _ready() -> void:
 	add_to_group("player")
@@ -206,6 +233,9 @@ func _ready() -> void:
 	_base_move_speed = move_speed
 	_apply_visual_settings()
 	Settings.visual_settings_changed.connect(_apply_visual_settings)
+	streak_broken.connect(face.react.bind(&"annoyed", FACE_BROKEN_TIME))
+	face.feature_scale = FACE_SCALE
+	face.lift_above_glow(FACE_LAYER)
 
 func _on_viewport_resized() -> void:
 	_viewport_width = get_viewport_rect().size.x
@@ -218,6 +248,7 @@ func _apply_visual_settings() -> void:
 	trail.color = Settings.player_color
 	trail.shape = shape
 	trail.set_enabled(Settings.trail_enabled)
+	face.style = Settings.face_style as BlobFace.Style
 
 ## Streak milestone burst. velocity.y was just set moments ago in _land_on()
 ## for this exact launch -- boosting it immediately, rather than waiting on
@@ -232,6 +263,7 @@ func _apply_visual_settings() -> void:
 ## speed, so back-to-back milestones don't snap, they just extend.
 func enter_solar_wind() -> void:
 	velocity.y *= solar_wind_launch_mult
+	_solar_wind_left = solar_wind_duration
 	if _solar_wind_tween != null and _solar_wind_tween.is_valid():
 		_solar_wind_tween.kill()
 	_solar_wind_tween = create_tween()
@@ -548,6 +580,7 @@ func _snap_to_platform(area: Node) -> void:
 
 func _land_on(area: Node) -> void:
 	var now := Time.get_ticks_msec()
+	var streak_before := streak
 	_snap_to_platform(area)
 	# Counting presses since the last landing would not work here: steering is
 	# press-and-drag, so an ordinary flight already spends two or three presses
@@ -590,6 +623,7 @@ func _land_on(area: Node) -> void:
 	if sprung and boosted:
 		velocity.y *= auto_boost_mult
 	_play_squash(boosted)
+	_react_to_landing(boosted, streak_before)
 	Audio.set_streak(streak)
 	if area.has_method("on_landed"):
 		# is_timed goes along with boosted: a platform that rewards a perfect
@@ -637,3 +671,47 @@ func _process(delta: float) -> void:
 	var target_lean := clampf(velocity.x * lean_per_speed, -max_lean, max_lean)
 	_lean = lerpf(_lean, target_lean, 1.0 - exp(-12.0 * d))
 	visual.rotation = _lean
+
+	_solar_wind_left = maxf(_solar_wind_left - d, 0.0)
+	_update_face()
+
+## The face's standing mood and gaze, read off the flight every frame. One-off
+## moments (landings, a broken streak) go through face.react() instead and sit
+## on top of this until they run out. The face eases between whatever this
+## picks, so it can change its mind every frame without ever snapping.
+func _update_face() -> void:
+	if not face.visible:
+		return
+	var vy := velocity.y
+	var rise := clampf(vy / FACE_FULL_SPEED, -1.0, 1.0)
+	# Looking where it is going: up on the climb, down at the platforms on the
+	# way back, and into the steer.
+	face.look = Vector2(clampf(velocity.x / move_speed, -1.0, 1.0), rise)
+	# The face slides up the body on the climb and down it on the fall -- the
+	# head tipping back and forward.
+	face.tilt = -rise
+	face.shake = 1.0 if stun_left > 0.0 else 0.0
+	if danger > FACE_PANIC:
+		face.mood = &"panic"
+	elif stun_left > 0.0:
+		face.mood = &"dizzy"
+	elif reverse_left > 0.0:
+		face.mood = &"confused"
+	elif rocket_left > 0.0 or _solar_wind_left > 0.0:
+		face.mood = &"hyped"
+	elif vy < FACE_RISE:
+		face.mood = &"determined"
+	elif vy > FACE_FAST_FALL:
+		face.mood = &"focused"
+	elif vy > FACE_FALL_WIDE:
+		face.mood = &"wide"
+	else:
+		face.mood = &"neutral"
+
+func _react_to_landing(boosted: bool, streak_before: int) -> void:
+	if boosted:
+		face.react(&"joyful", FACE_FLARE_TIME)
+	elif streak_before > 0 and streak == 0:
+		face.react(&"annoyed", FACE_BROKEN_TIME)
+	else:
+		face.react(&"squint", FACE_LAND_TIME)

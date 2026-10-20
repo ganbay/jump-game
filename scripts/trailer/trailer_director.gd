@@ -90,8 +90,12 @@ const CUSTOMIZATION_SCENE := preload("res://scenes/customization.tscn")
 @export var landscape: bool = false
 ## Which running order to render: "announce" (the zones and the character
 ## picker, _segments below) or "release" (race mode, item boxes and racing
-## friends, _release_segments). Selected with `-- --cut release`.
+## friends, _release_segments). Selected with `-- --cut release`, or "shorts"
+## (_shorts), or "faces" (the faces update, _faces_segments).
 @export var cut: String = "announce"
+## With `cut` "shorts": which entry of _shorts to render. Selected with
+## `-- --short drift`.
+@export var short_name: String = ""
 
 ## The running order. `seconds` is how long the segment holds *after* it has
 ## finished sliding in; the slide itself is charged to neither side.
@@ -157,6 +161,82 @@ var _release_segments: Array[Dictionary] = [
 	{"name": "end", "seconds": 2.80, "build": "_build_end_card", "full": true},
 ]
 
+## The faces update: the characters' new live faces, told as a little story --
+## they wake up, get excited, nail a landing, then lose their nerve -- each shot
+## wearing a different face (`face`, a BlobFace.Style) and captioned by its own
+## `banner` instead of the zone's. Then the picker, cycling through every face.
+## Built from the announcement cut's gameplay showcases, so the segment names
+## the audio cues are read off (climb, squish) are the same and the mix needs
+## nothing new.
+var _faces_segments: Array[Dictionary] = [
+	{"name": "splash", "seconds": 1.30, "build": "_build_splash", "full": true},
+	{"name": "climb", "seconds": 3.40, "build": "_build_climb",
+		"face": BlobFace.Style.CLASSIC, "banner": "LOOK WHO'S AWAKE",
+		# A streak already going, so the timed landing in the cycle flares --
+		# a FLARE only shows from the second timed landing in a row.
+		"streak": 2,
+		"panel": ["LOOK WHO'S AWAKE",
+			"They blink, they look where they're going, and they feel every jump.",
+			WHITE]},
+	{"name": "phantom", "seconds": 3.00, "build": "_build_phantom",
+		"face": BlobFace.Style.SPECS, "banner": "SOMEONE'S EXCITED",
+		# The game's own SOLAR WIND! pop-up holds for the rest of the shot at
+		# the top of the frame, so the caption goes under the character.
+		"banner_y": 0.7,
+		"panel": ["SOMEONE'S EXCITED",
+			"Catch a Solar Wind and try to wipe that grin off.",
+			ORANGE]},
+	{"name": "glass", "seconds": 3.00, "build": "_build_glass",
+		"face": BlobFace.Style.LASHES, "banner": "NAILED IT",
+		"streak": 3,
+		"panel": ["NAILED IT",
+			"Time it right and they light up. Miss it and they'll let you know.",
+			MAGENTA]},
+	{"name": "squish", "seconds": 3.00, "build": "_build_squish",
+		"face": BlobFace.Style.GRUMPY, "banner": "UH-OH.",
+		# Shortly after die_at arms the miss: the drop out of frame is about a
+		# second, and the game only panics in its last stretch of it.
+		"panic_at": 1.25,
+		"panel": ["UH-OH.",
+			"Some falls you can see coming. So can they.",
+			GREEN]},
+	{"name": "custom", "seconds": 5.60, "build": "_build_face_customization",
+		"panel": ["WHO ARE YOU TODAY?",
+			"Six faces, each with a personality of its own. Wear any of them on anyone.",
+			VIOLET]},
+	{"name": "end", "seconds": 2.80, "build": "_build_end_card", "full": true},
+]
+
+## The shorts: one feature per clip, for TikTok, YouTube Shorts and Reels,
+## rendered one at a time by tools/render_shorts.sh. Each opens straight on
+## gameplay with no splash -- a short has about a second to stop the scroll,
+## and a publisher card spends it -- under a hook caption that stays up for
+## every gameplay shot, then closes on the end card. The same builders as the
+## two trailers, held longer.
+const SHORT_END_SECONDS := 2.2
+var _shorts: Dictionary = {
+	"drift": {"hook": "EVERY PLATFORM IS MOVING", "segments": [
+		{"name": "drift", "seconds": 7.0, "build": "_build_drift"}]},
+	"glass": {"hook": "THE PLATFORM BREAKS THE MOMENT YOU JUMP", "segments": [
+		{"name": "glass", "seconds": 7.0, "build": "_build_glass"}]},
+	"phantom": {"hook": "THE PLATFORMS KEEP DISAPPEARING", "segments": [
+		{"name": "phantom", "seconds": 6.0, "build": "_build_phantom"}]},
+	"mistake": {"hook": "ONE MISTAKE AND IT'S OVER", "segments": [
+		{"name": "climb", "seconds": 4.0, "build": "_build_climb"},
+		{"name": "squish", "seconds": 3.0, "build": "_build_squish"}]},
+	"friends": {"hook": "RACE YOUR FRIENDS ON THE SAME WI-FI", "segments": [
+		{"name": "race", "seconds": 3.0, "build": "_build_race"},
+		{"name": "friends", "seconds": 5.0, "build": "_build_friends"}]},
+	"attack": {"hook": "DROP A COMET ON WHOEVER IS AHEAD", "segments": [
+		{"name": "boxes", "seconds": 4.0, "build": "_build_boxes"},
+		{"name": "attack", "seconds": 4.6, "build": "_build_attack"}]},
+	# Lower than the rest: the picker's character sits where the hook usually
+	# goes, and the settings toggles under it are the one part of that screen
+	# the caption can cover without losing anything.
+	"custom": {"hook": "WHICH ONE ARE YOU PICKING?", "hook_top": 960.0, "segments": [
+		{"name": "custom", "seconds": 6.0, "build": "_build_customization"}]},
+}
+
 ## Composited output, and what gets written to disk.
 var _stage: SubViewport
 ## LANDSCAPE_SIZE or OUTPUT_SIZE, resolved once the command line has been read.
@@ -177,6 +257,8 @@ var _game_vp: SubViewport
 var _live: SubViewportContainer
 ## The outgoing shot, frozen, during a slide.
 var _snapshot: TextureRect
+## The shorts' hook caption, over the shot. Null in the trailers.
+var _hook: Label
 
 var _current: Node = null
 var _pilot: Autopilot = null
@@ -211,6 +293,12 @@ func _ready() -> void:
 	_read_cmdline()
 	if cut == "release":
 		_segments = _release_segments
+	elif cut == "faces":
+		_segments = _faces_segments
+	elif cut == "shorts":
+		_segments = _short_segments()
+		if _segments.is_empty():
+			return
 	_output_size = LANDSCAPE_SIZE if landscape else OUTPUT_SIZE
 	seed(random_seed)
 	_build_stage()
@@ -229,6 +317,21 @@ func _read_cmdline() -> void:
 			landscape = args[i + 1] == "landscape"
 		elif args[i] == "--cut":
 			cut = args[i + 1]
+		elif args[i] == "--short":
+			short_name = args[i + 1]
+
+## The running order of one short: its gameplay shots, then the end card.
+func _short_segments() -> Array[Dictionary]:
+	var segments: Array[Dictionary] = []
+	if not _shorts.has(short_name):
+		push_error("trailer: no short named '%s' -- one of %s" % [short_name, _shorts.keys()])
+		get_tree().quit(1)
+		return segments
+	for segment in _shorts[short_name]["segments"]:
+		segments.append(segment)
+	segments.append({"name": "end", "seconds": SHORT_END_SECONDS,
+		"build": "_build_end_card", "full": true})
+	return segments
 
 ## A viewport with use_hdr_2d holds linear light, and only the engine's blit to
 ## the window encodes it for display. The stage is not that blit: it draws the
@@ -322,7 +425,37 @@ func _build_stage() -> void:
 	_snapshot.material = _display_material()
 	_shot_box.add_child(_snapshot)
 
+	if cut == "shorts":
+		_build_hook()
+
 	_build_preview()
+
+## The shorts' hook caption. Big enough to read in the feed, and placed in
+## the top fifth: below the app chrome TikTok, Shorts and Reels draw across
+## the very top, above the game's own pop-ups (streaks, zone names), which sit
+## at a quarter of the height, and well clear of the caption, buttons and
+## description those apps lay over the bottom third and the right-hand edge.
+const HOOK_FONT := preload("res://fonts/Chillax-Bold.otf")
+const HOOK_FONT_SIZE := 80
+const HOOK_TOP := 170.0
+const HOOK_HEIGHT := 250.0
+const HOOK_MARGIN := 90.0
+
+func _build_hook() -> void:
+	_hook = Label.new()
+	_hook.text = _shorts[short_name]["hook"]
+	_hook.add_theme_font_override("font", HOOK_FONT)
+	_hook.add_theme_font_size_override("font_size", HOOK_FONT_SIZE)
+	_hook.add_theme_color_override("font_color", Color.WHITE)
+	_hook.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.06))
+	_hook.add_theme_constant_override("outline_size", 24)
+	_hook.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hook.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hook.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_hook.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hook.position = Vector2(HOOK_MARGIN, _shorts[short_name].get("hook_top", HOOK_TOP))
+	_hook.size = Vector2(float(_output_size.x) - 2.0 * HOOK_MARGIN, HOOK_HEIGHT)
+	_stage.add_child(_hook)
 
 ## The 16:9 surround: the sky the strip sits on, and the column of copy beside
 ## it. Given a viewport of its own because it wants the same glow the game
@@ -376,6 +509,10 @@ func _apply_shot_viewport(segment: Dictionary) -> void:
 ## of its own is one that covers the whole frame, so the panel clears rather
 ## than holding the last one underneath it.
 func _update_panel(segment: Dictionary) -> void:
+	# The hook belongs to the gameplay, not to the end card, which carries its
+	# own copy.
+	if _hook != null:
+		_hook.visible = not segment.get("full", false)
 	if _panel == null:
 		return
 	var copy: Array = segment.get("panel", [])
@@ -409,6 +546,9 @@ func _prepare_globals() -> void:
 	Settings.control_scheme = Settings.ControlScheme.TOUCH
 	Settings.trail_enabled = true
 	Settings.background_particles = true
+	# The steer and boost coaching prompts would sit over live play in every
+	# take. Assigned rather than set_tutorial_hints(), which saves to disk.
+	Settings.tutorial_hints = false
 	# No audio is captured, so this is only to keep the render from making
 	# noise for several minutes. Muting the bus rather than Settings.sound_muted
 	# because the setter writes user://settings.cfg.
@@ -429,7 +569,18 @@ func _prepare_globals() -> void:
 func _render() -> void:
 	var first := true
 	for segment in _segments:
+		# Read by the player's _ready, so it is in place before the build
+		# instantiates the scene. Assigned rather than set_face_style(), which
+		# saves to disk.
+		Settings.face_style = segment.get("face", BlobFace.Style.CLASSIC)
 		var node: Node = call(segment["build"])
+		# Beats a cut lays over a shared builder: its own caption and where it
+		# sits, when to show the panic face, the streak to open on. The
+		# builder's config is the very dictionary the run is started from, so
+		# these land before the run reads them.
+		for key in ["banner", "banner_y", "panic_at", "quiet", "streak"]:
+			if segment.has(key):
+				_config[key] = segment[key]
 		_segment_frame = 0
 		if first:
 			first = false
@@ -776,15 +927,29 @@ func _tick_gameplay(frame: int) -> void:
 	# appearing twice at two sizes at once, which reads as a mistake.
 	# A showcase with a banner of its own (the release cut) is set in its zone
 	# without naming it.
-	if zone >= 0 and not landscape and frame == _frames(ZONE_BANNER_AT) \
+	# Suppressed in the shorts too, where the hook caption is already saying
+	# what the shot is about, bigger and for the whole of it.
+	var banners := not landscape and cut != "shorts"
+	if zone >= 0 and banners and frame == _frames(ZONE_BANNER_AT) \
 			and _config.get("banner", "") == "":
 		_flash_zone_banner(_current,
 			"%s ZONE" % ZoneDirector.ZONE_NAMES[zone], ZONE_BANNER_HOLD)
 	# The release cut's showcases are not zones, but are named the same way.
 	var banner: String = _config.get("banner", "")
-	if banner != "" and not landscape and frame == _frames(ZONE_BANNER_AT):
-		_flash_zone_banner(_current, banner, ZONE_BANNER_HOLD)
+	if banner != "" and banners and frame == _frames(ZONE_BANNER_AT):
+		_flash_zone_banner(_current, banner, ZONE_BANNER_HOLD, _config.get("banner_y", -1.0))
 	_tick_items(frame)
+	# The streak pop-ups off, for a shot whose caption they would talk over.
+	# Hidden rather than intercepted: game.gd only ever fades the label's
+	# alpha, so an invisible one stays invisible, plate and all.
+	if frame == 0 and _config.get("quiet", false):
+		_current.streak_label.visible = false
+	# The game only panics in the last stretch above the death line, which is
+	# below the bottom of the frame -- so the face would panic out of shot. The
+	# trailer shows it on the way down instead.
+	var panic_at: float = _config.get("panic_at", -1.0)
+	if panic_at >= 0.0 and frame == _frames(panic_at):
+		_current.player.face.react(&"panic", 3.0)
 	var die_at: float = _config.get("die_at", -1.0)
 	if die_at >= 0.0 and frame == _frames(die_at) \
 			and _pilot != null and is_instance_valid(_pilot):
@@ -857,12 +1022,44 @@ func _sweep_colors(screen: Node, t: float) -> void:
 	Settings.platform_color_slider = platform_t
 	Settings.visual_settings_changed.emit()
 
+## The faces cut's picker: the face button walked through every face, with
+## the skin stepped between presses, so the faces are seen on several bodies.
+## Each entry is [seconds, "face" or "skin"]. Five face presses take it from
+## FACE 1 round to FACE 6, the last; three skin steps from DIAMOND land on
+## FLAME, a shape with room for a face.
+const FACE_CUSTOM_BEATS := [
+	[0.40, "face"], [1.00, "skin"], [1.60, "face"], [2.20, "skin"],
+	[2.80, "face"], [3.45, "face"], [4.05, "skin"], [4.70, "face"],
+]
+
+func _build_face_customization() -> Node:
+	var node := _build_customization()
+	_tick = _tick_face_customization
+	return node
+
+func _tick_face_customization(frame: int) -> void:
+	if _current == null or not is_instance_valid(_current):
+		return
+	for beat in FACE_CUSTOM_BEATS:
+		if frame != _frames(beat[0]):
+			continue
+		if beat[1] == "skin":
+			_current._step(1)
+		else:
+			# The button's own handler, minus its save to disk: the same
+			# setting, the same refresh, the same grin.
+			Settings.face_style = (Settings.face_style + 1) % BlobFace.Style.size()
+			Settings.visual_settings_changed.emit()
+			_current._face.react(&"joyful", 0.7)
+
 func _build_end_card() -> Node:
 	_config = {}
 	_tick = Callable()
 	var card := EndCard.new()
-	if cut == "release":
+	if cut == "release" or cut == "shorts":
 		card.cta_text = "OUT NOW ON GOOGLE PLAY"
+	elif cut == "faces":
+		card.cta_text = "NEW UPDATE ON GOOGLE PLAY"
 	return card
 
 # --- the release cut ---------------------------------------------------------
@@ -1272,8 +1469,14 @@ func _force_zone(game: Node, zone: int) -> void:
 ## game.gd's own banner animation at a shorter hold. Duplicated rather than
 ## called because ZONE_BANNER_HOLD is a const tuned for a real run, where a
 ## zone lasts 2000 score -- the trailer shows four of them in six seconds.
-func _flash_zone_banner(game: Node, text: String, hold: float) -> void:
+## `anchor_y`, when given, moves the banner to that fraction of the screen's
+## height for this showing -- the label belongs to this segment's scene, so
+## nothing else ever sees it moved.
+func _flash_zone_banner(game: Node, text: String, hold: float, anchor_y: float = -1.0) -> void:
 	var banner: Label = game.zone_banner
+	if anchor_y >= 0.0:
+		banner.anchor_top = anchor_y
+		banner.anchor_bottom = anchor_y
 	banner.text = text
 	banner.modulate.a = 0.0
 	banner.pivot_offset = banner.size / 2.0

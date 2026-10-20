@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://6g1ds4hf4xbp" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="Script" uid="uid://qfoxci50a72s" path="res://scripts/plasma_blob.gd" id="3_plasma"]
 [ext_resource type="Script" uid="uid://cr2kcpfkt4a4v" path="res://scripts/player_trail.gd" id="4_trail"]
+[ext_resource type="Script" path="res://scripts/blob_face.gd" id="5_face"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(52, 34)
@@ -18,6 +19,9 @@ script = ExtResource("1_player")
 position = Vector2(0, 17)
 script = ExtResource("3_plasma")
 color = Color(0.66295815, 2.299754, 0, 1)
+
+[node name="Face" type="Node2D" parent="PlasmaVisual"]
+script = ExtResource("5_face")
 
 [node name="Trail" type="Node2D" parent="." unique_id=820449381]
 top_level = true
