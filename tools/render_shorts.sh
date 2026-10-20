@@ -17,7 +17,7 @@ PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 USER_DIR="$HOME/.local/share/godot/app_userdata/Jetlet- Solar Escape"
 OUT_DIR="$PROJECT/promo/shorts"
 MUSIC="$PROJECT/audio/music"
-ALL="drift glass phantom mistake friends attack custom"
+ALL="drift glass phantom mistake friends attack custom faces_hype faces_combo faces_sleepy faces_panic faces_pick"
 
 SEED=20260916
 if [ "${1:-}" = "--seed" ]; then

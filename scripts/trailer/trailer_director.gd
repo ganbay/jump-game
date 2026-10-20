@@ -235,6 +235,35 @@ var _shorts: Dictionary = {
 	# the caption can cover without losing anything.
 	"custom": {"hook": "WHICH ONE ARE YOU PICKING?", "hook_top": 960.0, "segments": [
 		{"name": "custom", "seconds": 6.0, "build": "_build_customization"}]},
+
+	# The faces update, one face each, each on the moment it reacts best to.
+	# `face`, `streak` and `perfect_cycle` dress the shared builders the same
+	# way the faces cut does; `cta` is the end card's line.
+	# Straight into the Solar Wind milestone, so the grin goes off a second in.
+	"faces_hype": {"hook": "WAIT FOR THE GRIN", "cta": "NEW UPDATE ON GOOGLE PLAY", "segments": [
+		{"name": "phantom", "seconds": 6.5, "build": "_build_phantom",
+			"face": BlobFace.Style.SPECS}]},
+	# Every landing timed from a streak already going, so every one flares.
+	"faces_combo": {"hook": "SHE DOESN'T MISS", "cta": "NEW UPDATE ON GOOGLE PLAY", "segments": [
+		{"name": "glass", "seconds": 7.0, "build": "_build_glass",
+			"face": BlobFace.Style.LASHES, "streak": 3,
+			"perfect_cycle": PackedInt32Array([1])}]},
+	# Drowsy on every climb, wide awake on every drop.
+	"faces_sleepy": {"hook": "HALF ASLEEP. STILL WINNING.", "cta": "NEW UPDATE ON GOOGLE PLAY",
+		"segments": [
+		{"name": "drift", "seconds": 7.0, "build": "_build_drift",
+			"face": BlobFace.Style.SLEEPY, "streak": 2,
+			"perfect_cycle": PackedInt32Array([1, 0, 0])}]},
+	# A clean climb, then the miss, and the face on the way down.
+	"faces_panic": {"hook": "HE SAW IT COMING", "cta": "NEW UPDATE ON GOOGLE PLAY", "segments": [
+		{"name": "climb", "seconds": 3.0, "build": "_build_climb",
+			"face": BlobFace.Style.GRUMPY},
+		{"name": "squish", "seconds": 3.5, "build": "_build_squish",
+			"face": BlobFace.Style.GRUMPY, "panic_at": 1.25}]},
+	# Placed low like "custom": the picker's character is where the hook goes.
+	"faces_pick": {"hook": "WHICH ONE ARE YOU?", "hook_top": 960.0,
+		"cta": "NEW UPDATE ON GOOGLE PLAY", "segments": [
+		{"name": "custom", "seconds": 5.8, "build": "_build_face_customization"}]},
 }
 
 ## Composited output, and what gets written to disk.
@@ -578,7 +607,7 @@ func _render() -> void:
 		# sits, when to show the panic face, the streak to open on. The
 		# builder's config is the very dictionary the run is started from, so
 		# these land before the run reads them.
-		for key in ["banner", "banner_y", "panic_at", "quiet", "streak"]:
+		for key in ["banner", "banner_y", "panic_at", "quiet", "streak", "perfect_cycle"]:
 			if segment.has(key):
 				_config[key] = segment[key]
 		_segment_frame = 0
@@ -1060,6 +1089,8 @@ func _build_end_card() -> Node:
 		card.cta_text = "OUT NOW ON GOOGLE PLAY"
 	elif cut == "faces":
 		card.cta_text = "NEW UPDATE ON GOOGLE PLAY"
+	if cut == "shorts" and _shorts[short_name].has("cta"):
+		card.cta_text = _shorts[short_name]["cta"]
 	return card
 
 # --- the release cut ---------------------------------------------------------
